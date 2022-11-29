@@ -4,23 +4,27 @@ Trait for DAG nodes.
 
  */
 
-use std::ops::BitAnd;
 use std::any::Any;
-use std::slice::Iter;
 
 use crate::theory::symbol::Symbol;
 
+/// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 pub struct DagPair {
-  dag_node    : Box<dyn DagNode>,
-  multiplicity: u32
+  pub(crate) dag_node    : Box<dyn DagNode>,
+  pub(crate) multiplicity: u32
 }
 
 // todo: Maude puts `copyPointer` and `top_symbol` in a union for optimization.
-pub(crate) trait DagNode {
-  fn top_symbol(&self) -> &Symbol;
-  fn top_symbol_mut(&mut self) -> &mut Symbol;
+pub trait DagNode {
+  /// Gives the top symbol of this term.
+  fn symbol(&self) -> &Symbol;
+  fn symbol_mut(&mut self) -> &mut Symbol;
 
-  fn args(&self) -> Iter<DagPair>;
+  /// Returns an iterator over `DagPair`s for the arguments.
+  fn iter_args(&self) -> Box<dyn Iterator<Item=(&dyn DagNode, u32)>> ;
+
+  /// The number of arguments.
+  fn len(&self) -> u32;
 
   fn as_any(&self) -> &dyn Any;
 }

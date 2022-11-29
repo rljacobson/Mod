@@ -5,7 +5,7 @@
  */
 
 
-use crate::theory::dag_node::DagNode;
+use crate::theory::dag_node::{DagNode, DagPair};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -39,6 +39,21 @@ impl RedBlackNode {
     }
 
     return None;
+  }
+
+  /// Moves all `DagNode`s onto the `nodes` vector in order, consuming self.
+  pub fn vectorize(self, nodes: &mut Vec<DagPair>) {
+    if let Some(left) = self.left {
+      left.vectorize(nodes);
+    }
+    let dag_pair = DagPair{
+      dag_node: self.dag_node,
+      multiplicity: self.multiplicity
+    };
+    nodes.push(dag_pair);
+    if let Some(right) = self.right {
+      right.vectorize(nodes);
+    }
   }
 }
 

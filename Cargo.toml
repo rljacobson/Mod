@@ -6,4 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-intrusive-collections = "0.9.4"  # For Red-Black Trees
+#intrusive-collections = "0.9.4"  # For Red-Black Trees
+bit-set = "0.5.3" # Implements NatSet
