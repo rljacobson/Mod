@@ -19,6 +19,7 @@ use crate::{
     Term
   },
 };
+use crate::theory::acu_theory::red_black_tree::RedBlackNode;
 use crate::theory::term::ReturnValue;
 
 use super::{
@@ -35,6 +36,7 @@ pub struct ACULHSAutomaton<'a> {
   total_multiplicity      : u32,
   total_non_ground_aliens_multiplicity: u32,
   last_unbound_variable   : u32,
+  unbound_variable_count  : u32,
   ground_aliens           : Vec<GroundAlien<'a>>,
   grounded_out_aliens     : Vec<NonGroundAlien<'a>>,
   current                 : RedBlackTree,
@@ -45,6 +47,8 @@ pub struct ACULHSAutomaton<'a> {
   match_at_top     : bool,
   tree_match_ok    : bool,
   match_strategy   : MatchStrategy,
+
+  matched_multiplicity: u32,
 }
 
 impl ACULHSAutomaton {
@@ -90,7 +94,7 @@ impl ACULHSAutomaton {
       //	be matched in one way.
       if !self.multiplicity_checks(s) ||
           !self.eliminate_ground_aliens(s) ||
-          !self.eliminate_bound_variables(s, solution) ||
+          !self.eliminate_bound_variables_for_node(s, solution) ||
           !self.eliminate_grounded_out_aliens(s, solution) {
         return false;
       }
@@ -180,7 +184,7 @@ impl ACULHSAutomaton {
   }
 
 
-  fn eliminate_bound_variables(
+  fn eliminate_bound_variables_for_node(
     &mut self,
     subject: &mut ACUDagNode,
     solution: &mut Substitution
@@ -263,16 +267,70 @@ impl ACULHSAutomaton {
   }
 
 
+  /// Implementation for AC/ACU matcher that works on red-black trees.
+  fn eliminate_bound_variables(&mut self, solution: &mut Substitution) -> int {
+    self.unbound_variable_count = 0;
+    for i in self.top_variables {
+      if let Some(d) = solution.value(i.index){
+        if d.symbol() == self.top_symbol {
+          return -1 /* UNDECIDED */;
+        }
+
+        // todo: implement get_identity on Symbol
+        match self.top_symbol.get_identity() {
+          | None
+          | Some(identity) if !identity.equal(d) => {
+            if self.current.size == 0 {
+              return 0 /* false */;
+            }
+            if let Some(j) = self.current.node_for_key(d) {
+              let multiplicity = i.multiplicity;
+
+              if j.last().unwrap().multiplicity < multiplicity {
+                return 0 /* false */;
+              }
+
+              self.current.delete_multiplicity(j, multiplicity);
+              self.matched_multiplicity += multiplicity;
+            } else {
+              return 0 /* false */;
+            }
+
+          }
+        }
+
+        _ => {
+          /* pass */
+        }
+      }//end if i.index is in solution.
+      else {
+        self.unbound_variable_count += 1;
+      }
+
+    } // end for i in self.top_variables
+    return 1 /* true */;
+  }
+
   fn tree_match(
-    &self,
-    tree: &RedBlackTree,
+    &mut self,
+    subject: &RedBlackNode,
+    solution: &mut Substitution,
     returned_subproblem: &mut Option<&mut dyn Subproblem>,
     extension_info: &mut Option<&mut dyn ExtensionInfo>
   ) -> u32
   {
 
+    // todo: Is this deep copy necessary?
+    let current = subject.clone(); // Deep copy.
+    if current.max_multiplicity < self.max_pattern_multiplicity {
+      return 0 /* false */;
+    }
 
-
+    //	Eliminate subpatterns that must match a specific subterm
+    //	in the subject.
+    self.matched_multiplicity = 0;
+    let r = self.eliminate_bound_variables(solution);
+    7
   }
 
 }

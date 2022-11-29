@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 #intrusive-collections = "0.9.4"  # For Red-Black Trees
-bit-set = "0.5.3" # Implements NatSet
+
+bit-set   = "0.5.3" # Implements NatSet
+dyn-clone = "1.0.9" # Lets `Box<dyn myTrait>` derive `Clone`

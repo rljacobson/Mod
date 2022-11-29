@@ -7,7 +7,7 @@
 
 use crate::theory::dag_node::{DagNode, DagPair};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum RedBlackNodeFlags {
   Color = 0,
@@ -16,7 +16,7 @@ pub enum RedBlackNodeFlags {
   Collect = 7,
 }
 
-
+#[derive(Clone)]
 pub struct RedBlackNode {
   pub dag_node        : Box<dyn DagNode>,
   pub multiplicity    : u32,

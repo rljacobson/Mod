@@ -15,8 +15,10 @@ A Symbol implements the traits:
 */
 
 use std::cmp::{Ordering, PartialOrd, Ord, Eq, PartialEq};
-use crate::theory::dag_node::DagNode;
 
+use crate::theory::DagNode;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Symbol {
   pub order            : u32, // Unique integer for comparing symbols.
   pub unique_sort_index: u32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort

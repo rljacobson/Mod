@@ -3,14 +3,14 @@
 
 */
 
-
+use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::Substitution;
-use crate::theory::dag_node::DagNode;
-use crate::theory::symbol::Symbol;
+use crate::theory::DagNode;
+use crate::theory::Symbol;
 
 // todo: These are poorly named, but this is their name in the Maude source.
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum ReturnValue {
   Greater = 1,
@@ -19,7 +19,7 @@ pub(crate) enum ReturnValue {
   Unknown = -1
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum Flags {
   //	A subterm is stable if its top symbol cannot change under instantiation.
@@ -35,7 +35,8 @@ pub(crate) enum Flags {
   HonorsGroundOutMatch = 4
 }
 
-pub trait Term {
+
+pub trait Term: DynClone {
   /// Gives the top symbol of this term.
   fn symbol(&self) -> &Symbol;
 
@@ -85,6 +86,8 @@ pub trait Term {
   }
 
 }
+
+clone_trait_object!(Term);
 
 /*
 Implementers:

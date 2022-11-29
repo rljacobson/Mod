@@ -29,7 +29,7 @@ pub(crate) use crate::{
     },
     associative_symbol::AssociativeSymbolStructure,
     term::Term,
-    dag_node::DagNode,
+    dag_node::{DagNode, DagPair},
     symbol::Symbol
   }
 };

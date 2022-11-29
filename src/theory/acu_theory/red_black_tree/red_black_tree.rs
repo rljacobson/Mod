@@ -7,22 +7,24 @@
 use crate::{
   theory::{
     DagNode,
-    Term
+    Term,
+    DagPair
   }
 };
-use crate::theory::dag_node::DagPair;
 use super::RedBlackNode;
 
+pub type TreePath<'n> = Vec<&'n Box<RedBlackNode>>;
 
 // The point of having an ACU tree instead of a naked ACUTreeNode is so we can keep track of size in constant time.
+#[derive(Clone)]
 pub struct RedBlackTree {
   root: Box<RedBlackNode>,
-  size: usize, // Todo: Construction methods need to update this.
+  pub(crate) size: usize, // Todo: Construction methods need to update this.
 }
 
 impl RedBlackTree {
   /// If found, returns the path to the node for the key.
-  pub fn node_for_key(&self, key: &dyn Term) -> Option<Vec<&Box<RedBlackNode>>> {
+  pub fn node_for_key(&self, key: &dyn Term) -> Option<TreePath<'_>> {
     let mut path = Vec::new();
     let mut root: &RedBlackNode  = &self.root;
 
@@ -47,6 +49,24 @@ impl RedBlackTree {
     vector
   }
 
+
+  pub fn delete_multiplicity(&mut self, path: TreePath<'_>, multiplicity: u32) {
+    let mut delta: usize = 0;
+
+    (self.root.as_mut(), delta) = RedBlackNode::cons_delete(path, multiplicity);
+    self.size += delta;
+  }
+
+  pub fn cons_delete(&mut self, mut path: TreePath<'_>, multiplicity: u32) -> (Box<RedBlackNode>, usize) {
+    let mut delta: usize = 0;
+
+    let mut victim = path.pop().unwrap();
+    let new_mult = victim.multiplicity - multiplicity;
+
+    if new_mult > 0 {
+
+    }
+  }
 
   /// Iterates over the nodes and their multiplicities.
   pub fn iter(&self) -> impl Iterator<Item=(&dyn DagNode, u32)> {

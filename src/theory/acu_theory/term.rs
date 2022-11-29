@@ -22,6 +22,7 @@ pub struct ACUTermRecord {
   match_our_identity        : bool, // Second possible reason for variable abstraction
 }
 
+#[derive(Clone)]
 pub struct ACUTerm {
   args      : Vec<ACUTermRecord>,
   unique_collapse_subterm_index: u32,

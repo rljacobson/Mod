@@ -28,6 +28,7 @@ pub enum NormalizationStatus {
   Tree
 }
 
+#[derive(Clone)]
 pub enum ACUArguments {
   List(Vec<DagPair>),
   Tree(RedBlackTree)
@@ -73,7 +74,7 @@ impl ACUArguments {
 
 }
 
-
+#[derive(Clone)]
 pub struct ACUDagNode {
   top_symbol: Box<Symbol>,
   pub(crate) args: ACUArguments
