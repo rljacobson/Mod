@@ -5,15 +5,20 @@ Trait for DAG nodes.
  */
 
 use std::any::Any;
+use std::cell::Cell;
+use std::cmp::Ordering;
 
 use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::theory::symbol::Symbol;
 
+// pub type BcDagNode = Box<Cell<DagNode>>;
+pub type BcDagNode = Box<dyn DagNode>;
+
 /// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 #[derive(Clone)]
 pub struct DagPair {
-  pub(crate) dag_node    : Box<dyn DagNode>,
+  pub(crate) dag_node    : BcDagNode,
   pub(crate) multiplicity: u32
 }
 
@@ -34,10 +39,23 @@ pub trait DagNode: DynClone {
 
 clone_trait_object!(DagNode);
 
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn it_works() {
-    assert_eq!(2 + 2, 4);
+impl Eq for dyn DagNode {}
+
+impl PartialEq<Self> for dyn DagNode {
+  fn eq(&self, other: &Self) -> bool {
+    self.symbol().eq(other.symbol())
+  }
+}
+
+
+impl PartialOrd<Self> for dyn DagNode {
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for dyn DagNode {
+  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    self.symbol().cmp(&other.symbol())
   }
 }

@@ -10,7 +10,7 @@ use crate::Substitution;
 use crate::theory::acu_theory::dag_node::ACUDagNode;
 use crate::theory::dag_node::DagNode;
 use crate::theory::symbol::Symbol;
-use crate::theory::term::{ReturnValue, Term, Flags};
+use crate::theory::term::{OrderingValue, Term, Flags};
 
 // A "Pair" struct
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

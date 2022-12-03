@@ -36,6 +36,14 @@ pub(crate) use crate::{
 use crate::substitution::Substitution;
 
 
+// todo: Should we use Option<bool>?
+pub enum Outcome {
+  Success,
+  Failure,
+  Undecided // Unknown
+}
+
+
 pub trait LhsAutomaton {
   fn match_(
     &self,

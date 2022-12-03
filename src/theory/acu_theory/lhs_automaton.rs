@@ -4,6 +4,7 @@ The automaton for the pattern (the LHS).
 
 */
 
+use std::cell::Cell;
 use crate::{
   Substitution,
   theory::{
@@ -20,7 +21,9 @@ use crate::{
   },
 };
 use crate::theory::acu_theory::red_black_tree::RedBlackNode;
-use crate::theory::term::ReturnValue;
+use crate::theory::Outcome;
+use crate::theory::Outcome::Success;
+use crate::theory::term::OrderingValue;
 
 use super::{
   automaton_structs::{GroundAlien, NonGroundAlien, TopVariable, MatchStrategy},
@@ -39,6 +42,7 @@ pub struct ACULHSAutomaton<'a> {
   unbound_variable_count  : u32,
   ground_aliens           : Vec<GroundAlien<'a>>,
   grounded_out_aliens     : Vec<NonGroundAlien<'a>>,
+  non_ground_aliens       : Vec<NonGroundAlien<'a>>,
   current                 : RedBlackTree,
   top_symbol              : Box<Symbol>,
   top_variables           : Vec<TopVariable<'a>>,
@@ -77,11 +81,11 @@ impl ACULHSAutomaton {
       //	Check to see if we should use red-black matcher.
       if let ACUArguments::Tree(t) = &s.args {
         if self.tree_match_ok {
-          let r = self.tree_match(t, &mut returned_subproblem, &mut extension_info);
+          let r = self.tree_match(t, solution, &mut returned_subproblem, &mut extension_info);
           // r == true || r == false
           match r {
-            0 => { return false; }
-            1 => { return true;  }
+            Outcome::Falures => { return false; }
+            Outcome::Success => { return true;  }
             _ => { /* pass */ }
           }
         }
@@ -94,8 +98,8 @@ impl ACULHSAutomaton {
       //	be matched in one way.
       if !self.multiplicity_checks(s) ||
           !self.eliminate_ground_aliens(s) ||
-          !self.eliminate_bound_variables_for_node(s, solution) ||
-          !self.eliminate_grounded_out_aliens(s, solution) {
+          !self.eliminate_bound_variables_for_subject(s, solution) ||
+          !self.eliminate_grounded_out_aliens_for_subject(s, solution) {
         return false;
       }
 
@@ -167,10 +171,13 @@ impl ACULHSAutomaton {
     true
   }
 
-
+  /// There are two versions of this method, one that takes a subject and one that doesn't.
   fn eliminate_ground_aliens(&mut self, subject: &ACUDagNode) -> bool {
     for alien in self.ground_aliens.iter() {
-      if self.current_multiplicity.is_empty() { return false; }
+      // todo: This check is not in Maude.
+      // if self.current_multiplicity.is_empty() {
+      //   return false;
+      // }
       let pos = subject.binary_search_by_term(alien.term.as_ref());
       if pos < 0 {
         return false;
@@ -184,7 +191,7 @@ impl ACULHSAutomaton {
   }
 
 
-  fn eliminate_bound_variables_for_node(
+  fn eliminate_bound_variables_for_subject(
     &mut self,
     subject: &mut ACUDagNode,
     solution: &mut Substitution
@@ -215,10 +222,51 @@ impl ACULHSAutomaton {
     return true;
   }
 
+  fn eliminate_grounded_out_aliens_for_current(&mut self, solution: &mut Substitution) -> bool {
+    'next_alien:
+    for alien in self.grounded_out_aliens.iter_mut() {
+      assert!(alien.term.is_some(), "shouldn't be running on unstable terms");
+      if self.current.size != 0 {
+        if let Some(mut j) = self.current.find_first_potential_match(alien.term.unwrap(), solution) {
+          let mut a = alien.lhs_automaton.as_mut();
+          let mut d_rb_node = Cell::<RedBlackNode>::get_mut((&j).get().as_deref_mut().unwrap());
 
-  fn eliminate_grounded_out_aliens(
+          while !j.is_null() {
+            if a.match_(d_rb_node.dag_node.as_ref(), solution, None){
+              let mut multiplicity = alien.multiplicity;
+
+              if d_rb_node.multiplicity < multiplicity {
+                return false;
+              }
+
+              self.current.delete_multiplicity_at_cursor(&mut j, multiplicity);
+              self.matched_multiplicity += multiplicity;
+              continue 'next_alien;
+            }
+
+            j.move_next();
+            if !j.valid() {
+              break;
+            }
+            d_rb_node = Cell::<RedBlackNode>::get_mut((&j).get().as_deref_mut().unwrap());
+            if  t.partial_compare(solution, d) == OrderingValue::Less {
+              //	Since t is less then d, it will also be less than
+              //	all next nodes so we can quit now.
+              break
+            }
+          }
+
+        }
+      }
+      return false;
+    }
+
+    true
+  }
+
+  fn eliminate_grounded_out_aliens_for_subject(
     &mut self,
-    subject: &mut ACUDagNode,
+    subject : &mut ACUDagNode,
     solution: &mut Substitution
   ) -> bool
   {
@@ -236,8 +284,8 @@ impl ACULHSAutomaton {
         };
 
         if j < arg_count {
-          let a = i.lhs_automaton.as_ref();
-          let mut d = args[j].dag_node.as_ref();
+          let a    : &dyn LhsAutomaton = i.lhs_automaton.as_ref();
+          let mut d: &dyn DagNode      = args[j].dag_node.as_ref();
 
           loop {
             if a.match_(d, solution, None) {
@@ -254,7 +302,7 @@ impl ACULHSAutomaton {
               break;
             }
             d = args[j].dag_node.as_ref();
-            if i.term.is_some() && i.term.unwrap().partial_compare(solution, d) == ReturnValue::Less {
+            if i.term.is_some() && i.term.unwrap().partial_compare(solution, d) == OrderingValue::Less {
               break;
             }
           } // end loop
@@ -263,17 +311,17 @@ impl ACULHSAutomaton {
       }
     }
 
-    false
+    true
   }
 
 
   /// Implementation for AC/ACU matcher that works on red-black trees.
-  fn eliminate_bound_variables(&mut self, solution: &mut Substitution) -> int {
+  fn eliminate_bound_variables(&mut self, solution: &mut Substitution) -> Outcome {
     self.unbound_variable_count = 0;
     for i in self.top_variables {
       if let Some(d) = solution.value(i.index){
         if d.symbol() == self.top_symbol {
-          return -1 /* UNDECIDED */;
+          return Outcome::Undecided /* UNDECIDED */;
         }
 
         // todo: implement get_identity on Symbol
@@ -281,56 +329,95 @@ impl ACULHSAutomaton {
           | None
           | Some(identity) if !identity.equal(d) => {
             if self.current.size == 0 {
-              return 0 /* false */;
+              return Outcome::Failure /* false */;
             }
-            if let Some(j) = self.current.node_for_key(d) {
+            // todo: This is wrong since we changed node_for_key() to return a cursor instead of a dagnode.
+            // todo: Does node_for_key take a DagNode or Term?
+            if let Some(mut j) = self.current.find_mut(d) {
               let multiplicity = i.multiplicity;
 
-              if j.last().unwrap().multiplicity < multiplicity {
-                return 0 /* false */;
+              if j.get().unwrap().multiplicity < multiplicity {
+                return Outcome::Failure /* false */;
               }
 
-              self.current.delete_multiplicity(j, multiplicity);
+              self.current.delete_multiplicity_at_cursor(&mut j, multiplicity);
+              // Todo: Should this go into `delete_multiplicity_at_cursor()` ?
               self.matched_multiplicity += multiplicity;
             } else {
-              return 0 /* false */;
+              return Outcome::Failure /* false */;
             }
 
           }
-        }
 
-        _ => {
-          /* pass */
-        }
+          _ => {
+            /* pass */
+          }
+        } // end match top_symbol identity
+
+
       }//end if i.index is in solution.
       else {
         self.unbound_variable_count += 1;
       }
 
     } // end for i in self.top_variables
-    return 1 /* true */;
+    return Outcome::Success /* true */;
   }
 
   fn tree_match(
     &mut self,
-    subject: &RedBlackNode,
+    subject: &RedBlackTree,
     solution: &mut Substitution,
     returned_subproblem: &mut Option<&mut dyn Subproblem>,
     extension_info: &mut Option<&mut dyn ExtensionInfo>
-  ) -> u32
+  ) -> Outcome
   {
 
-    // todo: Is this deep copy necessary?
+    // todo: Is this deep copy necessary? If so, can we check
+    //         current.max_multiplicity < self.max_pattern_multiplicity
+    //       before the copy?
     let current = subject.clone(); // Deep copy.
     if current.max_multiplicity < self.max_pattern_multiplicity {
-      return 0 /* false */;
+      return Outcome::Failure /* false */;
     }
 
     //	Eliminate subpatterns that must match a specific subterm
     //	in the subject.
     self.matched_multiplicity = 0;
     let r = self.eliminate_bound_variables(solution);
-    7
+    if r != Outcome::Success /* r != true */ {
+      return r;
+    }
+    if !self.eliminate_ground_aliens_from_current()
+        || !self.eliminate_grounded_out_aliens_for_current(solution)
+    {
+      return Outcome::Failure /* false */;
+    }
+    if extension_info.is_some()
+        && self.unbound_variable_count == 1
+        && self.non_ground_aliens.is_empty()
+    {
+      //	Forced lone variable case.
+      for i in self.top_variables {
+        if solution.value(i.index) == 0 {
+          // todo: implement forced lone variable case.
+          return self.forced_lone_variable_case(subject, i, solution, returned_subproblem);
+        }
+      }
+      panic!("didn't find unbound variable");
+    }
+
+    if self.match_strategy == MatchStrategy::Full {
+      //	We're here because treeMatchOK was true, which implies:
+      //	  We're not matching at the top
+      //	  Expected nrUnboundVariables = 1
+      //	  That one variable has unbounded sort and multiplicity 1
+      //	  Number of NGAs = 1
+      //	  That one NGA is stable and has multiplicity 1
+      //
+      assert!(nrUnboundVariables <= 1, "nrUnboundVariables = {}", self.unbound_variable_count);
+    }
+    Outcome::Failure
   }
 
 }

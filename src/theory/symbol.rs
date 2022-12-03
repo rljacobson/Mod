@@ -29,13 +29,37 @@ pub struct Symbol {
 
 impl Symbol {
 
-  fn get_hash_value(&self) -> u32 {
+  #[inline(always)]
+  pub(crate) fn get_hash_value(&self) -> u32 {
     self.order
   }
 
+  #[inline(always)]
   pub(crate) fn compare(&self, other: &Self) -> u32 {
     self.get_hash_value() - other.get_hash_value()
   }
 
 }
 
+impl PartialOrd for Symbol {
+  #[inline(always)]
+  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for Symbol {
+  #[inline(always)]
+  fn cmp(&self, other: &Self) -> Ordering {
+    self.get_hash_value().cmp(&other.get_hash_value())
+  }
+}
+
+impl Eq for Symbol {}
+
+impl PartialEq for Symbol {
+  #[inline(always)]
+  fn eq(&self, other: &Self) -> bool {
+    self.get_hash_value() == other.get_hash_value()
+  }
+}

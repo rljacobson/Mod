@@ -11,7 +11,7 @@ use crate::Substitution;
 
 use crate::theory::dag_node::{DagNode, DagPair};
 use crate::theory::symbol::Symbol;
-use crate::theory::term::{ReturnValue, Term};
+use crate::theory::term::{OrderingValue, Term};
 use super::red_black_tree::{RedBlackTree, RedBlackNode};
 
 pub enum NormalizationStatus {
@@ -56,7 +56,7 @@ impl ACUArguments {
       },
 
       ACUArguments::Tree(t) => {
-        t.node_for_key(term)
+        t.find(term)
       }
     }
   }
@@ -178,6 +178,9 @@ impl ACUDagNode {
 
   ///	Return the smallest index whose subdag is a potential match for key, given the partial substitution
   /// for key's variables. If we know that no subdag can match we return an index 1 beyond the maximal index.
+  ///
+  /// There are two versions of this function: One on `RedBlackTree` and one on `DagNode`. The `DagNode` version
+  /// operates on `ACUArguments::List(args)` , while the `RedBlackTree` obviously operates on trees.
   pub(crate) fn find_first_potential_match(&self, key: &dyn Term, partial: &mut Substitution) -> u32  {
     // I think self is already guaranteed to be vectorized.
     if let ACUArguments::List(args) = &self.args {
@@ -190,10 +193,10 @@ impl ACUDagNode {
         let r = key.partial_compare(partial, args[probe].dag_node.as_ref());
 
         match r {
-          ReturnValue::Greater => { lower = probe + 1; }
-          ReturnValue::Less => { upper = probe - 1; }
-          ReturnValue::Equal => { return probe as u32;}
-          ReturnValue::Unknown => {
+          OrderingValue::Greater => { lower = probe + 1; }
+          OrderingValue::Less => { upper = probe - 1; }
+          OrderingValue::Equal => { return probe as u32;}
+          OrderingValue::Unknown => {
             //	We need to treat probe as a potential match, and search to see if there
             //	is one with a smaller index.
             first = probe;

@@ -3,9 +3,13 @@
 
 
  */
+use std::borrow::Borrow;
+use std::cell::Cell;
+use std::cmp::Ordering;
 
+use intrusive_collections::RBTreeLink;
 
-use crate::theory::dag_node::{DagNode, DagPair};
+use crate::theory::dag_node::{BcDagNode, DagNode, DagPair};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -18,15 +22,27 @@ pub enum RedBlackNodeFlags {
 
 #[derive(Clone)]
 pub struct RedBlackNode {
-  pub dag_node        : Box<dyn DagNode>,
+  pub dag_node        : BcDagNode,
   pub multiplicity    : u32,
   pub max_multiplicity: u32,
-  pub left            : Option<Box<RedBlackNode>>,
-  pub right           : Option<Box<RedBlackNode>>,
+  pub link            : RBTreeLink,
+  // pub left            : Option<Box<RedBlackNode>>,
+  // pub right           : Option<Box<RedBlackNode>>,
   pub flags           : u8
 }
 
 impl RedBlackNode {
+
+  pub fn new(dag_node: BcDagNode, multiplicity: u32) -> Self {
+    RedBlackNode{
+      dag_node,
+      multiplicity,
+      max_multiplicity: 0,
+      link: RBTreeLink::default(),
+      flags: 0
+    }
+  }
+/*
   pub fn get_child(&self, sign: u32) -> Option<&Box<RedBlackNode>> {
     if sign < 0 {
       if let Some(&left) = self.left {
@@ -55,14 +71,26 @@ impl RedBlackNode {
       right.vectorize(nodes);
     }
   }
+  */
 }
 
+impl Eq for RedBlackNode{}
 
-
-#[cfg(test)]
-mod tests {
-  #[test]
-  fn it_works() {
-    assert_eq!(2 + 2, 4);
+impl PartialEq<Self> for RedBlackNode {
+  fn eq(&self, other: &Self) -> bool {
+    self.dag_node.as_ref().borrow().eq(&other.dag_node)
   }
 }
+
+impl PartialOrd for RedBlackNode {
+  fn partial_cmp(&self, other: &RedBlackNode) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for RedBlackNode {
+  fn cmp(&self, other: &Self) -> Ordering {
+    self.dag_node.as_ref().borrow().cmp(&other.dag_node);
+  }
+}
+
