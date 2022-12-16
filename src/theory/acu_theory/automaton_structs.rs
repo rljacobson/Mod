@@ -6,6 +6,7 @@ A collection of structs used in LhsAutomaton/RhsAutomaton.
 
 
 use crate::Sort;
+use crate::sort::RcSort;
 
 use crate::theory::{
   AssociativeSymbolStructure,
@@ -50,14 +51,14 @@ pub(crate) enum MatchStrategy {
 }
 
 
-pub(crate) struct TopVariable<'s> {
+pub(crate) struct TopVariable {
   pub(crate) index        : u32,
   pub(crate) multiplicity : u32,
-  sort         : &'s Sort<'s>,
+  pub(crate) sort         : RcSort,
   upper_bound  : u32,
   structure    : AssociativeSymbolStructure,
-  take_identity: bool,
-  abstracted   : Box<dyn LhsAutomaton>,          // automaton for abstracted term
+  pub(crate) take_identity: bool,
+  pub(crate) abstracted   : Option<Box<dyn LhsAutomaton>>, // automaton for abstracted term
 
   //	Data storage for match-time use
   pub(crate) previous_unbound: u32,
@@ -67,19 +68,19 @@ pub(crate) struct TopVariable<'s> {
 
 
 pub(crate) struct GroundAlien<'t> {
-  pub(crate) term: &'t dyn Term,
+  pub(crate) term        : &'t dyn Term,
   pub(crate) multiplicity: u32
 }
 
 
 pub(crate) struct NonGroundAlien<'t> {
-  pub(crate) term: Option<&'t dyn Term>,
-  pub(crate) multiplicity: u32,
+  pub(crate) term         : Option<&'t dyn Term>,
+  pub(crate) multiplicity : u32,
   pub(crate) lhs_automaton: Box<dyn LhsAutomaton>
 }
 
 
 pub(crate) struct Subject {
   pub(crate) multiplicity: u32,
-  pub(crate) assignee: u32
+  pub(crate) assignee    : u32
 }

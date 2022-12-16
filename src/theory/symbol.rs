@@ -16,27 +16,45 @@ A Symbol implements the traits:
 
 use std::cmp::{Ordering, PartialOrd, Ord, Eq, PartialEq};
 
-use crate::theory::DagNode;
+use crate::DagNode;
+use crate::theory::{RcDagNode, Term};
+use crate::theory::term::RcTerm;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Symbol {
-  pub order            : u32, // Unique integer for comparing symbols.
-  pub unique_sort_index: u32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
-  pub match_index      : u32, // For fast matching
-  pub arity            : u32,
-  pub memo_flag        : u32,
-}
+// #[derive(Clone, Copy, PartialEq, Eq)]
+// pub struct Symbol {
+//   pub order            : u32, // Unique integer for comparing symbols.
+//   pub unique_sort_index: u32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
+//   pub match_index      : u32, // For fast matching
+//   pub arity            : u32,
+//   pub memo_flag        : u32,
+// }
 
-impl Symbol {
+pub trait Symbol {
 
   #[inline(always)]
-  pub(crate) fn get_hash_value(&self) -> u32 {
-    self.order
+  fn get_hash_value(&self) -> u32 {
+    self.get_order()
   }
 
   #[inline(always)]
-  pub(crate) fn compare(&self, other: &Self) -> u32 {
-    self.get_hash_value() - other.get_hash_value()
+  fn get_order(&self) -> u32; // {
+  //   self.order
+  // }
+
+
+
+  #[inline(always)]
+  fn compare(&self, other: &Self) -> Ordering {
+    // This is just std::Ord::cmp(self, other)
+    self.cmp(other)
+    // let r = self.get_hash_value() - other.get_hash_value();
+    // if r > 0 {
+    //   Ordering::Greater
+    // } else if r == 0 {
+    //   Ordering::Equal
+    // } else {
+    //   Ordering::Less
+    // }
   }
 
 }
@@ -62,4 +80,16 @@ impl PartialEq for Symbol {
   fn eq(&self, other: &Self) -> bool {
     self.get_hash_value() == other.get_hash_value()
   }
+}
+
+
+/*
+Deriving Traits:
+  BinarySymbol
+*/
+
+
+pub trait BinarySymbol: Symbol {
+  fn get_identity(&self) -> RcTerm;
+  fn get_identity_dag(&self) -> Option<RcDagNode>;
 }

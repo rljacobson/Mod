@@ -3,20 +3,35 @@
 
 
  */
-use std::borrow::BorrowMut;
-use std::cell::Cell;
-use intrusive_collections::{RBTreeLink, RBTree, KeyAdapter, intrusive_adapter, Adapter, Bound};
-use intrusive_collections::rbtree::Color::Red;
-use intrusive_collections::rbtree::{Cursor, CursorMut};
+use std::{
+  borrow::{Borrow, BorrowMut},
+  cell::Cell,
+  ptr::NonNull
+};
+use std::cmp::Ordering;
+use intrusive_collections::{
+  RBTreeLink,
+  RBTree,
+  KeyAdapter,
+  intrusive_adapter,
+  Adapter,
+  Bound,
+  rbtree::{Cursor, CursorMut, LinkOps, RBTreeOps}
+};
+use reffers::rc1::Strong;
 
-use crate::{Substitution, theory::{
-  DagNode,
-  Term,
-  DagPair
-}};
-use crate::theory::dag_node::BcDagNode;
-
+use crate::{
+  Substitution,
+  theory::{
+    DagNode,
+    Term,
+    DagPair,
+    dag_node::RcDagNode
+  }
+};
 use super::RedBlackNode;
+
+pub type RcRedBlackTree = Strong<RedBlackNode>;
 
 intrusive_adapter!(RBTreeAdapter = Cell<RedBlackNode>: RedBlackNode { link: RBTreeLink });
 impl<'a> KeyAdapter<'a> for RBTreeAdapter {
@@ -28,34 +43,74 @@ impl<'a> KeyAdapter<'a> for RBTreeAdapter {
 
 #[derive(Clone)]
 pub struct RedBlackTree {
-  // root: Box<RedBlackNode>,
+  // root: &'a Cell<RedBlackNode>,
   rb_tree: RBTree<RBTreeAdapter>,
   pub(crate) size: usize, // Todo: Construction methods need to update this.
 }
 
 impl RedBlackTree {
 
-  pub fn new(root: BcDagNode, multiplicity: u32) -> Self {
-    let mut tree = RedBlackTree {
-      rb_tree: RBTree::new(RBTreeAdapter::new()),
-      size: 0,
-    };
+  pub fn new(root: RcDagNode, multiplicity: u32) -> Self {
     let root = Cell::new(
       RedBlackNode::new(root, multiplicity)
     );
+
+    let mut tree = RedBlackTree {
+      // root: root.borrow(),
+      rb_tree: RBTree::new(RBTreeAdapter::new()),
+      size   : 0,
+    };
 
     tree.rb_tree.insert(root);
     tree
   }
 
-  // todo: Does this need to return a path? Can it return the DagNode? The cursor?
+  /// Gets the multiplicity of the first node in the tree. If size==1, that would be the only multiplicity in the tree.
+  pub fn get_sole_multiplicity(&self) -> u32 {
+    self.rb_tree.front().get().unwrap().multiplicity
+  }
+
+  /// Gets the first node in the tree. If size==1, that would be the only node in the tree.
+  pub fn get_sole_dag_node(&self) -> RcDagNode {
+    self.rb_tree.front().get().unwrap().dag_node.clone()
+  }
+
+  pub fn is_reduced(&self) -> bool {
+    // Todo: Imnplement `is_reduced()`. In Maude it is a property of a DagNode, and a tree is reduced if its root is.
+    true
+  }
+
+  pub fn max_multiplicity(&self) -> u32 {
+    self.rb_tree
+        .iter()
+        .map(|node| node.max_multiplicity)
+        .max()
+        .unwrap_or(0)
+  }
+
+  // Todo: Why not have `find*` methods take a `&Symbol` instead of a `Term` or `DagNode`? Then we'd only need one set.
+
   /// If found, returns a cursor to the node for the key.
-  pub fn find_mut(&mut self, key: &dyn Term) -> Option<CursorMut<RBTreeAdapter>> {
-    let mut cursor: CursorMut<RBTreeAdapter> = self.rb_tree.find_mut(&key.symbol().get_hash_value());
+  pub fn find_term(&self, key: &dyn Term) -> Option<Cursor<RBTreeAdapter>> {
+    let mut cursor: Cursor<RBTreeAdapter> = self.rb_tree.find(&key.symbol().get_hash_value());
     if let Some(found) = cursor.get() {
       // The result, if exists, just has same top symbol. Now compare arguments as well.
-      let r =  key.compare_dag_node(Cell::<RedBlackNode>::get((found)).dag_node.as_ref());
-      if r ==  0 {
+      let r =  key.compare_term_arguments(found.dag_node.as_ref());
+      if r == Ordering::Equal {
+        return Some(cursor);
+      }
+    }
+
+    return None;
+  }
+
+  /// If found, returns a cursor to the node for the key.
+  pub fn find(&self, key: &dyn DagNode) -> Option<Cursor<RBTreeAdapter>> {
+    let mut cursor: Cursor<RBTreeAdapter> = self.rb_tree.find(&key.symbol().get_hash_value());
+    if let Some(found) = cursor.get() {
+      // The result, if exists, just has same top symbol. Now compare arguments as well.
+      let r =  key.compare(found.dag_node.as_ref());
+      if r ==  Ordering::Equal {
         return Some(cursor);
       }
     }
@@ -64,12 +119,26 @@ impl RedBlackTree {
   }
 
   /// Same as above, but returns a `CursorMut` instead of a `Cursor`.
-  pub fn find(&self, key: &dyn Term) -> Option<Cursor<RBTreeAdapter>> {
-    let mut cursor: Cursor<RBTreeAdapter> = self.rb_tree.find(&key.symbol().get_hash_value());
+  pub fn find_term_mut(&mut self, key: &dyn Term) -> Option<CursorMut<RBTreeAdapter>> {
+    let mut cursor: CursorMut<RBTreeAdapter> = self.rb_tree.find_mut(&key.symbol().get_hash_value());
     if let Some(found) = cursor.get() {
       // The result, if exists, just has same top symbol. Now compare arguments as well.
-      let r =  key.compare_dag_node(Cell::<RedBlackNode>::get((found)).dag_node.as_ref());
-      if r ==  0 {
+      let r =  key.compare_dag_node(found.dag_node.as_ref());
+      if r == Ordering::Equal {
+        return Some(cursor);
+      }
+    }
+
+    return None;
+  }
+
+  /// Same as above, but returns a `CursorMut` instead of a `Cursor`.
+  pub fn find_mut(&mut self, key: &dyn DagNode) -> Option<CursorMut<RBTreeAdapter>> {
+    let mut cursor: CursorMut<RBTreeAdapter> = self.rb_tree.find_mut(&key.symbol().get_hash_value());
+    if let Some(found) = cursor.get() {
+      // The result, if exists, just has same top symbol. Now compare arguments as well.
+      let r =  key.compare(found.dag_node.as_ref());
+      if r == Ordering::Equal {
         return Some(cursor);
       }
     }
@@ -83,7 +152,7 @@ impl RedBlackTree {
   //       use the `partial` `Substitution` parameter at all, and as far as I can tell, `Term::partialCompare()`
   //       never returns `UNDECIDED`. Therefore, "partialCompare" is actually just "compare", and this method is find
   //       the g.l.b. of `key` in `self`.
-  pub(crate) fn find_first_potential_match(&mut self, key: &dyn Term, partial: &mut Substitution)
+  pub(crate) fn find_first_potential_match(&mut self, key: &dyn Term, _partial: &mut Substitution)
     -> Option<CursorMut<RBTreeAdapter>>
   {
     let mut cursor = self.rb_tree.lower_bound_mut(Bound::Included(&key.symbol().get_hash_value()));
@@ -157,7 +226,7 @@ impl RedBlackTree {
 */
 
   /// Iterates over the nodes and their multiplicities.
-  pub fn iter(&self) -> impl Iterator<Item=(&dyn DagNode, u32)> {
+  pub fn iter(&self) -> impl Iterator<Item=(RcDagNode, u32)> {
     // RedBlackTreeIterator::new(
     //   self.root.as_ref()
     // ).map(|node| (node.dag_node.as_ref(), node.multiplicity))
@@ -165,7 +234,7 @@ impl RedBlackTree {
         .iter()
         .map(|node|
             (
-              Cell::<RedBlackNode>::get(node).dag_node.as_ref(),
+              Cell::<RedBlackNode>::get(node).dag_node.clone(),
               Cell::<RedBlackNode>::get(node).multiplicity
             )
         )

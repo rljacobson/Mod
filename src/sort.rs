@@ -6,9 +6,10 @@ Items related to sorts (types).
 
 use std::fmt::Display;
 use std::mem::size_of;
+use reffers::rc1::{Strong, Weak};
 use crate::NatSet;
 
-#[repr(u32)]
+#[repr(i32)]
 pub enum SpecialSorts
 {
   Kind = 0,
@@ -19,23 +20,26 @@ pub enum SpecialSorts
 
 type ErrorSort = SpecialSorts::Kind;
 
+pub type RcSort = Strong<Sort>;
+// The pointers inside a sort to other sorts have to be weak pointers, because we expect there to be cycles.
+pub type RcWeakSort = Weak<Sort>;
 
-pub struct Sort<'s> {
+pub struct Sort {
   name      : u32, // a.k.a ID
   sort_index: u32, // Used as `number_unresolved_supersorts` when computing supersorts.
   fast_test : u32,
-  subsorts  : Vec<&'s  Sort<'s>>,
-  supersorts: Vec<&'s Sort<'s>>,
+  subsorts  : Vec<RcWeakSort>,
+  supersorts: Vec<RcWeakSort>,
   leq_sorts : NatSet,
 
   // Todo: Should this be an Option<..>?
-  sort_component: Box<ConnectedComponent<'s>>
+  sort_component: ConnectedComponent
 }
 
-impl<'s> Sort<'s> {
+impl Sort {
   /// The idea is that it's faster to avoid calling self.leq_sorts.contains(),
   /// but only returns the correctresult if (fastTest - 1) <= NatSet::smallIntBound.
-  // todo: This probably does not give a speed advantage. Benchmark.
+  // Todo: This probably does not give a speed advantage. Benchmark.
   pub fn fast_geq(&self, index: u32) -> bool {
     if index >= self.fast_test {
       true
@@ -58,12 +62,12 @@ impl<'s> Sort<'s> {
 
   /// Computes self <= other_sort where other_sort is the sort associated to index.
   pub fn leq_index(&self, index: u32) -> bool {
-    self.sort_component.sort(index as usize).leq_sorts.contains(self.sort_index as usize)
+    self.sort_component.sort(index as usize).get_ref().leq_sorts.contains(self.sort_index as usize)
   }
 
 }
 
-impl<'a> Display for Sort<'a> {
+impl Display for Sort {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 
     // If let Some(c) = &self.sort_component
@@ -82,18 +86,18 @@ impl<'a> Display for Sort<'a> {
   }
 }
 
-
-pub(crate) struct ConnectedComponent<'a> {
+#[derive(Eq, PartialEq)]
+pub(crate) struct ConnectedComponent {
   sort_count                : u32,
   maximal_sorts_count       : u32,
   error_free_flag           : bool,
-  sorts                     : Vec<Box<Sort<'a>>>,
+  sorts                     : Vec<RcWeakSort>,
   last_allocated_match_index: u32
 }
 
-impl<'a> ConnectedComponent<'a> {
+impl ConnectedComponent {
   // The `ConnectedComponent` takes ownership of the `Box<Sort>`.
-  pub fn append_sort(&mut self, sort: Box<Sort>) -> u32 {
+  pub fn append_sort(&mut self, sort: RcWeakSort) -> u32 {
     let  i = self.sorts.len();
     self.sorts.push(sort);
     return i as u32;
@@ -103,8 +107,8 @@ impl<'a> ConnectedComponent<'a> {
     self.sort_count += 1;
   }
 
-  pub fn sort(&self, i: usize)-> &Sort {
-    &self.sorts[i]
+  pub fn sort(&self, i: usize)-> RcWeakSort {
+    self.sorts[i].clone()
   }
 
   pub fn get_new_match_index(&mut self)-> u32 {

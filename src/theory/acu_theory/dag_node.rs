@@ -7,11 +7,15 @@ Concrete types for the ACU theory implementing the DagNode trait.
 use core::panicking::panic;
 use std::any::Any;
 use std::borrow::BorrowMut;
-use crate::Substitution;
+use std::cmp::Ordering;
+use crate::ordering_value::numeric_ordering;
+use crate::{Sort, Substitution};
+use crate::sort::RcSort;
 
 use crate::theory::dag_node::{DagNode, DagPair};
+use crate::theory::RcDagNode;
 use crate::theory::symbol::Symbol;
-use crate::theory::term::{OrderingValue, Term};
+use crate::theory::term::{OrderingValue, Term, numeric_ordering};
 use super::red_black_tree::{RedBlackTree, RedBlackNode};
 
 pub enum NormalizationStatus {
@@ -56,18 +60,18 @@ impl ACUArguments {
       },
 
       ACUArguments::Tree(t) => {
-        t.find(term)
+        t.find_term(term)
       }
     }
   }
 
-  pub fn iter(&self) -> Box<dyn Iterator<Item=(&dyn DagNode, u32)>>{
+  pub fn iter(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>>{
     match self {
       ACUArguments::List(v) => {
-        Box::new(v.iter().map(|pair| (&pair.0, pair.1)))
+        Box::new(v.iter().map(|pair| (pair.0.clone(), pair.1)))
       },
       ACUArguments::Tree(t) => {
-        Box::new(t.iter())
+        Box::new(t.iter().cloned())
       }
     }
   }
@@ -76,11 +80,16 @@ impl ACUArguments {
 
 #[derive(Clone)]
 pub struct ACUDagNode {
-  top_symbol: Box<Symbol>,
-  pub(crate) args: ACUArguments
+  pub(crate) top_symbol: Box<dyn Symbol>,
+  pub(crate) args      : ACUArguments,
+  pub(crate) sort      : RcSort,
+  pub(crate) is_reduced: bool,
+  pub(crate) sort_index           : i32,
+  pub(crate) normalization_status: NormalizationStatus,
 }
 
 impl ACUDagNode {
+
   ///	Returns index of argument equal key, or a -ve value pos otherwise.
   ///	In the latter case ~pos is the index of the smallest element greater
   ///	than key, and can be argArray.length() if key is greater than all elements
@@ -97,14 +106,18 @@ impl ACUDagNode {
         let probe = sum/2;
 
         let r =  key.compare_dag_node(args[probe].dag_node.as_ref());
-        if r ==  0 {
-          return probe;
+        match r {
+          Ordering::Equal => {
+            return probe;
+          }
+          Ordering::Less => {
+            upper = probe - 1;
+          }
+          Ordering::Greater => {
+            lower = probe + 1;
+          }
         }
-        if r < 0 {
-          upper = probe - 1;
-        } else {
-          lower = probe + 1;
-        }
+
         if lower > upper  {
           break;
         }
@@ -220,17 +233,53 @@ impl ACUDagNode {
 // }
 
 impl DagNode for ACUDagNode {
-  fn symbol(&self) -> &Symbol {
+  fn symbol(&self) -> &dyn Symbol {
     self.top_symbol.as_ref()
   }
 
   // Todo: Is this needed?
-  fn symbol_mut(&mut self) -> &mut Symbol {
+  fn symbol_mut(&mut self) -> &mut dyn Symbol {
     self.top_symbol.borrow_mut()
   }
 
   fn iter_args(&self) -> Box<dyn Iterator<Item=(&dyn DagNode, u32)>> {
     self.args.iter()
+  }
+
+  fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {
+    match other.as_any().downcast_ref::<ACUDagNode>() {
+      Some(acu_dag_node) => {
+        // Fail fast if lengths differ.
+        let r = self.args.len() - acu_dag_node.len();
+        if r != 0 {
+          return numeric_ordering(r.into());
+        }
+        // Compare corresponding terms.
+        for ((this_child, this_multiplicity), (other_child, other_multiplicity))
+            in self.iter().zip(acu_dag_node.iter()) {
+          let r = this_multiplicity - other_multiplicity;
+          if r!= 0 {
+            return numeric_ordering(r.into());
+          }
+
+          let r = this_child.compare(other_child);
+          if r != Ordering::Equal {
+            return r;
+          }
+        }
+        // Identical
+        return Ordering::Equal;
+      }
+      None => panic!("Could not downcast a Term to an ACUTerm."),
+    };
+  }
+
+  fn get_sort(&self) -> RcSort {
+    self.sort.clone()
+  }
+
+  fn set_sort_index(&mut self, sort_index: i32) {
+    self.sort_index = sort_index;
   }
 
   fn len(&self) -> usize {

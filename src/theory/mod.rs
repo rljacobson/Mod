@@ -29,14 +29,18 @@ pub(crate) use crate::{
     },
     associative_symbol::AssociativeSymbolStructure,
     term::Term,
-    dag_node::{DagNode, DagPair},
-    symbol::Symbol
+    dag_node::{
+      DagNode,
+      DagPair,
+      RcDagNode
+    },
+    symbol::Symbol,
   }
 };
-use crate::substitution::Substitution;
+use crate::Substitution;
 
 
-// todo: Should we use Option<bool>?
+// Todo: Should we use Option<bool>?
 pub enum Outcome {
   Success,
   Failure,
@@ -47,10 +51,10 @@ pub enum Outcome {
 pub trait LhsAutomaton {
   fn match_(
     &self,
-    subject            : &dyn DagNode,
-    solution           : &Substitution,
-    returned_subproblem: Option<&mut dyn Subproblem>,
-    extension_info     : &dyn ExtensionInfo
+    subject            : RcDagNode,
+    solution           : &mut Substitution,
+    // returned_subproblem: Option<&mut dyn Subproblem>,
+    extension_info     : Option<&mut dyn ExtensionInfo>
   ) -> bool;
 }
 

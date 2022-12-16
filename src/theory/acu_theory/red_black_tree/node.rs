@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 
 use intrusive_collections::RBTreeLink;
 
-use crate::theory::dag_node::{BcDagNode, DagNode, DagPair};
+use crate::theory::dag_node::{RcDagNode, DagNode, DagPair};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -22,18 +22,16 @@ pub enum RedBlackNodeFlags {
 
 #[derive(Clone)]
 pub struct RedBlackNode {
-  pub dag_node        : BcDagNode,
+  pub dag_node        : RcDagNode,
   pub multiplicity    : u32,
   pub max_multiplicity: u32,
   pub link            : RBTreeLink,
-  // pub left            : Option<Box<RedBlackNode>>,
-  // pub right           : Option<Box<RedBlackNode>>,
   pub flags           : u8
 }
 
 impl RedBlackNode {
 
-  pub fn new(dag_node: BcDagNode, multiplicity: u32) -> Self {
+  pub fn new(dag_node: RcDagNode, multiplicity: u32) -> Self {
     RedBlackNode{
       dag_node,
       multiplicity,
@@ -90,7 +88,7 @@ impl PartialOrd for RedBlackNode {
 
 impl Ord for RedBlackNode {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.dag_node.as_ref().borrow().cmp(&other.dag_node);
+    self.dag_node.as_ref().borrow().cmp(&other.dag_node)
   }
 }
 
