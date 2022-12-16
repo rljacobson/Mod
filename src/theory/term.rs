@@ -3,21 +3,22 @@
 
 */
 
+use std::cmp::Ordering;
 use dyn_clone::{clone_trait_object, DynClone};
+use reffers::rc1::Strong;
 
-use crate::Substitution;
-use crate::theory::DagNode;
-use crate::theory::Symbol;
+use crate::{
+  theory::{
+    DagNode,
+    Symbol
+  },
+  Substitution,
+  OrderingValue,
+};
 
-// todo: These are poorly named, but this is their name in the Maude source.
-#[derive(Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
-pub(crate) enum ReturnValue {
-  Greater = 1,
-  Less = -2,
-  Equal = 0,
-  Unknown = -1
-}
+
+pub type RcTerm = Strong<Term>;
+
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -43,20 +44,19 @@ pub trait Term: DynClone {
   /// Is the term stable?
   fn is_stable(&self) -> bool;
 
-  fn compare_term_arguments(&self, other: &dyn Term) -> u32;
+  fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
 
-  fn compare_dag_node(&self, other: &dyn DagNode) -> u32 {
-    let value = self.symbol().compare(other.symbol());
-    if value != 0 {
+  fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
+    if self.symbol() == other.symbol() {
       self.compare_dag_arguments(other)
     } else {
-      value
+      self.symbol().compare(other.symbol())
     }
   }
 
-  fn compare_dag_arguments(&self, other: &dyn DagNode) -> u32;
+  fn compare_dag_arguments(&self, other: &dyn DagNode) -> Ordering;
 
-  fn partial_compare(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> ReturnValue {
+  fn partial_compare(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
     if !self.stable() {
       // Only used for `VariableTerm`
       return self.partial_compare_unstable(partial_substitution, other);
@@ -67,22 +67,23 @@ pub trait Term: DynClone {
       return self.partial_compare_arguments(partial_substitution, other);
     }
 
-    if self.symbol().compare(other.symbol())  <  0 {
-      ReturnValue::Less
+    // Todo: Where is Equal case?
+    if self.symbol().compare(other.symbol())  == Ordering::Less {
+      OrderingValue::Less
     } else {
-      ReturnValue::Greater
+      OrderingValue::Greater
     }
   }
 
 
   /// Overridden in `VariableTerm`
-  fn partial_compare_unstable(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> ReturnValue {
-    ReturnValue::Unknown
+  fn partial_compare_unstable(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {
+    OrderingValue::Unknown
   }
 
   /// Overridden in `FreeTerm`
-  fn partial_compare_arguments(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> ReturnValue {
-    ReturnValue::Unknown
+  fn partial_compare_arguments(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {
+    OrderingValue::Unknown
   }
 
 }

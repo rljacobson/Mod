@@ -27,32 +27,150 @@ object with its state updated. Thus, solutions can be extracted from the subprob
 
 */
 
+use crate::local_bindings::LocalBindings;
 use crate::rewrite_context::RewritingContext;
+use crate::Substitution;
+use crate::theory::LhsAutomaton;
 
 //	These traits must be derived from for equational theories that
 //	need to generate matching or unification subproblems or
 //	pass back extension information.
 
-pub trait ExtensionInfo {}
+pub trait ExtensionInfo {
+  // Todo: Implement `ExtensionInfo`.
+}
 
-/// Represents a subproblem of a matching problem. The `delayed_solve` features have trivial default implementations
-/// and so are optionally implemented.
+/// Represents a subproblem of a matching problem.
 pub trait Subproblem {
   fn solve(&mut self, find_first: bool, context: &mut RewritingContext) -> bool;
+}
 
-  // region Delayed Subproblem
 
-  fn delayed_solve(&mut self, _find_first: bool, _context: &mut RewritingContext) -> bool {
-    return false;
+pub struct VariableAbstractionSubproblem {
+  abstracted_pattern  : Box<LhsAutomaton>,
+  abstraction_variable: u32,
+  variable_count      : u32,
+  difference          : Option<LocalBindings>,
+  subproblem          : Option<Box<Subproblem>>,
+  local               : Substitution,      // Todo: How does this differ from `difference`?
+  solved              : bool
+}
+
+impl VariableAbstractionSubproblem {
+  pub fn new(abstracted_pattern: Box<LhsAutomaton>, abstraction_variable: u32, variable_count: u32) -> Self {
+    VariableAbstractionSubproblem {
+      abstracted_pattern,
+      abstraction_variable,
+      variable_count,
+      difference: Some(LocalBindings::default()),
+      subproblem: None,
+      local     : Default::default(),
+      solved    : false
+    }
+  }
+}
+
+
+impl Subproblem for VariableAbstractionSubproblem {
+  fn solve(
+    &mut self,
+    mut find_first: bool,
+    context       : &mut RewritingContext
+  ) -> bool {
+    if find_first {
+      self.local.copy(context);
+
+      let v = context.solution.value(self.abstraction_variable);
+      assert!(v.is_some(), "Unbound abstraction variable");
+      let v = v.unwrap();
+      if !self.abstracted_pattern.match_(
+        v.clone(),
+        &mut self.local,
+        self.subproblem.as_deref_mut(),
+        None
+      )
+      {
+        return false;
+      }
+
+      self.difference = self.local.subtract(&context.solution);
+      if Some(difference) = self.difference.as_ref() {
+        difference.assert(&context.solution)
+      }
+
+      if let Some(subproblem) = &mut self.subproblem {
+        if subproblem.solve(true, context) {
+          return true;
+        }
+      } else {
+        return true;
+      }
+
+    } else {
+      if let Some(subproblem) = &mut self.subproblem {
+        if subproblem.solve(true, context) {
+          return true;
+        }
+      } else {
+        return true;
+      }
+    }
+
+    if Some(difference) = self.difference.as_ref() {
+      difference.retract(&context.solution);
+      self.difference = None;
+    }
+
+    self.subproblem = None;
+    false
+  }
+}
+
+
+pub struct SubproblemSequence {
+  sequence: Vec<Box<dyn Subproblem>>,
+}
+
+impl SubproblemSequence {
+  pub fn new() -> Self {
+    SubproblemSequence {
+      sequence: vec![],
+    }
   }
 
-  fn is_solved(&self) -> bool{
-    return false;
+  pub fn add(&mut self, subproblem: Box<dyn Subproblem>) {
+    self.sequence.push(subproblem);
   }
 
-  fn set_solved(&mut self, _solved: bool) {  }
-
-  // endregion
+  pub fn extract_subproblem(mut self) -> Box<dyn Subproblem> {
+    if self.sequence.len() == 1 {
+      self.sequence.pop().unwrap()
+    } else {
+      Box::new(self)
+    }
+  }
 
 }
 
+impl Subproblem for SubproblemSequence {
+  fn solve(&mut self, mut find_first: bool, context: &mut RewritingContext) -> bool {
+    let len = self.sequence.len();
+    let mut i = match find_first {
+      true => 0,
+      false => len - 1
+    };
+
+    loop {
+      find_first = self.sequence[i].solve(find_first, context);
+      if find_first {
+        i += 1;
+        if i == len { break; }
+      } else {
+        i -= 1;
+        if i < 0 { break; }
+      }
+    }
+
+    return find_first;
+  }
+}
