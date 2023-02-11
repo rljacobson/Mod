@@ -9,6 +9,7 @@ mod local_bindings;
 mod redex_position;
 mod ordering_value;
 mod cached_dag;
+mod sort_constraint;
 
 pub use sort::Sort;
 pub use rewrite_context::RewritingContext;

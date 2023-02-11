@@ -84,7 +84,7 @@ pub struct ACUDagNode {
   pub(crate) args      : ACUArguments,
   pub(crate) sort      : RcSort,
   pub(crate) is_reduced: bool,
-  pub(crate) sort_index           : i32,
+  pub(crate) sort_index: i32,
   pub(crate) normalization_status: NormalizationStatus,
 }
 

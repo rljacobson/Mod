@@ -30,6 +30,7 @@ object with its state updated. Thus, solutions can be extracted from the subprob
 use crate::local_bindings::LocalBindings;
 use crate::rewrite_context::RewritingContext;
 use crate::Substitution;
+use crate::theory::acu_theory::ACUDagNode;
 use crate::theory::LhsAutomaton;
 
 //	These traits must be derived from for equational theories that
@@ -38,6 +39,14 @@ use crate::theory::LhsAutomaton;
 
 pub trait ExtensionInfo {
   // Todo: Implement `ExtensionInfo`.
+  /// sets the valid_after_match field
+  fn set_valid_after_match(&mut self, value: bool);
+
+  /// sets the matched_whole field
+  fn set_matched_whole(&mut self, value: bool);
+
+  /// sets the unmatched field
+  fn set_unmatched(&mut self, value: ACUDagNode);
 }
 
 /// Represents a subproblem of a matching problem.

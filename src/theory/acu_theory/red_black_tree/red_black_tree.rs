@@ -64,6 +64,15 @@ impl RedBlackTree {
     tree.rb_tree.insert(root);
     tree
   }
+  
+  pub fn clear(&mut self) {
+    self.rb_tree.clear();
+    self.size = 0;
+  }
+
+  pub fn insert(&mut self, dag_node: RcDagNode) {
+    self.rb_tree.insert(dag_node);
+  }
 
   /// Gets the multiplicity of the first node in the tree. If size==1, that would be the only multiplicity in the tree.
   pub fn get_sole_multiplicity(&self) -> u32 {
@@ -76,7 +85,8 @@ impl RedBlackTree {
   }
 
   pub fn is_reduced(&self) -> bool {
-    // Todo: Imnplement `is_reduced()`. In Maude it is a property of a DagNode, and a tree is reduced if its root is.
+    // Todo: Imnplement `is_reduced()` for RedBlackTree. In Maude it is a property of a DagNode, and a tree is reduced if its
+    //       root is.
     true
   }
 

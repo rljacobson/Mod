@@ -6,7 +6,7 @@ The automaton for the pattern (the LHS).
 
 use std::borrow::Borrow;
 use std::cell::Cell;
-use std::ops::DerefMut;
+use std::ops::{DerefMut, Sub};
 use std::rc::Rc;
 use reffers::rc1::Strong;
 
@@ -26,7 +26,7 @@ use crate::{Substitution, theory::{
   },
   symbol::BinarySymbol
 }, OrderingValue, Sort};
-use crate::sort::SpecialSorts;
+use crate::sort::{index_leq_sort, SpecialSorts};
 use crate::theory::acu_theory::dag_node::NormalizationStatus;
 use crate::theory::acu_theory::subproblem::MaybeSubproblem;
 use crate::theory::DagPair;
@@ -59,6 +59,7 @@ pub struct ACULHSAutomaton<'a> {
   total_non_ground_aliens_multiplicity: u32,
   last_unbound_variable   : u32,
   unbound_variable_count  : u32,
+  independent_aliens_count: u32,
   ground_aliens           : Vec<GroundAlien<'a>>,
   grounded_out_aliens     : Vec<NonGroundAlien<'a>>,
   non_ground_aliens       : Vec<NonGroundAlien<'a>>,
@@ -71,6 +72,10 @@ pub struct ACULHSAutomaton<'a> {
   match_at_top     : bool,
   tree_match_ok    : bool,
   match_strategy   : MatchStrategy,
+
+  // Mutable workspace
+  local  : Substitution,
+  scratch: Substitution,
 
   matched_multiplicity: u32,
 }
@@ -363,6 +368,7 @@ impl ACULHSAutomaton {
     &mut self,
     subject: &RedBlackTree,
     solution: &mut Substitution,
+    // Todo: What should the type of `extension_info` be?
     extension_info: &mut Option<&mut dyn ExtensionInfo>
   ) -> (Outcome, MaybeSubproblem)
   {
@@ -394,7 +400,6 @@ impl ACULHSAutomaton {
       //	Forced lone variable case.
       for i in self.top_variables {
         if solution.value(i.index) == 0 {
-          // Todo: implement forced lone variable case.
           return self.forced_lone_variable_case(subject.is_reduced(), &i, solution);
         }
       }
@@ -505,7 +510,7 @@ impl ACULHSAutomaton {
       ACUArguments::Tree(self.current.clone())
     } else {
       let mut v: Vec<DagPair> = Vec::new();
-      for (dag_node, m) in  self.current.iter() {
+      for (dag_node, m) in self.current.iter() {
         if m % multiplicity !=  0  {
           return (Outcome::Failure, None);
         }
@@ -543,8 +548,234 @@ impl ACULHSAutomaton {
   }
 
 
-  // fn greedy_match(&mut self, subject: &dyn DagNode, solution: &mut Substitution, extension_info: Option<&ExtensionInfo>)
+  fn greedy_match(
+    &mut self,
+    subject: &dyn DagNode,
+    solution: &mut Substitution,
+    extension_info: &mut Option<&mut dyn ExtensionInfo>
+  ) -> (Outcome, MaybeSubproblem)
+  {
+    self.local   = solution.clone(); // greedy matching is speculative so make a copy
+    self.scratch = solution.clone(); // keep a scratch copy as well
 
+    'nextNonGroundAlien:
+    for (i_idx, i) in self.non_ground_aliens.iter_mut().enumerate() {
+      assert!(i.term.is_some(), "shouldn't be running on unstable terms");
+      let t: &dyn Term = i.term.unwrap();
+
+      if self.current.size() != 0 {
+        if let Some(mut path) = self.current.find_first_potential_match(t, solution) {
+          let multiplicity = i.multiplicity;
+          let a = &mut i.lhs_automaton;
+          let mut j = path.get().unwrap();
+          let mut d = j.dag_node;
+
+          loop {
+            if j.multiplicity >= multiplicity {
+              let (matched, sp) = a.match_(d, &mut self.scratch, None);
+              if matched {
+                if Some(sp) = sp {
+                  return (Outcome::Undecided, None);
+                }
+
+                self.local = scratch.clone();
+                ;  // preserve any new bindings
+                self.current.delete_multiplicity_at_cursor(path, multiplicity);
+                self.matched_multiplicity += multiplicity;
+                continue 'nextNonGroundAlien;
+              }
+              self.local = self.scratch.clone();  // restore scratch copy
+            }
+            let next = path.next();
+            if next.is_none() {
+              break;
+            }
+            j = next.unwrap();
+            d = j.dag_node;
+            if t.partial_compare(solution, d) == OrderingValue::Less {
+              //	Since t is less then d, it will also be less than
+              //	all next nodes so we can quit now.
+              break;
+            }
+          }
+
+        }
+      }
+
+      return if i_idx < self.independent_aliens_count as usize
+      {
+        (Outcome::Failure, None)
+      } else {
+        (Outcome::Undecided, None)
+      }
+    }
+
+    if self.greedy_pure_match(subject, &mut self.local, extension_info) {
+      // Todo: Can I do this instead of copy?
+      std::mem::swap(solution, &mut self.local);
+      return (Outcome::Success, None);
+    }
+
+    // When the pure matching step fails we always treat it as UNDECIDED for safety.
+    (Outcome::Undecided, None)
+  }
+
+
+  /// Tree version of greedy_pure_match
+  pub fn greedy_pure_match(
+    &mut self,
+    subject: &dyn DagNode,
+    solution: &mut Substitution,
+    extension_info:  &mut Option<&mut dyn ExtensionInfo>
+  ) -> Outcome {
+    //	Greedy pure matching can fail for so many reasons
+    //	in the red-black case, we don't bother trying to
+    //	detect true failure: false always means UNDECIDED.
+
+    for i in &self.top_variables {
+      if solution.value(i.index) == 0 {
+        self.unbound_variable_count -= 1;
+        if self.current.size == 0 {
+
+          if !(i.take_identity) {
+            return Outcome::Failure;
+          }
+          solution.bind(i.index, self.top_symbol.get_identity_dag().unwrap());
+          if self.unbound_variable_count == 0 {
+            break;
+          }
+
+        } else {
+          if self.unbound_variable_count == 0 {
+            // Implement `try_to_bind_last_variable()`
+            if !self.try_to_bind_last_variable(subject, i, solution) {
+              return Outcome::Failure;
+            }
+            break;
+          } else {
+            // Implement `try_to_bind_variable()`
+            if !self.try_to_bind_variable(i, solution) {
+              return Outcome::Failure;;
+            }
+          }
+        }
+      }
+    }
+
+    if self.current.size == 0 {
+      //	Everything matched; fill out empty extension if needed.
+      if let Some(extension_info) = *extension_info {
+        extension_info.set_valid_after_match(true);
+        extension_info.set_matched_whole(true);
+      }
+    } else {
+      //	Stuff left over; see if we can put it in the extension.
+      if let Some(extension_info) = *extension_info {
+        if self.matched_multiplicity >= 2 {
+          extension_info.set_valid_after_match(true);
+          extension_info.set_matched_whole(false);
+          if self.current.size == 1 && self.current.max_multiplicity() == 1 {
+            extension_info.set_unmatched(self.current.get_sole_dag_node());
+          } else {
+            // ToDo: What should be done about this tree node creation? Is it creating a new tree?
+            extension_info.set_unmatched(ACUDagNode::new(&self.top_symbol, self.current));
+          }
+        } else {
+          return Outcome::Failure;
+        }
+      } else {
+        return Outcome::Failure;
+      }
+    }
+
+    return Outcome::Success;
+  }
+
+  fn try_to_bind_last_variable(
+    &mut self,
+    subject: &ACUDagNode,
+    top_variable: &TopVariable,
+    solution: &mut Substitution
+  ) -> bool
+  {
+    let multiplicity = top_variable.multiplicity;
+    if multiplicity == 1 {
+      if self.current.size == 1 && self.current.max_multiplicity() == 1 {
+        let d = self.current.get_sole_dag_node();
+        if d.leq_sort(&top_variable.sort) {
+          solution.bind(top_variable.index, d);
+          self.current.clear();
+          return true;
+        }
+      } else {
+        {
+          let t = ACUDagNode::new(&self.top_symbol, self.current);
+          let index = self.current.compute_base_sort(self.top_symbol.as_ref());
+          if index_leq_sort(index, self.top_variable.sort.as_ref()) {
+            if subject.is_reduced && self.top_symbol.sort_constraint_free() {
+              t.sort_index = index;
+              t.is_reduced = true;
+            }
+            solution.bind(self.top_variable.index, t);
+            self.current.clear();
+            return true;
+          }
+        }
+        if match_at_top && matched_multiplicity >= 1 {
+          let mut j = ACU_SlowIter::new(self.current);
+          loop {
+            let d = j.get_dag_node();
+            if d.leq(self.top_variable.sort) {
+              solution.bind(self.top_variable.index, d);
+              self.current.delete_mult(j, 1);
+              matched_multiplicity += 1;
+              return true;
+            }
+            if !j.next() {
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      if match_at_top {
+        let d = make_high_multiplicity_assignment(multiplicity, top_variable.sort, self.current);
+        if d != 0 {
+          solution.bind(top_variable.index, d);
+          matched_multiplicity = 2;
+          return true;
+        }
+      } else {
+        let size = self.current.size;
+        if size == 1 && self.current.get_sole_multiplicity() == multiplicity {
+          let d = self.current.get_sole_dag_node();
+          if d.leq(top_variable.sort) {
+            solution.bind(top_variable.index, d);
+            self.current.clear();
+            return true;
+          }
+          return false;
+        }
+      
+        let d = ACU_DagNode::new(top_symbol, self.current.size, ACU_DagNode::ASSIGNMENT);
+        let mut dest = d.arg_array.iter_mut();
+        let mut i = ACU_SlowIter::new(self.current);
+        loop {
+          let m = i.get_multiplicity();
+          if m % multiplicity != 0 {
+            return false;
+          }
+          dest.dag_node = i.get_dag_node();
+          dest.multiplicity = m / multiplicity;
+          dest.next();
+          if !i.next() {
+            break;
+          }
+        }
+      }
+    }
+    false
+  }
   // unique_collapse_match
   // multiway_collapse_match
 

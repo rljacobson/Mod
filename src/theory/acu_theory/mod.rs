@@ -11,6 +11,7 @@ mod term;
 mod subproblem;
 mod automaton_structs;
 mod symbol;
+mod extension_info;
 
 pub(crate) use dag_node::ACUDagNode;
 pub(crate) use red_black_tree::{RedBlackTree, RcRedBlackTree};

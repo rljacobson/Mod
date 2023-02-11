@@ -4,6 +4,7 @@ Items related to sorts (types).
 
 */
 
+use std::cmp::Ordering;
 use std::fmt::Display;
 use std::mem::size_of;
 use reffers::rc1::{Strong, Weak};
@@ -116,4 +117,18 @@ impl ConnectedComponent {
     return self.last_allocated_match_index
   }
 
+}
+
+#[inline(always)]
+pub fn index_leq_sort(index: u32, sort: &Sort) -> bool {
+  assert_ne!(index, SpecialSorts::SortUnknown as u32, "unknown sort");
+  if index >= sort.fast_test {
+    return true;
+  }
+  return sort.leq_sorts.contains(index as usize);
+}
+
+#[inline(always)]
+pub fn sort_leq_index(sort: &Sort, index: u32) -> bool {
+  index_leq_sort(sort.sortIndex, sort.sort_component.sort(index as usize).get_ref().as_ref())
 }

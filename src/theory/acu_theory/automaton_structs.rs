@@ -66,6 +66,12 @@ pub(crate) struct TopVariable {
   subject_count   : u32,
 }
 
+impl TopVariable {
+  pub fn sort_constraint_free(&self) -> bool {
+    // Todo: Implement TopVariable::sort_constraint_free()
+    true
+  }
+}
 
 pub(crate) struct GroundAlien<'t> {
   pub(crate) term        : &'t dyn Term,

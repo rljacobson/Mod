@@ -41,7 +41,11 @@ pub trait Symbol {
   //   self.order
   // }
 
-
+  fn get_sort_constraint_table(&self) -> &SortConstraintTable;
+  
+  fn sort_constraint_free(&self) -> bool {
+    self.get_sort_constraint_table().is_empty()
+  }
 
   #[inline(always)]
   fn compare(&self, other: &Self) -> Ordering {
