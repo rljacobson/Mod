@@ -3,12 +3,10 @@
 
 
  */
-use std::{
-  borrow::{Borrow, BorrowMut},
-  cell::Cell,
-  ptr::NonNull
-};
+use std::cell::{Cell, RefCell};
 use std::cmp::Ordering;
+use std::rc::Rc;
+
 use intrusive_collections::{
   RBTreeLink,
   RBTree,
@@ -16,7 +14,7 @@ use intrusive_collections::{
   intrusive_adapter,
   Adapter,
   Bound,
-  rbtree::{Cursor, CursorMut, LinkOps, RBTreeOps}
+  rbtree::{Cursor, CursorMut}
 };
 use reffers::rc1::Strong;
 
@@ -31,17 +29,18 @@ use crate::{
 };
 use super::RedBlackNode;
 
-pub type RcRedBlackTree = Strong<RedBlackNode>;
 
-intrusive_adapter!(RBTreeAdapter = Cell<RedBlackNode>: RedBlackNode { link: RBTreeLink });
+pub type RcRedBlackTree = Strong<RedBlackTree>;
+
+
+intrusive_adapter!(pub RBTreeAdapter = Rc<RedBlackNode>: RedBlackNode { link: RBTreeLink });
 impl<'a> KeyAdapter<'a> for RBTreeAdapter {
   type Key = u32;
   fn get_key(&self, x: &'a RedBlackNode) -> u32 { x.dag_node.symbol().get_hash_value() }
 }
 
 
-
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct RedBlackTree {
   // root: &'a Cell<RedBlackNode>,
   rb_tree: RBTree<RBTreeAdapter>,
@@ -51,7 +50,7 @@ pub struct RedBlackTree {
 impl RedBlackTree {
 
   pub fn new(root: RcDagNode, multiplicity: u32) -> Self {
-    let root = Cell::new(
+    let root = Rc::new(
       RedBlackNode::new(root, multiplicity)
     );
 
@@ -64,7 +63,7 @@ impl RedBlackTree {
     tree.rb_tree.insert(root);
     tree
   }
-  
+
   pub fn clear(&mut self) {
     self.rb_tree.clear();
     self.size = 0;
@@ -165,13 +164,26 @@ impl RedBlackTree {
   pub(crate) fn find_first_potential_match(&mut self, key: &dyn Term, _partial: &mut Substitution)
     -> Option<CursorMut<RBTreeAdapter>>
   {
-    let mut cursor = self.rb_tree.lower_bound_mut(Bound::Included(&key.symbol().get_hash_value()));
+    let mut cursor = self.rb_tree.upper_bound_mut(Bound::Included(&key.symbol().get_hash_value()));
     if cursor.is_null(){
       None
     } else {
       Some(cursor)
     }
   }
+
+
+  /// Return a mutable cursor pointing to the first node with multiplicity >= the given multiplicity.
+  pub(crate) fn find_greater_equal_multiplicity(&mut self, multiplicity: u32) -> Option<CursorMut<RBTreeAdapter>> {
+    let mut cursor = self.rb_tree.lower_bound_mut(Bound::Included(&multiplicity));
+
+    if cursor.is_null() {
+      None
+    } else {
+      Some(cursor)
+    }
+  }
+
 
   /// Moves all nodes of the tree into a vector, consuming self, and returns the vector.
   pub fn vectorize(mut self) -> Vec<DagPair> {
@@ -236,7 +248,7 @@ impl RedBlackTree {
 */
 
   /// Iterates over the nodes and their multiplicities.
-  pub fn iter(&self) -> impl Iterator<Item=(RcDagNode, u32)> {
+  pub fn iter(&self) -> impl Iterator<Item=(RcDagNode, u32)> + '_ {
     // RedBlackTreeIterator::new(
     //   self.root.as_ref()
     // ).map(|node| (node.dag_node.as_ref(), node.multiplicity))
@@ -244,8 +256,8 @@ impl RedBlackTree {
         .iter()
         .map(|node|
             (
-              Cell::<RedBlackNode>::get(node).dag_node.clone(),
-              Cell::<RedBlackNode>::get(node).multiplicity
+              RefCell::<RedBlackNode>::borrow(node).dag_node.clone(),
+              RefCell::<RedBlackNode>::borrow(node).multiplicity
             )
         )
   }

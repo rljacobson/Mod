@@ -7,6 +7,7 @@ This module contains structs shared by every associative theory.
 
 use std::fmt::Display;
 use crate::Sort;
+use crate::sort_constraint::SortConstraintTable;
 use crate::theory::Symbol;
 
 pub enum AssociativeSymbolStructure {
@@ -20,7 +21,12 @@ type Structure = AssociativeSymbolStructure;
 pub struct AssociativeSymbol<'s> {
   pub sort_bounds: Vec<u32>,
   pub sort_structure: Vec<Structure>,
-  pub uniform_sort: &'s Sort<'s>
+  pub uniform_sort: &'s Sort,
+
+  // Symbol members
+  sort: Sort,
+  sort_constraint_table: SortConstraintTable,
+
 }
 
 impl Display for Structure {
@@ -31,4 +37,14 @@ impl Display for Structure {
       Structure::Unstructured => write!(f, "UNSTRUCTURED")
     }
   }
+}
+
+impl Symbol for AssociativeSymbol<'_> {
+    fn get_order(&self) -> u32 {
+        self.sort
+    }
+
+    fn get_sort_constraint_table(&self) -> &SortConstraintTable {
+        &self.sort_constraint_table
+    }
 }

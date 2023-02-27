@@ -3,17 +3,21 @@
 A `Substitution` is a thin wrapper around a `Vec<&DagNode>`. It holds bindings between natural numbers and `DagNode`s
 by placing a reference to the DagNode at the index of the number. Names are numbers, so these are bindings of names.
 
+ From \[Eker 2003]:
+
+ > For efficiency, the set of variable bindings at each stage in the recursion in both simplify and build_hierarchy can be tracked by a single global array indexed by small integers representing variables.
+
  */
 
 
+use std::rc::Rc;
 
-use std::ops::Sub;
 use crate::local_bindings::LocalBindings;
 use crate::theory::{DagNode, RcDagNode};
 
 pub type MaybeDagNode = Option<RcDagNode>;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Substitution {
   bindings: Vec<MaybeDagNode>,
   // Todo: What is the purpose of copy_size?
@@ -52,6 +56,10 @@ impl Substitution {
     } else {
       None
     }
+  }
+
+  pub fn iter(&self) -> std::slice::Iter<Option<Rc<dyn DagNode>>> {
+    self.bindings.iter()
   }
 
 /*
@@ -101,14 +109,20 @@ impl Substitution {
   }
 
 
-  pub fn bind(&mut self, index: u32, value: RcDagNode) {
+  pub fn bind(&mut self, index: u32, maybe_value: Option<RcDagNode>) {
     assert!(index >= 0, "Negative index {}", index);
     assert!((index as usize) < self.bindings.len(), "Index too big {} vs {}", index, self.bindings.len());
 
-    self.bindings[index as usize] = Some(value);
+    self.bindings[index as usize] = maybe_value;
   }
 
+  pub fn copy_from_substitution(&mut self, original: &Substitution) {
+    assert!(self.copy_size == original.copy_size);
 
+    if self.copy_size > 0 {
+      self.bindings = original.bindings.clone();
+    }
+  }
 
 
 }

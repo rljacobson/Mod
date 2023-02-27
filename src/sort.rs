@@ -4,27 +4,33 @@ Items related to sorts (types).
 
 */
 
-use std::cmp::Ordering;
 use std::fmt::Display;
 use std::mem::size_of;
 use reffers::rc1::{Strong, Weak};
 use crate::NatSet;
 
 #[repr(i32)]
-pub enum SpecialSorts
+pub enum SpecialSort
 {
   Kind = 0,
   // ErrorSort = 0,
   FirstUserSort = 1,
-  SortUnknown = -1
+  Unknown = -1
 }
 
-type ErrorSort = SpecialSorts::Kind;
+impl SpecialSort{
+  // This is how you have an alias of an existing variant.
+  //    `SpecialSort::Kind==SpecialSort::ErrorSort`
+  #[allow(non_upper_case_globals)]
+  pub const ErrorSort: SpecialSort = SpecialSort::Kind;
+}
 
 pub type RcSort = Strong<Sort>;
 // The pointers inside a sort to other sorts have to be weak pointers, because we expect there to be cycles.
 pub type RcWeakSort = Weak<Sort>;
 
+
+#[derive(Clone, Default)]
 pub struct Sort {
   name      : u32, // a.k.a ID
   sort_index: u32, // Used as `number_unresolved_supersorts` when computing supersorts.
@@ -34,7 +40,7 @@ pub struct Sort {
   leq_sorts : NatSet,
 
   // Todo: Should this be an Option<..>?
-  sort_component: ConnectedComponent
+  sort_component: RcStrongConnectedComponent
 }
 
 impl Sort {
@@ -63,20 +69,19 @@ impl Sort {
 
   /// Computes self <= other_sort where other_sort is the sort associated to index.
   pub fn leq_index(&self, index: u32) -> bool {
-    self.sort_component.sort(index as usize).get_ref().leq_sorts.contains(self.sort_index as usize)
+    self.sort_component.get_ref().sort(index as usize).get_ref().leq_sorts.contains(self.sort_index as usize)
   }
 
 }
 
 impl Display for Sort {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-
     // If let Some(c) = &self.sort_component
-    let c = &self.sort_component;
-    if self.sort_index == SpecialSorts::Kind as u32 {
-      let sort_list = (1..c.nr_maximal_sorts).map(
-                |idx| c.sort(idx).to_string()
-              ).collect().join(", ");
+    let c = self.sort_component.get_ref();
+    if self.sort_index == SpecialSort::Kind as u32 {
+      let sort_list = (1..c.maximal_sorts_count).map(
+                |idx| c.sort(idx as usize).get_ref().to_string()
+              ).collect::<Vec<String>>().join(", ");
 
       write!(f, "[{}]", sort_list)
     } else {
@@ -87,11 +92,73 @@ impl Display for Sort {
   }
 }
 
-#[derive(Eq, PartialEq)]
+impl PartialEq for Sort {
+  fn eq(&self, other: &Sort) -> bool {
+    return self.name == other.name
+          && self.sort_index == other.sort_index;
+    /*
+    if self.name == other.name
+        && self.sort_index == other.sort_index
+        && self.fast_test == other.fast_test
+        && self.leq_sorts == other.leq_sorts
+        && self.sort_component == other.sort_component
+        && self.subsorts.len()==other.subsorts.len()
+        && self.supersorts.len() == other.supersorts.len()
+    {
+
+      for (s, t) in self.subsorts.iter().zip(other.subsorts.iter()) {
+        match s.try_get_ref() {
+            Ok(sr) => {
+              match t.try_get_ref() {
+                Ok(tr) => {
+                  if sr!=tr {
+                    return false;
+                  }
+                  /* continue below */
+                },
+                Err(_) => return false,
+            }
+            },
+            Err(_) => return false,
+        }
+      }
+      //  self.supersorts == other.supersorts
+      for (s, t) in self.supersorts.iter().zip(other.supersorts.iter()) {
+        match s.try_get_ref() {
+            Ok(sr) => {
+              match t.try_get_ref() {
+                Ok(tr) => {
+                  /* continue below */
+                  if sr!=tr {
+                    return false;
+                  }
+                },
+                Err(_) => return false,
+            }
+            },
+            Err(_) => return false,
+        }
+      }
+      true
+    } else {
+      false
+    }
+    */
+  }
+}
+
+
+impl Eq for Sort {}
+
+
+type RcStrongConnectedComponent = Strong<ConnectedComponent>;
+
+
+#[derive(Default)]
 pub(crate) struct ConnectedComponent {
   sort_count                : u32,
   maximal_sorts_count       : u32,
-  error_free_flag           : bool,
+  error_free_flag            : bool,
   sorts                     : Vec<RcWeakSort>,
   last_allocated_match_index: u32
 }
@@ -121,7 +188,7 @@ impl ConnectedComponent {
 
 #[inline(always)]
 pub fn index_leq_sort(index: u32, sort: &Sort) -> bool {
-  assert_ne!(index, SpecialSorts::SortUnknown as u32, "unknown sort");
+  assert_ne!(index, SpecialSort::Unknown as u32, "unknown sort");
   if index >= sort.fast_test {
     return true;
   }
@@ -130,5 +197,5 @@ pub fn index_leq_sort(index: u32, sort: &Sort) -> bool {
 
 #[inline(always)]
 pub fn sort_leq_index(sort: &Sort, index: u32) -> bool {
-  index_leq_sort(sort.sortIndex, sort.sort_component.sort(index as usize).get_ref().as_ref())
+  index_leq_sort(sort.sort_index, sort.sort_component.get_ref().sort(index as usize).get_ref().as_ref())
 }

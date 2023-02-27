@@ -27,11 +27,15 @@ object with its state updated. Thus, solutions can be extracted from the subprob
 
 */
 
+
+use std::rc::Rc;
+
 use crate::local_bindings::LocalBindings;
 use crate::rewrite_context::RewritingContext;
 use crate::Substitution;
-use crate::theory::acu_theory::ACUDagNode;
-use crate::theory::LhsAutomaton;
+use crate::theory::{LhsAutomaton};
+
+use super::RcDagNode;
 
 //	These traits must be derived from for equational theories that
 //	need to generate matching or unification subproblems or
@@ -46,8 +50,11 @@ pub trait ExtensionInfo {
   fn set_matched_whole(&mut self, value: bool);
 
   /// sets the unmatched field
-  fn set_unmatched(&mut self, value: ACUDagNode);
+  fn set_unmatched(&mut self, value: RcDagNode);
 }
+
+pub type RcSubproblem = Rc<dyn Subproblem>;
+pub type MaybeSubproblem = Option<RcSubproblem>;
 
 /// Represents a subproblem of a matching problem.
 pub trait Subproblem {
@@ -56,17 +63,17 @@ pub trait Subproblem {
 
 
 pub struct VariableAbstractionSubproblem {
-  abstracted_pattern  : Box<LhsAutomaton>,
-  abstraction_variable: u32,
-  variable_count      : u32,
-  difference          : Option<LocalBindings>,
-  subproblem          : Option<Box<Subproblem>>,
-  local               : Substitution,      // Todo: How does this differ from `difference`?
-  solved              : bool
+  pub abstracted_pattern  : Box<dyn LhsAutomaton>,
+  pub abstraction_variable: u32,
+  pub variable_count      : u32,
+  pub difference          : Option<LocalBindings>,
+  pub subproblem          : Option<Box<dyn Subproblem>>,
+  pub local               : Substitution,      // Todo: How does this differ from `difference`?
+  pub solved              : bool
 }
 
 impl VariableAbstractionSubproblem {
-  pub fn new(abstracted_pattern: Box<LhsAutomaton>, abstraction_variable: u32, variable_count: u32) -> Self {
+  pub fn new(abstracted_pattern: Box<dyn LhsAutomaton>, abstraction_variable: u32, variable_count: u32) -> Self {
     VariableAbstractionSubproblem {
       abstracted_pattern,
       abstraction_variable,
@@ -84,10 +91,10 @@ impl Subproblem for VariableAbstractionSubproblem {
   fn solve(
     &mut self,
     mut find_first: bool,
-    context       : &mut RewritingContext
+    context     : &mut RewritingContext
   ) -> bool {
     if find_first {
-      self.local.copy(context);
+      self.local.copy_from_substitution(&context.solution);
 
       let v = context.solution.value(self.abstraction_variable);
       assert!(v.is_some(), "Unbound abstraction variable");
@@ -95,7 +102,6 @@ impl Subproblem for VariableAbstractionSubproblem {
       if !self.abstracted_pattern.match_(
         v.clone(),
         &mut self.local,
-        self.subproblem.as_deref_mut(),
         None
       )
       {
@@ -103,8 +109,8 @@ impl Subproblem for VariableAbstractionSubproblem {
       }
 
       self.difference = self.local.subtract(&context.solution);
-      if Some(difference) = self.difference.as_ref() {
-        difference.assert(&context.solution)
+      if let Some(difference) = self.difference.as_mut() {
+        difference.assert(&mut context.solution);
       }
 
       if let Some(subproblem) = &mut self.subproblem {
@@ -125,8 +131,8 @@ impl Subproblem for VariableAbstractionSubproblem {
       }
     }
 
-    if Some(difference) = self.difference.as_ref() {
-      difference.retract(&context.solution);
+    if let Some(difference) = self.difference.as_mut() {
+      difference.retract(&mut context.solution);
       self.difference = None;
     }
 
@@ -157,6 +163,10 @@ impl SubproblemSequence {
     } else {
       Box::new(self)
     }
+  }
+
+  pub fn push(&mut self, subproblem: Box<dyn Subproblem>) {
+    self.sequence.push(subproblem);
   }
 
 }

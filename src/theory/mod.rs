@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 /*!
 
 Traits that the components of theory must implement.
@@ -25,10 +26,17 @@ pub(crate) use crate::{
   theory::{
     subproblem::{
       ExtensionInfo,
-      Subproblem
+      Subproblem,
+      MaybeSubproblem,
+      VariableAbstractionSubproblem,
+      SubproblemSequence
     },
     associative_symbol::AssociativeSymbolStructure,
-    term::Term,
+    term::{
+      Term,
+      RcTerm,
+      Flags
+    },
     dag_node::{
       DagNode,
       DagPair,

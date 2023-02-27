@@ -13,7 +13,7 @@ use std::cmp::Ordering;
 
 // Todo: Instead of this custom enum, should we have `Option<Ordering>` or `Result<Ordering, ()>`?
 #[derive(Copy, Clone, PartialEq, Eq)]
-#[repr(u8)]
+#[repr(i8)]
 pub(crate) enum OrderingValue {
   Greater = 1,
   Less = -2,
@@ -44,10 +44,10 @@ impl From<u32> for OrderingValue {
 }
 
 #[inline(always)]
-pub fn numeric_ordering(value: T) -> Ordering
+pub fn numeric_ordering<T>(value: T) -> Ordering
   where T: Into<usize>
 {
-  let value = value as usize;
+  let value: usize = value.into();
   if value > 0 {
     Ordering::Greater
   } else if value < 0 {
@@ -58,10 +58,10 @@ pub fn numeric_ordering(value: T) -> Ordering
 }
 
 #[inline(always)]
-pub fn numeric_ordering_value(value: T) -> OrderingValue
+pub fn numeric_ordering_value<T>(value: T) -> OrderingValue
   where T: Into<usize>
 {
-  let value = value as usize;
+  let value: usize = value.into();
   if value > 0 {
     OrderingValue::Greater
   } else if value < 0 {

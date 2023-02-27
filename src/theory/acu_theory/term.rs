@@ -5,19 +5,17 @@ ACU term
 */
 
 
-use std::any::Any;
 use std::cmp::Ordering;
 use crate::ordering_value::numeric_ordering;
-use crate::Substitution;
-use crate::theory::acu_theory::dag_node::ACUDagNode;
-use crate::theory::dag_node::DagNode;
-use crate::theory::symbol::Symbol;
-use crate::theory::term::{OrderingValue, Term, Flags};
+use crate::theory::acu_theory::ACUDagNode;
+use crate::theory::DagNode;
+use crate::theory::Symbol;
+use crate::theory::{Term, RcTerm, Flags};
 
 // A "Pair" struct
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ACUTermRecord {
-  term                      : Box<dyn Term>,
+  term                      : RcTerm,
   multiplicity              : u32,
   abstraction_variable_index: u32,  // If subterm could enter our theory we abstract it
   collapse_to_our_theory    : bool, // First possible reason for variable abstraction

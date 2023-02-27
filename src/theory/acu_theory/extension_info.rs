@@ -46,7 +46,7 @@ impl ExtensionInfo for ACUExtensionInfo {
   fn set_matched_whole(&mut self, value: bool) {
     self.matched_whole = value;
   }
-
+  
   fn set_unmatched(&mut self, value: RcDagNode) {
     self.unmatched.insert(value)
   }

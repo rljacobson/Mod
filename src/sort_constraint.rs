@@ -4,7 +4,7 @@ pub type RcSortConstraint = Rc<SortConstraint>;
 
 // Todo: Determine if SortConstraints should be implemented.
 pub struct SortConstraint {
-
+  garbage: i32
 }
 
 pub struct SortConstraintTable {

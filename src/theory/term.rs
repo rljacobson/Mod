@@ -3,9 +3,12 @@
 
 */
 
-use std::cmp::Ordering;
-use dyn_clone::{clone_trait_object, DynClone};
-use reffers::rc1::Strong;
+use std::{
+  cmp::Ordering,
+  rc::Rc
+};
+
+use dyn_clone::clone_trait_object;
 
 use crate::{
   theory::{
@@ -16,8 +19,8 @@ use crate::{
   OrderingValue,
 };
 
-
-pub type RcTerm = Strong<Term>;
+// Todo: Use `reffers::rc1::Strong` instead of `Rc`.
+pub type RcTerm = Rc<dyn Term>;
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -37,9 +40,9 @@ pub(crate) enum Flags {
 }
 
 
-pub trait Term: DynClone {
+pub trait Term {
   /// Gives the top symbol of this term.
-  fn symbol(&self) -> &Symbol;
+  fn symbol(&self) -> &dyn Symbol;
 
   /// Is the term stable?
   fn is_stable(&self) -> bool;

@@ -2,11 +2,13 @@
 
 Holds state for a rewrite system.
 
+Maude uses inheritence: A `RewritingContext` is-a `Substitution`. We use composition: A `RewritingContext` has-a `Substitution`.
+
 */
 
 use crate::redex_position::RedexPosition;
 use crate::Substitution;
-use crate::theory::DagNode;
+use crate::theory::RcDagNode;
 
 
 pub enum Purpose {

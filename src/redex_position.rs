@@ -4,6 +4,8 @@ A `RedexPosition` holds position information of a potential redex.
 
 */
 
+use crate::theory::RcDagNode;
+
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum RedexPositionFlags {

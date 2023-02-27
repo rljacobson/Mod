@@ -3,9 +3,8 @@
 A collection of structs used in LhsAutomaton/RhsAutomaton.
 
 */
+pub(crate) mod lhs_automaton;
 
-
-use crate::Sort;
 use crate::sort::RcSort;
 
 use crate::theory::{
@@ -13,6 +12,11 @@ use crate::theory::{
   LhsAutomaton,
   Term
 };
+
+
+// Re-exports
+pub use lhs_automaton::ACULHSAutomaton;
+
 
 #[derive(PartialEq, Eq)]
 #[repr(u8)]
@@ -51,7 +55,30 @@ pub(crate) enum MatchStrategy {
 }
 
 
-pub(crate) struct TopVariable {
+
+// Todo: Who owns this term? Can it be immutable during the lifetime of the `GroundAlien`?
+struct GroundAlien<'t> {
+  pub(crate) term        : &'t dyn Term,
+  pub(crate) multiplicity: u32
+}
+
+
+struct NonGroundAlien<'t> {
+  pub(crate) term         : Option<&'t dyn Term>,
+  pub(crate) multiplicity : u32,
+  pub(crate) lhs_automaton: Box<dyn LhsAutomaton>
+}
+
+
+struct Subject {
+  pub(crate) multiplicity: u32,
+  pub(crate) assignee    : u32
+}
+
+
+
+/// The `TopVariable` type used in `lhs_automaton`
+struct TopVariable {
   pub(crate) index        : u32,
   pub(crate) multiplicity : u32,
   pub(crate) sort         : RcSort,
@@ -71,22 +98,4 @@ impl TopVariable {
     // Todo: Implement TopVariable::sort_constraint_free()
     true
   }
-}
-
-pub(crate) struct GroundAlien<'t> {
-  pub(crate) term        : &'t dyn Term,
-  pub(crate) multiplicity: u32
-}
-
-
-pub(crate) struct NonGroundAlien<'t> {
-  pub(crate) term         : Option<&'t dyn Term>,
-  pub(crate) multiplicity : u32,
-  pub(crate) lhs_automaton: Box<dyn LhsAutomaton>
-}
-
-
-pub(crate) struct Subject {
-  pub(crate) multiplicity: u32,
-  pub(crate) assignee    : u32
 }

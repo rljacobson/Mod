@@ -4,17 +4,21 @@
 
  */
 
+use std::rc::Rc;
+
 use crate::cached_dag::CachedDag;
 use crate::theory::{RcDagNode, Symbol};
 use crate::theory::symbol::BinarySymbol;
 use crate::theory::term::RcTerm;
+
+pub type RcACUSymbol = Rc<ACUSymbol>;
 
 pub struct ACUSymbol {
   pub order            : u32, // Unique integer for comparing symbols.
   pub unique_sort_index: i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
   pub match_index      : u32, // For fast matching
   pub arity            : u32,
-  pub memo_flag        : u32,
+  pub memo_flag         : u32,
 
   identity : CachedDag, // Supposed to be a CachedDag
 }

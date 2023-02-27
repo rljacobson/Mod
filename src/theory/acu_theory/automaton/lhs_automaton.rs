@@ -4,49 +4,62 @@ The automaton for the pattern (the LHS).
 
 */
 
-use std::borrow::Borrow;
 use std::cell::Cell;
-use std::ops::{DerefMut, Sub};
-use std::rc::Rc;
+use std::ops::DerefMut;
+use intrusive_collections::rbtree::CursorMut;
 use reffers::rc1::Strong;
 
-use crate::{Substitution, theory::{
-  Outcome,
-  acu_theory::{},
-  DagNode,
-  ExtensionInfo,
-  LhsAutomaton,
-  Subproblem,
-  Symbol,
-  Term,
-  dag_node::RcDagNode,
-  subproblem::{
-    SubproblemSequence,
-    VariableAbstractionSubproblem
+use crate::{
+  Substitution,
+  theory::{
+    Outcome,
+    DagNode,
+    ExtensionInfo,
+    LhsAutomaton,
+    Symbol,
+    Term,
+    dag_node::{RcDagNode},
+    subproblem::{
+      SubproblemSequence,
+      VariableAbstractionSubproblem
+    },
+    symbol::BinarySymbol,
+    DagPair
   },
-  symbol::BinarySymbol
-}, OrderingValue, Sort};
-use crate::sort::{index_leq_sort, SpecialSorts};
-use crate::theory::acu_theory::dag_node::NormalizationStatus;
-use crate::theory::acu_theory::subproblem::MaybeSubproblem;
-use crate::theory::DagPair;
+  OrderingValue,
+  Sort,
+  sort::{
+    index_leq_sort,
+    SpecialSort, sort_leq_index
+  }
+};
 
 use super::{
-  automaton_structs::{
     GroundAlien,
     NonGroundAlien,
     TopVariable,
     MatchStrategy
+  };
+
+use super::super::{
+  dag_node::{
+    ACUArguments,
+    NormalizationStatus,
+    RcACUDagNode
   },
-  dag_node::ACUArguments,
   ACUDagNode,
   red_black_tree::{
     RedBlackTree,
     RcRedBlackTree,
-    RedBlackNode
+    RedBlackNode,
+    RBTreeAdapter
   },
-  subproblem::ACULazySubproblem,
-  symbol::ACUSymbol
+  subproblem::{
+    ACULazySubproblem,
+    MaybeSubproblem
+  },
+  symbol::RcACUSymbol,
+  ACUSubproblem
 };
 
 
@@ -64,7 +77,7 @@ pub struct ACULHSAutomaton<'a> {
   grounded_out_aliens     : Vec<NonGroundAlien<'a>>,
   non_ground_aliens       : Vec<NonGroundAlien<'a>>,
   current                 : RcRedBlackTree,
-  top_symbol              : Box<ACUSymbol>,
+  top_symbol              : RcACUSymbol,
   top_variables           : Vec<TopVariable>,
 
   unique_collapse_automaton: Option<Box<dyn LhsAutomaton>>,
@@ -76,11 +89,87 @@ pub struct ACULHSAutomaton<'a> {
   // Mutable workspace
   local  : Substitution,
   scratch: Substitution,
+  matched: Vec<RcDagNode>,
 
   matched_multiplicity: u32,
 }
 
-impl ACULHSAutomaton {
+impl ACULHSAutomaton<'_> {
+
+
+  /// match alien-only subterms.
+  fn aliens_only_match(
+    &mut self,
+    subject  : RcACUDagNode,
+    solution : &mut Substitution,
+  ) -> (bool, MaybeSubproblem)
+  {
+    let mut subproblems = SubproblemSequence::new();
+
+    if self.independent_aliens_count > 0 {
+      // Anything matched by an independent alien can be "forced"
+      // since it can't be matched by another alien (except one that
+      // subsumes the first) and there are no variables or extension.
+      self.local = solution.clone(); // Make a local copy of solution
+
+      'nextIndependentAlien:
+      for i in 0..self.independent_aliens_count as usize {
+        let non_ground_alien: NonGroundAlien = self.non_ground_aliens[i];
+        let t: Option<&dyn Term> = non_ground_alien.term;
+        let a: &dyn LhsAutomaton = non_ground_alien.lhs_automaton.as_ref();
+        let m: u32               = non_ground_alien.multiplicity;
+
+        let start_idx = if t.is_none() {
+          0
+        } else {
+          subject.find_first_potential_match(t.unwrap(), solution) as usize
+        };
+
+        for j in start_idx..subject.args.len() {
+          let d = subject.args[j].dag_node;
+
+          if t.is_some() && t.unwrap().partial_compare(solution, d) == OrderingValue::Less {
+            break;
+          }
+          if self.current_multiplicity[j] >= m {
+            let (succeeded, sp) = a.match_(d, &mut self.local, None);
+            if succeeded {
+              *solution = self.local.clone();
+              self.current_multiplicity[j] -= m;
+              subproblems.add(sp);
+              break 'nextIndependentAlien;
+            }
+
+            self.local = solution.clone(); // Restore local copy of solution
+          }
+
+         } // end iterate over i in 0..self.independent_aliens_count
+
+        return (false, None);
+      }
+    }
+
+    if self.non_ground_aliens.len() > self.independent_aliens_count {
+      // Need to build bipartite graph for remaining aliens as usual.
+      // TODO: Implement build_bipartite_graph
+      let maybe_subproblem: Option<ACUSubproblem> = self.build_bipartite_graph(subject, solution, 0, self.independent_aliens_count, subproblems);
+      match maybe_subproblem {
+        None => {
+          return (false, None);
+        }
+
+        Some(sp) => {
+          if !sp.no_patters() {
+            sp.add_subjects(self.current_multiplicity);
+            subproblems.add(sp);
+          }
+        }
+      }
+    }
+
+    return (true, Some(subproblems.extract_subproblem()));
+
+  }
 
 
   fn collapse_match(
@@ -180,15 +269,21 @@ impl ACULHSAutomaton {
   /// The version of this method that works on trees. Returns the outcome with an optional subproblem.
   fn eliminate_bound_variables_for_current(&mut self, solution: &mut Substitution) -> Outcome {
     self.unbound_variable_count = 0;
-    for i in self.top_variables {
+    for i in self.top_variables.iter() {
       if let Some(d) = solution.value(i.index){
-        if d.get_ref().symbol() == self.top_symbol {
+        if d.symbol() == self.top_symbol {
           return Outcome::Undecided /* UNDECIDED */;
         }
 
         match self.top_symbol.get_identity() {
-          | None
-          | Some(identity) if !identity.get_ref().eq(&d.get_ref()) => {
+          None => {
+            if self.current.size == 0 {
+              return Outcome::Failure /* false */;
+            }
+          }
+
+          Some(identity) if !identity.get_ref().eq(&d.get_ref()) => {
+            // Identical to `None` case
             if self.current.size == 0 {
               return Outcome::Failure /* false */;
             }
@@ -398,7 +493,7 @@ impl ACULHSAutomaton {
         && self.non_ground_aliens.is_empty()
     {
       //	Forced lone variable case.
-      for i in self.top_variables {
+      for i in self.top_variables.iter() {
         if solution.value(i.index) == 0 {
           return self.forced_lone_variable_case(subject.is_reduced(), &i, solution);
         }
@@ -445,7 +540,7 @@ impl ACULHSAutomaton {
               self.non_ground_aliens.length());
       assert!(extension_info.is_none(), "should not have extension");
 
-      for i in self.top_variables {
+      for i in self.top_variables.iter() {
         if solution.value(i.index).is_none() {
           assert_eq!(i.multiplicity, 1, "collector multiplicity = {}", i.multiplicity);
           let returned_subproblem = Some(Box::new(
@@ -468,7 +563,6 @@ impl ACULHSAutomaton {
     }
 
     //	Match everything else using greedy algorithms.
-    // Todo: implement greedy_match
     return self.greedy_match(subject, solution,  extension_info);
   }
 
@@ -531,20 +625,20 @@ impl ACULHSAutomaton {
           args: b_args,
           sort: Sort::default(),
           is_reduced: false,
-          sort_index: SpecialSorts::SortUnknown as i32,
+          sort_index: SpecialSort::Unknown as i32,
           normalization_status: NormalizationStatus::Assignment
         }
     );
 
     if let (true, subproblem) = b.check_sort(&tv.sort) {
       solution.bind(tv.index, b.clone());
-      if subject_is_reduced && b.get_sort() != SpecialSorts::SortUnknown {
+      if subject_is_reduced && b.get_sort() != SpecialSort::Unknown {
         b.is_reduced = true;
       }
       return (Outcome::Success, subproblem);
     }
 
-    (Outcome::Failure, subproblem)
+    (Outcome::Failure, None)
   }
 
 
@@ -578,13 +672,12 @@ impl ACULHSAutomaton {
                   return (Outcome::Undecided, None);
                 }
 
-                self.local = scratch.clone();
-                ;  // preserve any new bindings
+                self.local = self.scratch.clone(); // preserve any new bindings
                 self.current.delete_multiplicity_at_cursor(path, multiplicity);
                 self.matched_multiplicity += multiplicity;
                 continue 'nextNonGroundAlien;
               }
-              self.local = self.scratch.clone();  // restore scratch copy
+              self.local = self.scratch.clone(); // restore scratch copy
             }
             let next = path.next();
             if next.is_none() {
@@ -592,9 +685,9 @@ impl ACULHSAutomaton {
             }
             j = next.unwrap();
             d = j.dag_node;
-            if t.partial_compare(solution, d) == OrderingValue::Less {
+            if t.partial_compare(solution, d.as_ref()) == OrderingValue::Less {
               //	Since t is less then d, it will also be less than
-              //	all next nodes so we can quit now.
+              //	all next nodes, so we can quit now.
               break;
             }
           }
@@ -628,11 +721,11 @@ impl ACULHSAutomaton {
     solution: &mut Substitution,
     extension_info:  &mut Option<&mut dyn ExtensionInfo>
   ) -> Outcome {
-    //	Greedy pure matching can fail for so many reasons
-    //	in the red-black case, we don't bother trying to
-    //	detect true failure: false always means UNDECIDED.
 
-    for i in &self.top_variables {
+    //	Greedy pure matching can fail for so many reasons in the red-black case, we don't bother trying to detect true
+    //	failure: false always means UNDECIDED.
+
+    for i in self.top_variables.iter() {
       if solution.value(i.index) == 0 {
         self.unbound_variable_count -= 1;
         if self.current.size == 0 {
@@ -655,7 +748,7 @@ impl ACULHSAutomaton {
           } else {
             // Implement `try_to_bind_variable()`
             if !self.try_to_bind_variable(i, solution) {
-              return Outcome::Failure;;
+              return Outcome::Failure;
             }
           }
         }
@@ -677,8 +770,7 @@ impl ACULHSAutomaton {
           if self.current.size == 1 && self.current.max_multiplicity() == 1 {
             extension_info.set_unmatched(self.current.get_sole_dag_node());
           } else {
-            // ToDo: What should be done about this tree node creation? Is it creating a new tree?
-            extension_info.set_unmatched(ACUDagNode::new(&self.top_symbol, self.current));
+            extension_info.set_unmatched(ACUDagNode::new_tree(&self.top_symbol, self.current.clone()));
           }
         } else {
           return Outcome::Failure;
@@ -691,6 +783,7 @@ impl ACULHSAutomaton {
     return Outcome::Success;
   }
 
+
   fn try_to_bind_last_variable(
     &mut self,
     subject: &ACUDagNode,
@@ -701,15 +794,17 @@ impl ACULHSAutomaton {
     let multiplicity = top_variable.multiplicity;
     if multiplicity == 1 {
       if self.current.size == 1 && self.current.max_multiplicity() == 1 {
+        // Just one subject left so try to assign it.
         let d = self.current.get_sole_dag_node();
         if d.leq_sort(&top_variable.sort) {
           solution.bind(top_variable.index, d);
-          self.current.clear();
+          self.current.clear(); // No need to update matched_multiplicity
           return true;
         }
       } else {
         {
-          let t = ACUDagNode::new(&self.top_symbol, self.current);
+          // First see if we can give it everything.
+          let t = ACUDagNode::new_tree(&self.top_symbol, self.current.clone());
           let index = self.current.compute_base_sort(self.top_symbol.as_ref());
           if index_leq_sort(index, self.top_variable.sort.as_ref()) {
             if subject.is_reduced && self.top_symbol.sort_constraint_free() {
@@ -717,32 +812,31 @@ impl ACULHSAutomaton {
               t.is_reduced = true;
             }
             solution.bind(self.top_variable.index, t);
-            self.current.clear();
+            self.current.clear(); // No need to update matchedMultiplicity
             return true;
           }
         }
-        if match_at_top && matched_multiplicity >= 1 {
-          let mut j = ACU_SlowIter::new(self.current);
-          loop {
-            let d = j.get_dag_node();
-            if d.leq(self.top_variable.sort) {
-              solution.bind(self.top_variable.index, d);
+
+        if self.match_at_top && self.matched_multiplicity >= 1 {
+          // Plan B: We must have extension so try assigning just one subject.
+          for (j, _multiplicity) in Strong::get_ref(&self.current).iter() {
+            if j.leq(self.top_variable.sort) {
+              solution.bind(self.top_variable.index, j);
               self.current.delete_mult(j, 1);
-              matched_multiplicity += 1;
+              self.matched_multiplicity += 1;
               return true;
             }
-            if !j.next() {
-              break;
-            }
+
           }
         }
       }
     } else {
-      if match_at_top {
-        let d = make_high_multiplicity_assignment(multiplicity, top_variable.sort, self.current);
+      // Last unbound variable has multiplicity >= 2.
+      if self.match_at_top {
+        let d = self.make_high_multiplicity_assignment(multiplicity, top_variable.sort.clone(), self.current.clone());
         if d != 0 {
           solution.bind(top_variable.index, d);
-          matched_multiplicity = 2;
+          self.matched_multiplicity = 2;
           return true;
         }
       } else {
@@ -751,37 +845,140 @@ impl ACULHSAutomaton {
           let d = self.current.get_sole_dag_node();
           if d.leq(top_variable.sort) {
             solution.bind(top_variable.index, d);
-            self.current.clear();
+            self.current.clear(); // No need to update matched_multiplicity
             return true;
           }
           return false;
         }
-      
-        let d = ACU_DagNode::new(top_symbol, self.current.size, ACU_DagNode::ASSIGNMENT);
-        let mut dest = d.arg_array.iter_mut();
-        let mut i = ACU_SlowIter::new(self.current);
-        loop {
+
+        let mut destination: Vec<DagPair> = Vec::with_capacity(self.current.size);
+
+        for i in self.current.iter() {
           let m = i.get_multiplicity();
           if m % multiplicity != 0 {
             return false;
           }
-          dest.dag_node = i.get_dag_node();
-          dest.multiplicity = m / multiplicity;
-          dest.next();
-          if !i.next() {
-            break;
-          }
+          let new_pair = DagPair{
+            dag_node: i.get_dag_node(),
+            multiplicity: m / multiplicity
+          };
+          destination.push(new_pair);
         }
+
+        let d = ACUDagNode {
+          top_symbol: self.top_symbol.clone(),
+          args: ACUArguments::List(destination),
+          normalization_status: ACUDagNode::ASSIGNMENT,
+          ..ACUDagNode::default()
+        };
+        let index = d.compute_base_sort();
+
+        if !(index >= top_variable.sort){
+          return false;
+        }
+
+        if subject.is_reduced() && self.top_symbol.sort_constraint_free() {
+          d.set_sort_index(index);
+          d.is_reduced = true;
+        }
+
+        solution.bind(top_variable.index, d);
+        self.current.clear();
+        return true;
       }
     }
+
+    // Last hope: see if we can assign the identity.
+    if self.match_at_top && self.matched_multiplicity >= 2 && top_variable.take_identity {
+      solution.bind(top_variable.index, self.top_symbol.get_identity_dag().unwrap());
+      return true;
+    }
+
     false
   }
+
+/// This is the tree version
+fn make_high_multiplicity_assignment(
+  &mut self,
+  multiplicity: u32,
+  sort: Strong<Sort>,
+  tree: &mut RedBlackTree
+) -> Option<CursorMut<RBTreeAdapter>>
+{
+  let cursor: CursorMut<RBTreeAdapter> = match tree.find_greater_equal_multiplicity(multiplicity){
+    None => {
+      return None;
+    }
+
+    Some(cursor) => cursor
+  };
+  let dag_node = cursor.get().unwrap().dag_node;
+  let mut current_sort_index: i32 = dag_node.get_sort_index();
+  if !sort_leq_index(sort, current_sort_index) {
+    return None;
+  }
+
+  // We have a legal assignment; now try to find a "better" one.
+  let m = cursor.get().unwrap().multiplicity;
+  let a = m / multiplicity;
+  assert!( a > 0 );
+  if a > 1 {
+    current_sort_index =
+      self.top_symbol.compute_multi_sort_index(current_sort_index, current_sort_index, a - 1);
+
+    if !index_leq_sort(current_sort_index, sort) {
+      tree.delete_multiplicity_at_cursor(&mut cursor, multiplicity);
+      return Some(dag_node); // Quit trying to improve substitution
+    }
+  }
+
+  // We build the details in the reusable `self.matched` vector.
+  self.matched.clear();
+  loop {
+    self.matched.push(DagPair{dag_node: dag_node.clone(), multiplicity: a });
+    tree.delete_multiplicity_at_cursor(&mut cursor, a*multiplicity);
+
+    if tree.size() == 0 { break; }
+    let maybe_cursor: Option<CursorMut<_>> = tree.find_greater_equal_multiplicity(multiplicity);
+    if maybe_cursor.is_none() { break; }
+    let cursor: CursorMut<_> = maybe_cursor.unwrap();
+    let dag_node: RcDagNode = cursor.get().unwrap().dag_node.clone();
+    let m: u32 = cursor.get().unwrap().multiplicity;
+    let a: u32 = m / multiplicity;
+    assert!(a > 0);
+    current_sort_index = self.top_symbol.compute_multisort_index(current_sort_index, dag_node.sort_index(), a);
+
+    if !index_leq_sort(current_sort_index, sort) {
+      break;
+    }
+  }
+
+  // Now make the assignment.
+  if self.matched.len() == 1 && self.matched[0].multiplicity == 1 {
+    return self.matched[0].dag_node.clone();
+  }
+
+  let mut new_dag_node = ACUDagNode::new(
+    self.top_symbol,
+    self.matched.len(),
+    NormalizationStatus::Assignment
+  );
+  if let ACUArguments::List(list) = &mut new_dag_node.args {
+    // Miranda copies them one-by-one for some reason.
+    std::mem::swap(&mut self.matched, list);
+  }
+
+  return Some(new_dag_node);
+
+}
+
+
   // unique_collapse_match
   // multiway_collapse_match
 
 }
 
-impl LhsAutomaton for ACULHSAutomaton {
+impl LhsAutomaton for ACULHSAutomaton<'_> {
 
   /// Returns the outcome with an optional subproblem.
   fn match_(
@@ -844,7 +1041,7 @@ impl LhsAutomaton for ACULHSAutomaton {
           }
           if self.match_strategy == MatchStrategy::AliensOnly {
             // Todo: Implement `aliens_only_match()`
-            return self.aliens_only_match(s, solution, returned_subproblem);
+            return self.aliens_only_match(s, solution);
           }
         }
       }
@@ -856,5 +1053,6 @@ impl LhsAutomaton for ACULHSAutomaton {
 
     (false, None)
   }
+
 
 }

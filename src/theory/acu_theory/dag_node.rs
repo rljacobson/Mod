@@ -4,19 +4,41 @@ Concrete types for the ACU theory implementing the DagNode trait.
 
 */
 
-use core::panicking::panic;
-use std::any::Any;
-use std::borrow::BorrowMut;
-use std::cmp::Ordering;
-use crate::ordering_value::numeric_ordering;
-use crate::{Sort, Substitution};
-use crate::sort::RcSort;
+use std::{
+  any::Any,
+  borrow::BorrowMut,
+  cmp::Ordering,
+  rc::Rc
+};
 
-use crate::theory::dag_node::{DagNode, DagPair};
-use crate::theory::RcDagNode;
-use crate::theory::symbol::Symbol;
-use crate::theory::term::{OrderingValue, Term, numeric_ordering};
-use super::red_black_tree::{RedBlackTree, RedBlackNode};
+use crate::{
+  sort::{
+    SpecialSort,
+    RcSort
+  },
+  Substitution,
+  theory::{
+    RcDagNode,
+    DagNode,
+    DagPair,
+    Term,
+    Symbol
+  },
+  ordering_value::{
+    OrderingValue,
+    numeric_ordering
+  }
+};
+
+use super::{
+  RcRedBlackTree,
+  symbol::RcACUSymbol,
+  red_black_tree::RedBlackTree
+};
+
+
+pub type RcACUDagNode = Rc<ACUDagNode>;
+
 
 pub enum NormalizationStatus {
   ///	Default: no guarantees.
@@ -42,7 +64,7 @@ impl ACUArguments {
   pub fn size(&self) -> usize {
     match self {
       ACUArguments::List(v) => { v.len() }
-      ACUArguments::Tree(t) => { t.size() }
+      ACUArguments::Tree(t) => { t.size }
     }
   }
 
@@ -56,11 +78,16 @@ impl ACUArguments {
     match self {
 
       ACUArguments::List(v) => {
-        v.binary_search_by((|(t, m)| t.compare(term))).map(|idx| v[idx].1).ok()
+        v.binary_search_by(
+          |pair| pair.dag_node.compare(term) // Supposed to be term.compare?
+      ).map(
+        |idx| v[idx].multiplicity
+      ).ok()
       },
 
       ACUArguments::Tree(t) => {
-        t.find_term(term)
+        // find_term(..) returns `None` if nothing is found, so unwrapping the result of cursor.get never panics.
+        t.find_term(term).map(|c| c.get().unwrap().borrow().multiplicity)
       }
     }
   }
@@ -68,7 +95,7 @@ impl ACUArguments {
   pub fn iter(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>>{
     match self {
       ACUArguments::List(v) => {
-        Box::new(v.iter().map(|pair| (pair.0.clone(), pair.1)))
+        Box::new(v.iter().map(|pair| (pair.dag_node.clone(), pair.multiplicity)))
       },
       ACUArguments::Tree(t) => {
         Box::new(t.iter().cloned())
@@ -80,7 +107,7 @@ impl ACUArguments {
 
 #[derive(Clone)]
 pub struct ACUDagNode {
-  pub(crate) top_symbol: Box<dyn Symbol>,
+  pub(crate) top_symbol: RcACUSymbol,
   pub(crate) args      : ACUArguments,
   pub(crate) sort      : RcSort,
   pub(crate) is_reduced: bool,
@@ -90,11 +117,73 @@ pub struct ACUDagNode {
 
 impl ACUDagNode {
 
+  pub fn new(symbol: RcACUSymbol, size: isize, normalization_status: NormalizationStatus) -> Self {
+    ACUDagNode {
+      top_symbol: symbol,
+      args: ACUArguments::List(Vec::with_capacity(size)),
+      normalization_status,
+      ..ACUDagNode::default()
+    }
+  }
+
+  pub fn new_tree(symbol: RcACUSymbol, tree: RcRedBlackTree) -> Self {
+    ACUDagNode {
+      top_symbol: symbol,
+      args: ACUArguments::Tree(tree),
+      ..ACUDagNode::default()
+    }
+  }
+
+  /// Computes the base sort index for self.
+  pub fn compute_base_sort(&self) -> i32 {
+    // Todo: Implement uniform_sort()
+    let s = self.symbol();
+    if let Some(uni_sort) = s.uniform_sort() {
+      // If symbol has a uniform sort structure do a fast sort computation.
+      // Todo: Implement component(), error_free()
+      if !uni_sort.component().error_free() {
+        let mut last_index = SpecialSort::Unknown as i32;
+
+        for (dag_node, multiplicity) in self.args.iter() {
+          let index = dag_node.get_sort_index();
+          assert!(index >= SpecialSort::ErrorSort);
+          if index != last_index {
+            if index >= uni_sort {
+              return SpecialSort::ErrorSort
+            }
+            last_index = index;
+          }
+        }
+      }
+      return uni_sort.index();
+    }
+
+    // Standard sort calculation.
+    let mut arg_iter = self.iter_args();
+    // The initial value is a special case.
+    let mut sort_index = {
+      let (dag_node, multiplicity) = arg_iter.next().unwrap();
+      let index = dag_node.get_sort_index();
+      assert!(index >= SpecialSort::ErrorSort);
+      // The first case subtracts 1 from node.multiplicity.
+      // Todo: Implement `Symbol::compute_multisort_index(..)`
+      s.compute_multisort_index(index, index, multiplicity - 1)
+    };
+    // Now do the remaining args.
+    for (dag_node, multiplicity) in arg_iter {
+      let index = dag_node.get_sort_index();
+      assert!(index >= SpecialSort::ErrorSort);
+      sort_index = s.compute_multisort_index(index, index, multiplicity);
+    }
+
+    sort_index
+  }
+
   ///	Returns index of argument equal key, or a -ve value pos otherwise.
   ///	In the latter case ~pos is the index of the smallest element greater
   ///	than key, and can be argArray.length() if key is greater than all elements
   ///	in the array.
-  pub fn binary_search_by_term(&self, key: &dyn Term) -> usize {
+  pub fn binary_search_by_term(&self, key: &dyn Term) -> Option<usize> {
     // The Maude source seems to suggest that this method is only called when the args is a vector.
     if let ACUArguments::List(args) = &self.args {
 
@@ -108,7 +197,7 @@ impl ACUDagNode {
         let r =  key.compare_dag_node(args[probe].dag_node.as_ref());
         match r {
           Ordering::Equal => {
-            return probe;
+            return Some(probe);
           }
           Ordering::Less => {
             upper = probe - 1;
@@ -125,7 +214,7 @@ impl ACUDagNode {
     } else {
       panic!("Error: binary_search_by_term called on an ACUDagNode with tree args. This is a bug.");
     }
-    -1
+    None
   }
 
   /// Converts self.args into `ACUArguments::List(..)` if necessary. Conversion is done in place.
@@ -280,6 +369,10 @@ impl DagNode for ACUDagNode {
 
   fn set_sort_index(&mut self, sort_index: i32) {
     self.sort_index = sort_index;
+  }
+
+  fn get_sort_index(&mut self) -> i32 {
+    self.sort_index
   }
 
   fn len(&self) -> usize {

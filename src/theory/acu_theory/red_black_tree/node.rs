@@ -4,12 +4,11 @@
 
  */
 use std::borrow::Borrow;
-use std::cell::Cell;
 use std::cmp::Ordering;
 
 use intrusive_collections::RBTreeLink;
 
-use crate::theory::dag_node::{RcDagNode, DagNode, DagPair};
+use crate::theory::dag_node::{RcDagNode, DagNode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -26,7 +25,7 @@ pub struct RedBlackNode {
   pub multiplicity    : u32,
   pub max_multiplicity: u32,
   pub link            : RBTreeLink,
-  pub flags           : u8
+  pub flags            : u8
 }
 
 impl RedBlackNode {
