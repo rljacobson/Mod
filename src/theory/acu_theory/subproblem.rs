@@ -99,7 +99,7 @@ impl ACUSubproblem {
   }
 
   #[inline(always)]
-  pub fn no_patterns(&self){
+  pub fn no_patterns(&self) -> bool{
     self.pattern_nodes.is_empty()
   }
 

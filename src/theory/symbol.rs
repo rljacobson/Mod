@@ -16,14 +16,17 @@ A Symbol implements the traits:
 
 use std::cmp::{Ordering, PartialOrd, Ord, Eq, PartialEq};
 
+use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::{
   sort_constraint::SortConstraintTable,
   theory::{
     RcDagNode,
     RcTerm
-  }
+  }, Sort, sort::RcSort
 };
+
+use super::DagNode;
 
 // #[derive(Clone, Copy, PartialEq, Eq)]
 // pub struct Symbol {
@@ -34,13 +37,14 @@ use crate::{
 //   pub memo_flag         : u32,
 // }
 
-pub trait Symbol {
+pub trait Symbol: DynClone {
 
-  fn get_hash_value(&self) -> u32 {
-    self.get_order()
-  }
+  fn get_hash_value(&self) -> u32;
 
-  fn get_order(&self) -> u32;
+  // fn get_order(&self) -> u32;
+
+  // fn compute_base_sort(&self, subject: &mut dyn DagNode);
+
 
   fn get_sort_constraint_table(&self) -> &SortConstraintTable;
 
@@ -50,20 +54,20 @@ pub trait Symbol {
 
   fn compare(&self, other: &dyn Symbol) -> Ordering {
     // This is just std::Ord::cmp(self, other)
-    self.cmp(other)
+    // Ord::cmp(&self, other)
+    self.get_hash_value().cmp(&other.get_hash_value())
   }
 
 }
 
 impl PartialOrd for dyn Symbol {
-  #[inline(always)]
+
   fn partial_cmp(&self, other: &dyn Symbol) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
 
 impl Ord for dyn Symbol {
-  #[inline(always)]
   fn cmp(&self, other: &dyn Symbol) -> Ordering {
     self.get_hash_value().cmp(&other.get_hash_value())
   }
@@ -72,12 +76,13 @@ impl Ord for dyn Symbol {
 impl Eq for dyn Symbol {}
 
 impl PartialEq for dyn Symbol {
-  #[inline(always)]
   fn eq(&self, other: &dyn Symbol) -> bool {
     self.get_hash_value() == other.get_hash_value()
   }
 }
 
+
+clone_trait_object!(Symbol);
 
 /*
 Deriving Traits:
@@ -86,6 +91,6 @@ Deriving Traits:
 
 
 pub trait BinarySymbol: Symbol {
-  fn get_identity(&self) -> RcTerm;
+  fn get_identity(&self) -> Option<RcTerm>;
   fn get_identity_dag(&self) -> Option<RcDagNode>;
 }

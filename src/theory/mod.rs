@@ -42,7 +42,10 @@ pub(crate) use crate::{
       DagPair,
       RcDagNode
     },
-    symbol::Symbol,
+    symbol::{
+      Symbol,
+      BinarySymbol
+    },
   }
 };
 use crate::Substitution;
@@ -53,6 +56,17 @@ pub enum Outcome {
   Success,
   Failure,
   Undecided // Unknown
+}
+
+
+impl From<bool> for Outcome {
+    fn from(value: bool) -> Self {
+        if value {
+          Outcome::Success
+        } else {
+          Outcome::Failure
+        }
+    }
 }
 
 

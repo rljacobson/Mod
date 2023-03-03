@@ -40,7 +40,6 @@ impl<'a> KeyAdapter<'a> for RBTreeAdapter {
 }
 
 
-// #[derive(Clone)]
 pub struct RedBlackTree {
   // root: &'a Cell<RedBlackNode>,
   rb_tree: RBTree<RBTreeAdapter>,
@@ -70,7 +69,8 @@ impl RedBlackTree {
   }
 
   pub fn insert(&mut self, dag_node: RcDagNode) {
-    self.rb_tree.insert(dag_node);
+    let node = Rc::new(RedBlackNode::new(dag_node, 1));
+    self.rb_tree.insert(node);
   }
 
   /// Gets the multiplicity of the first node in the tree. If size==1, that would be the only multiplicity in the tree.
@@ -92,11 +92,11 @@ impl RedBlackTree {
   pub fn max_multiplicity(&self) -> u32 {
     self.rb_tree
         .iter()
-        .map(|node| node.max_multiplicity)
+        .map(|node| node.multiplicity)
         .max()
         .unwrap_or(0)
   }
-
+  
   // Todo: Why not have `find*` methods take a `&Symbol` instead of a `Term` or `DagNode`? Then we'd only need one set.
 
   /// If found, returns a cursor to the node for the key.
@@ -104,7 +104,7 @@ impl RedBlackTree {
     let mut cursor: Cursor<RBTreeAdapter> = self.rb_tree.find(&key.symbol().get_hash_value());
     if let Some(found) = cursor.get() {
       // The result, if exists, just has same top symbol. Now compare arguments as well.
-      let r =  key.compare_term_arguments(found.dag_node.as_ref());
+      let r =  key.compare_dag_arguments(found.dag_node.as_ref());
       if r == Ordering::Equal {
         return Some(cursor);
       }
@@ -192,11 +192,11 @@ impl RedBlackTree {
 
     // This isn't very efficient, but deletion has amortized complexity O(1), so it's probably okay.
     while let Some(mut node_ptr) = cursor.remove() {
-      let mut node = Cell::<RedBlackNode>::get(node_ptr);
+      // let mut node = Cell::<RedBlackNode>::get(node_ptr);
       vector.push(
         DagPair {
-          dag_node: node.dag_node,
-          multiplicity: node.multiplicity
+          dag_node: node_ptr.dag_node,
+          multiplicity: node_ptr.multiplicity
         }
       );
     }
@@ -208,26 +208,38 @@ impl RedBlackTree {
   pub fn delete_multiplicity(&mut self, key: &dyn DagNode, multiplicity: u32) {
     let mut cursor = self.rb_tree.find_mut(&key.symbol().get_hash_value());
     if !cursor.is_null(){
-      self.delete_multiplicity_at_cursor(&mut cursor, multiplicity)
+      self.delete_multiplicity_at_cursor(cursor, multiplicity);
     }
   }
 
   /// Same as `delete_multiplicity(..)` but takes a cursor pointing to the dagnode to delete. This avoids a search of
   /// the tree for the DagNode. Whether or not the original node
-  pub fn delete_multiplicity_at_cursor(&mut self, cursor: &mut CursorMut<RBTreeAdapter>, multiplicity: u32) {
+  pub fn delete_multiplicity_at_cursor(&mut self, mut cursor: CursorMut<RBTreeAdapter>, multiplicity: u32) {
     // let mut cursor = self.rb_tree.find_mut(&key.symbol().get_hash_value());
-    if let Some(victim_ptr) = cursor.get() {
-      let victim: &mut RedBlackNode = Cell::<RedBlackNode>::get_mut(*victim_ptr);
-      let new_mult = victim.multiplicity - multiplicity;
-      if new_mult > 0 {
-        victim.multiplicity = new_mult;
-        // cursor.insert(victim);
+    if let Some(victim_ref) = cursor.get() {
+      // CursorMut::get(&self)
+
+      let new_multiplicity = victim_ref.multiplicity - multiplicity;
+      // Cannot delete more than exist.
+      assert!(new_multiplicity >= 0);
+
+      if new_multiplicity > 0 {
+        // Leaving some remaining
+
+        // Todo: There is no way to update max_multiplicity with this Red-Black tree implementation, because we don't
+        //       have access to the left and right child nodes.
+        // let mut max_multiplicity = new_multiplicity;
+
+        let replacement = RedBlackNode::new(victim_ref.dag_node.clone(), new_multiplicity);
+        cursor.replace_with(Rc::new(replacement));
+
       } else {
         // We remove the node.
         cursor.remove();
         // And adjust the size accordingly.
         self.size -= 1;
       }
+
     }
   }
 
@@ -256,8 +268,8 @@ impl RedBlackTree {
         .iter()
         .map(|node|
             (
-              RefCell::<RedBlackNode>::borrow(node).dag_node.clone(),
-              RefCell::<RedBlackNode>::borrow(node).multiplicity
+              node.dag_node.clone(),
+              node.multiplicity
             )
         )
   }

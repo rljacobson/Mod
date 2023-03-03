@@ -10,6 +10,7 @@ use crate::Sort;
 use crate::sort_constraint::SortConstraintTable;
 use crate::theory::Symbol;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum AssociativeSymbolStructure {
   Unstructured, // no guarantees
   LimitSort,    // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
@@ -18,6 +19,7 @@ pub enum AssociativeSymbolStructure {
 
 type Structure = AssociativeSymbolStructure;
 
+#[derive(Clone)]
 pub struct AssociativeSymbol<'s> {
   pub sort_bounds: Vec<u32>,
   pub sort_structure: Vec<Structure>,
@@ -26,6 +28,14 @@ pub struct AssociativeSymbol<'s> {
   // Symbol members
   sort: Sort,
   sort_constraint_table: SortConstraintTable,
+
+  // Unique integer for comparing symbols, also called the order elsewhere in the code.
+  pub hash_value            : u32,
+
+//   pub unique_sort_index: u32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
+//   pub match_index      : u32, // For fast matching
+//   pub arity            : u32,
+//   pub memo_flag         : u32,
 
 }
 
@@ -40,11 +50,13 @@ impl Display for Structure {
 }
 
 impl Symbol for AssociativeSymbol<'_> {
-    fn get_order(&self) -> u32 {
-        self.sort
-    }
 
     fn get_sort_constraint_table(&self) -> &SortConstraintTable {
         &self.sort_constraint_table
     }
+
+    fn get_hash_value(&self) -> u32 {
+        self.hash_value
+    }
+
 }

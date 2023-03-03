@@ -33,8 +33,8 @@ pub type RcWeakSort = Weak<Sort>;
 #[derive(Clone, Default)]
 pub struct Sort {
   name      : u32, // a.k.a ID
-  sort_index: u32, // Used as `number_unresolved_supersorts` when computing supersorts.
-  fast_test : u32,
+  sort_index: i32, // Used as `number_unresolved_supersorts` when computing supersorts.
+  fast_test : i32,
   subsorts  : Vec<RcWeakSort>,
   supersorts: Vec<RcWeakSort>,
   leq_sorts : NatSet,
@@ -148,6 +148,18 @@ impl PartialEq for Sort {
 }
 
 
+impl PartialEq<SpecialSort> for Sort {
+    fn eq(&self, other: &SpecialSort) -> bool {
+        self.sort_index == *other as i32
+    }
+}
+
+impl PartialEq<Sort> for SpecialSort {
+    fn eq(&self, other: &Sort) -> bool {
+        other.sort_index == *self as i32
+    }
+}
+
 impl Eq for Sort {}
 
 
@@ -187,8 +199,8 @@ impl ConnectedComponent {
 }
 
 #[inline(always)]
-pub fn index_leq_sort(index: u32, sort: &Sort) -> bool {
-  assert_ne!(index, SpecialSort::Unknown as u32, "unknown sort");
+pub fn index_leq_sort(index: i32, sort: &Sort) -> bool {
+  assert_ne!(index, SpecialSort::Unknown as i32, "unknown sort");
   if index >= sort.fast_test {
     return true;
   }
@@ -196,6 +208,6 @@ pub fn index_leq_sort(index: u32, sort: &Sort) -> bool {
 }
 
 #[inline(always)]
-pub fn sort_leq_index(sort: &Sort, index: u32) -> bool {
+pub fn sort_leq_index(sort: &Sort, index: i32) -> bool {
   index_leq_sort(sort.sort_index, sort.sort_component.get_ref().sort(index as usize).get_ref().as_ref())
 }

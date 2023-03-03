@@ -23,7 +23,7 @@ pub enum RedBlackNodeFlags {
 pub struct RedBlackNode {
   pub dag_node        : RcDagNode,
   pub multiplicity    : u32,
-  pub max_multiplicity: u32,
+  // pub max_multiplicity: u32,
   pub link            : RBTreeLink,
   pub flags            : u8
 }
@@ -34,7 +34,7 @@ impl RedBlackNode {
     RedBlackNode{
       dag_node,
       multiplicity,
-      max_multiplicity: 0,
+      // max_multiplicity: 0,
       link: RBTreeLink::default(),
       flags: 0
     }
@@ -75,7 +75,7 @@ impl Eq for RedBlackNode{}
 
 impl PartialEq<Self> for RedBlackNode {
   fn eq(&self, other: &Self) -> bool {
-    self.dag_node.as_ref().borrow().eq(&other.dag_node)
+    self.dag_node.as_ref().borrow().eq(other.dag_node.as_ref())
   }
 }
 
@@ -87,7 +87,7 @@ impl PartialOrd for RedBlackNode {
 
 impl Ord for RedBlackNode {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.dag_node.as_ref().borrow().cmp(&other.dag_node)
+    self.dag_node.as_ref().borrow().cmp(other.dag_node.as_ref())
   }
 }
 

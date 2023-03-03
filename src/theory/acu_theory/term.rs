@@ -13,7 +13,7 @@ use crate::theory::Symbol;
 use crate::theory::{Term, RcTerm, Flags};
 
 // A "Pair" struct
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct ACUTermRecord {
   term                      : RcTerm,
   multiplicity              : u32,
@@ -46,7 +46,7 @@ impl Term for ACUTerm {
 
   // Returns zero if the terms are the same.
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {
-    match other.as_any().downcast_ref::<ACUTerm>() {
+    match &(*other).as_any().downcast_ref::<ACUTerm>() {
       Some(acu_term) => {
         // Fail fast if lengths differ.
         let r = self.args.len() - acu_term.args.len();

@@ -58,9 +58,9 @@ pub trait Term {
   }
 
   fn compare_dag_arguments(&self, other: &dyn DagNode) -> Ordering;
-
+  
   fn partial_compare(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
-    if !self.stable() {
+    if !self.is_stable() {
       // Only used for `VariableTerm`
       return self.partial_compare_unstable(partial_substitution, other);
     }

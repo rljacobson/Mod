@@ -8,6 +8,7 @@ use std::any::Any;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
+use reffers::rc1::{Strong, Weak};
 use dyn_clone::clone_trait_object;
 
 use crate::{
@@ -52,22 +53,22 @@ impl DagNodeFlag {
 pub struct DagNodeFlags(u32);
 impl DagNodeFlags{
   fn  is_reduced(&self) -> bool {
-    (self & DagNodeFlag::Reduced) != 0
+    (self.0 & DagNodeFlag::Reduced as u32) != 0
   }
   fn  is_copied(&self) -> bool {
-    (self & DagNodeFlag::Copied) != 0
+    (self.0 & DagNodeFlag::Copied as u32) != 0
   }
   fn  is_unrewritable(&self) -> bool {
-    (self & DagNodeFlag::Unrewritable) != 0
+    (self.0 & DagNodeFlag::Unrewritable as u32) != 0
   }
   fn  is_unstackable(&self) -> bool {
-    (self & DagNodeFlag::Unstackable) != 0
+    (self.0 & DagNodeFlag::Unstackable as u32) != 0
   }
   fn  is_ground(&self) -> bool {
-    (self & DagNodeFlag::Ground) != 0
+    (self.0 & DagNodeFlag::Ground as u32) != 0
   }
   fn  is_hash_valid(&self) -> bool {
-    (self & DagNodeFlag::HashValid) != 0
+    (self.0 & DagNodeFlag::HashValid as u32) != 0
   }
 }
 
@@ -77,7 +78,7 @@ pub trait DagNode {
   fn symbol(&self)         -> &dyn Symbol;
   fn symbol_mut(&mut self) -> &mut dyn Symbol;
 
-  /// Returns an iterator over `(DagNode, u32)` pairs for the arguments.
+  /// Returns an iterator over `(RcDagNode, u32)` pairs for the arguments.
   fn iter_args(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>> ;
 
   /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
@@ -100,24 +101,26 @@ pub trait DagNode {
     self.get_sort().get_ref().leq(sort)
   }
 
-  fn set_sort_index(&mut self, sort_index: u32);
+  fn set_sort_index(&mut self, sort_index: i32);
   fn get_sort_index(&self) -> i32;
 
+  fn compute_base_sort(&self) -> i32;
+
   fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) {
-    if self.get_sort() != SpecialSort::Unknown {
-      return (self.leq_sort(bound_sort.as_ref()).into(), None);
+    if *self.get_sort().get_ref().as_ref() != SpecialSort::Unknown {
+      return (self.leq_sort(bound_sort.get_ref().as_ref()).into(), None);
     }
 
     self.symbol_mut().compute_base_sort(self);
-    if self.leq_sort(bound_sort.as_ref()) {
+    if self.leq_sort(bound_sort.get_ref().as_ref()) {
       if !self.symbol().sort_constraint_free() {
-        self.set_sort_index( SpecialSort::Unknown.into() );
+        self.set_sort_index( SpecialSort::Unknown as i32 );
       }
     } else {
       if self.symbol().sort_constraint_free() {
         return (Outcome::Failure, None);
       }
-      self.set_sort_index( SpecialSort::Unknown.into() );
+      self.set_sort_index( SpecialSort::Unknown as i32 );
       // Todo: Implement `SortCheckSubproblem`.
       // let returned_subproblem = SortCheckSubproblem::new(this, bound_sort);
       // return (Outcome::Success, Some(returned_subproblem))
@@ -127,7 +130,7 @@ pub trait DagNode {
   }
 
   /// The number of arguments.
-  fn len(&self) -> u32;
+  fn len(&self) -> usize;
 
   fn as_any(&self) -> &dyn Any;
 
@@ -135,28 +138,28 @@ pub trait DagNode {
 
   // region Flag Manipulation
   fn  is_reduced(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::Reduced) != 0
+    (self.flags().0 & DagNodeFlag::Reduced as u32) != 0
   }
   fn  is_copied(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::Copied) != 0
+    (self.flags().0 as u32 & DagNodeFlag::Copied as u32) != 0
   }
   fn  is_unrewritable(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::Unrewritable) != 0
+    (self.flags().0 as u32 & DagNodeFlag::Unrewritable as u32) != 0
   }
   fn  is_unstackable(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::Unstackable) != 0
+    (self.flags().0 as u32 & DagNodeFlag::Unstackable as u32) != 0
   }
   fn  is_ground(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::Ground) != 0
+    (self.flags().0 as u32 & DagNodeFlag::Ground as u32) != 0
   }
   fn  is_hash_valid(&self) -> bool {
-    (self.flags() as u32 & DagNodeFlag::HashValid) != 0
+    (self.flags().0 as u32 & DagNodeFlag::HashValid as u32) != 0
   }
   // endregion
 
 }
 
-clone_trait_object!(DagNode);
+// clone_trait_object!(DagNode);
 
 impl Eq for dyn DagNode {}
 
@@ -175,6 +178,6 @@ impl PartialOrd for dyn DagNode {
 
 impl Ord for dyn DagNode {
   fn cmp(&self, other: &dyn DagNode) -> std::cmp::Ordering {
-    self.symbol().cmp(&other.symbol())
+    self.symbol().cmp(other.symbol())
   }
 }

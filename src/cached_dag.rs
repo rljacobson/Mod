@@ -6,6 +6,7 @@ When a DAG is created for a `Term`, it is cached in a `CachedDag`. Likewise for 
 
 use crate::theory::{RcDagNode, RcTerm};
 
+#[derive(Clone)]
 pub struct CachedDag{
   pub(crate) term: Option<RcTerm>,
   pub(crate) dag_node: Option<RcDagNode>,

@@ -22,7 +22,7 @@ use crate::{
     DagNode,
     DagPair,
     Term,
-    Symbol
+    Symbol, dag_node::DagNodeFlags
   },
   ordering_value::{
     OrderingValue,
@@ -39,7 +39,7 @@ use super::{
 
 pub type RcACUDagNode = Rc<ACUDagNode>;
 
-
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum NormalizationStatus {
   ///	Default: no guarantees.
   Fresh,
@@ -54,7 +54,6 @@ pub enum NormalizationStatus {
   Tree
 }
 
-#[derive(Clone)]
 pub enum ACUArguments {
   List(Vec<DagPair>),
   Tree(RedBlackTree)
@@ -79,7 +78,7 @@ impl ACUArguments {
 
       ACUArguments::List(v) => {
         v.binary_search_by(
-          |pair| pair.dag_node.compare(term) // Supposed to be term.compare?
+          |pair| term.compare_dag_node(pair.dag_node.as_ref())  // Supposed to be term.compare_dag_node? or pair.dag_node.compare?
       ).map(
         |idx| v[idx].multiplicity
       ).ok()
@@ -105,11 +104,12 @@ impl ACUArguments {
 
 }
 
-#[derive(Clone)]
+
 pub struct ACUDagNode {
   pub(crate) top_symbol: RcACUSymbol,
   pub(crate) args      : ACUArguments,
   pub(crate) sort      : RcSort,
+  pub(crate) flags      : DagNodeFlags,
   pub(crate) is_reduced: bool,
   pub(crate) sort_index: i32,
   pub(crate) normalization_status: NormalizationStatus,
@@ -328,11 +328,11 @@ impl DagNode for ACUDagNode {
 
   // Todo: Is this needed?
   fn symbol_mut(&mut self) -> &mut dyn Symbol {
-    self.top_symbol.borrow_mut()
+    Rc::get_mut(&mut self.top_symbol).unwrap()   //.borrow_mut()
   }
 
-  fn iter_args(&self) -> Box<dyn Iterator<Item=(&dyn DagNode, u32)>> {
-    self.args.iter()
+  fn iter_args(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>> {
+    Box::new(self.args.iter()) 
   }
 
   fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {
@@ -382,6 +382,14 @@ impl DagNode for ACUDagNode {
   fn as_any(&self) -> &dyn Any{
     self
   }
+
+fn compute_base_sort(&self) -> u32 {
+        todo!()
+    }
+
+fn flags(&self) -> DagNodeFlags {
+        self.flags
+    }
 }
 
 
