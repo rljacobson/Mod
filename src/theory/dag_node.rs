@@ -24,7 +24,6 @@ pub type BcDagNode = Box<dyn DagNode>;
 // some reason.
 pub type RcDagNode = Rc<dyn DagNode>;
 
-/// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 #[derive(Clone)]
 pub struct DagPair {
   pub(crate) dag_node    : RcDagNode,
@@ -163,12 +162,11 @@ pub trait DagNode {
 
 impl Eq for dyn DagNode {}
 
-impl PartialEq for dyn DagNode {
+impl PartialEq<Self> for dyn DagNode {
   fn eq(&self, other: &dyn DagNode) -> bool {
     self.symbol().eq(other.symbol())
   }
 }
-
 
 impl PartialOrd for dyn DagNode {
   fn partial_cmp(&self, other: &dyn DagNode) -> Option<Ordering> {
@@ -179,5 +177,12 @@ impl PartialOrd for dyn DagNode {
 impl Ord for dyn DagNode {
   fn cmp(&self, other: &dyn DagNode) -> std::cmp::Ordering {
     self.symbol().cmp(other.symbol())
+  }
+}
+
+
+impl PartialEq<dyn Symbol> for dyn DagNode {
+  fn eq(&self, other: &dyn Symbol) -> bool {
+    self.symbol().eq(other)
   }
 }

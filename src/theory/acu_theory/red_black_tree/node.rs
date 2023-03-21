@@ -3,10 +3,9 @@
 
 
  */
-use std::borrow::Borrow;
+use std::{borrow::Borrow, cell::RefCell};
 use std::cmp::Ordering;
 
-use intrusive_collections::RBTreeLink;
 
 use crate::theory::dag_node::{RcDagNode, DagNode};
 
@@ -22,10 +21,9 @@ pub enum RedBlackNodeFlags {
 #[derive(Clone)]
 pub struct RedBlackNode {
   pub dag_node        : RcDagNode,
-  pub multiplicity    : u32,
+  pub multiplicity    : RefCell<u32>,
   // pub max_multiplicity: u32,
-  pub link            : RBTreeLink,
-  pub flags            : u8
+  pub flags            : RefCell<u8>
 }
 
 impl RedBlackNode {
@@ -33,10 +31,9 @@ impl RedBlackNode {
   pub fn new(dag_node: RcDagNode, multiplicity: u32) -> Self {
     RedBlackNode{
       dag_node,
-      multiplicity,
+      multiplicity: RefCell::new(multiplicity),
       // max_multiplicity: 0,
-      link: RBTreeLink::default(),
-      flags: 0
+      flags: RefCell::new(0)
     }
   }
 /*
@@ -75,7 +72,7 @@ impl Eq for RedBlackNode{}
 
 impl PartialEq<Self> for RedBlackNode {
   fn eq(&self, other: &Self) -> bool {
-    self.dag_node.as_ref().borrow().eq(other.dag_node.as_ref())
+    self.dag_node.as_ref().eq(other.dag_node.as_ref())
   }
 }
 
@@ -87,7 +84,13 @@ impl PartialOrd for RedBlackNode {
 
 impl Ord for RedBlackNode {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.dag_node.as_ref().borrow().cmp(other.dag_node.as_ref())
+    self.dag_node.as_ref().cmp(other.dag_node.as_ref())
   }
 }
 
+impl PartialEq<i32> for RedBlackNode {
+  fn eq(&self, other: &i32) -> bool {
+    // self.dag_node.as_ref().borrow().
+    self.dag_node.get_sort_index().eq(other)
+  }
+}
