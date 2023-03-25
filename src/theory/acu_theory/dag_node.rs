@@ -11,6 +11,8 @@ use std::{
   rc::Rc
 };
 
+use reffers::rc::Strong;
+
 use crate::{
   sort::{
     SpecialSort,
@@ -22,12 +24,14 @@ use crate::{
     DagNode,
     DagPair,
     Term,
-    Symbol, dag_node::DagNodeFlags
+    Symbol,
+    BinarySymbol,
+    dag_node::{DagNodeFlags, DagNodeFlag}
   },
   ordering_value::{
     OrderingValue,
     numeric_ordering
-  }
+  }, Sort
 };
 
 use super::{
@@ -86,7 +90,7 @@ impl ACUArguments {
 
       ACUArguments::Tree(t) => {
         // find_term(..) returns `None` if nothing is found, so unwrapping the result of cursor.get never panics.
-        t.find_term(term).map(|c| c.get().unwrap().borrow().multiplicity)
+        t.find_term(term).map(|c| *c.multiplicity.borrow())
       }
     }
   }
@@ -97,7 +101,7 @@ impl ACUArguments {
         Box::new(v.iter().map(|pair| (pair.dag_node.clone(), pair.multiplicity)))
       },
       ACUArguments::Tree(t) => {
-        Box::new(t.iter().cloned())
+        Box::new(t.iter().map(|(dn, m)| (dn.clone(), m) ))
       }
     }
   }
@@ -115,22 +119,34 @@ pub struct ACUDagNode {
   pub(crate) normalization_status: NormalizationStatus,
 }
 
+
+
 impl ACUDagNode {
 
-  pub fn new(symbol: RcACUSymbol, size: isize, normalization_status: NormalizationStatus) -> Self {
+  pub const ASSIGNMENT: NormalizationStatus = NormalizationStatus::Assignment;
+
+  pub fn new(symbol: RcACUSymbol, size: usize, normalization_status: NormalizationStatus) -> Self {
     ACUDagNode {
       top_symbol: symbol,
       args: ACUArguments::List(Vec::with_capacity(size)),
       normalization_status,
-      ..ACUDagNode::default()
+      sort: Strong::new(Sort::default()),
+      flags: DagNodeFlag::Reduced.into(),
+      is_reduced: true,
+      sort_index: 0,
+
     }
   }
 
-  pub fn new_tree(symbol: RcACUSymbol, tree: RcRedBlackTree) -> Self {
+  pub fn new_tree(symbol: RcACUSymbol, tree: RedBlackTree) -> Self {
     ACUDagNode {
       top_symbol: symbol,
       args: ACUArguments::Tree(tree),
-      ..ACUDagNode::default()
+      sort: Strong::new(Sort::default()),
+      flags: DagNodeFlag::Reduced.into(),
+      is_reduced: true,
+      sort_index: 0,
+      normalization_status: NormalizationStatus::Fresh,
     }
   }
 
@@ -146,10 +162,10 @@ impl ACUDagNode {
 
         for (dag_node, multiplicity) in self.args.iter() {
           let index = dag_node.get_sort_index();
-          assert!(index >= SpecialSort::ErrorSort);
+          assert!(index >= (SpecialSort::ErrorSort as i32));
           if index != last_index {
             if index >= uni_sort {
-              return SpecialSort::ErrorSort
+              return SpecialSort::ErrorSort as i32;
             }
             last_index = index;
           }
@@ -164,7 +180,7 @@ impl ACUDagNode {
     let mut sort_index = {
       let (dag_node, multiplicity) = arg_iter.next().unwrap();
       let index = dag_node.get_sort_index();
-      assert!(index >= SpecialSort::ErrorSort);
+      assert!(index >= SpecialSort::ErrorSort as i32);
       // The first case subtracts 1 from node.multiplicity.
       // Todo: Implement `Symbol::compute_multisort_index(..)`
       s.compute_multisort_index(index, index, multiplicity - 1)
@@ -172,7 +188,7 @@ impl ACUDagNode {
     // Now do the remaining args.
     for (dag_node, multiplicity) in arg_iter {
       let index = dag_node.get_sort_index();
-      assert!(index >= SpecialSort::ErrorSort);
+      assert!(index >= SpecialSort::ErrorSort as i32);
       sort_index = s.compute_multisort_index(index, index, multiplicity);
     }
 
@@ -183,7 +199,7 @@ impl ACUDagNode {
   ///	In the latter case ~pos is the index of the smallest element greater
   ///	than key, and can be argArray.length() if key is greater than all elements
   ///	in the array.
-  pub fn binary_search_by_term(&self, key: &dyn Term) -> Option<usize> {
+  pub fn binary_search_by_term(&self, key: &dyn Term) -> isize {
     // The Maude source seems to suggest that this method is only called when the args is a vector.
     if let ACUArguments::List(args) = &self.args {
 
@@ -197,7 +213,7 @@ impl ACUDagNode {
         let r =  key.compare_dag_node(args[probe].dag_node.as_ref());
         match r {
           Ordering::Equal => {
-            return Some(probe);
+            return probe as isize;
           }
           Ordering::Less => {
             upper = probe - 1;
@@ -211,10 +227,51 @@ impl ACUDagNode {
           break;
         }
       }
+      return !(lower as isize);
     } else {
       panic!("Error: binary_search_by_term called on an ACUDagNode with tree args. This is a bug.");
     }
-    None
+  }
+
+
+  ///	Returns index of argument equal key, or a -ve value pos otherwise.
+  ///	In the latter case ~pos is the index of the smallest element greater
+  ///	than key, and can be argArray.length() if key is greater than all elements
+  ///	in the array.
+  pub fn binary_search_by_dagnode(&self, key: &dyn DagNode) -> isize {
+    // Todo: This method is identical to `binary_search_by_term` except for the type of `key`.
+
+    // The Maude source seems to suggest that this method is only called when the args is a vector.
+    if let ACUArguments::List(args) = &self.args {
+
+      let mut upper = args.len();
+      let mut lower: usize = 0;
+
+      loop {
+        let sum = upper + lower;
+        let probe = sum/2;
+
+        let r =  key.compare(args[probe].dag_node.as_ref());
+        match r {
+          Ordering::Equal => {
+            return probe as isize;
+          }
+          Ordering::Less => {
+            upper = probe - 1;
+          }
+          Ordering::Greater => {
+            lower = probe + 1;
+          }
+        }
+
+        if lower > upper  {
+          break;
+        }
+      }
+      return !(lower as isize);
+    } else {
+      panic!("Error: binary_search_by_dagnode called on an ACUDagNode with tree args. This is a bug.");
+    }
   }
 
   /// Converts self.args into `ACUArguments::List(..)` if necessary. Conversion is done in place.
@@ -229,27 +286,27 @@ impl ACUDagNode {
     &mut self,
     target: &mut dyn DagNode,
     multiplicity: u32,
-    subject_multiplicity: &Vec<u32>
+    subject_multiplicity: &mut Vec<i32>
   ) -> bool
   {
-    if let Some(identity) = self.top_symbol.get_identity() {
-      if identity.equal(target) {
+    if let Some(identity) = self.top_symbol.as_ref().get_identity() {
+      if identity.compare_dag_node(target) == Ordering::Equal{
         return true;
       }
     }
-    if target.symbol() == self.top_symbol {
+    if target.symbol() == self.top_symbol.as_ref() as &dyn Symbol {
       // Since self.top_symbol is an ACUDagNode, so must be target.
       if let Some(acu_dag_node) = target.as_any().downcast_mut::<ACUDagNode>(){
         // Todo: Why do we vectorize here?
         acu_dag_node.to_list_arguments();
-        if let Some(ACUArguments::List(args)) = &target.args {
-          for DagPair{ dag_node: arg_dag_node, multiplicity: arg_multiplicity } in args {
-            let pos: usize = self.binary_search_by_term(arg_dag_node);
+        if let ACUDagNode{args: ACUArguments::List(args), ..} = acu_dag_node {
+          for (arg_dag_node, arg_multiplicity) in acu_dag_node.iter_args() {
+            let pos = self.binary_search_by_dagnode(arg_dag_node.as_ref());
             if pos < 0 {
               return false;
             }
-            subject_multiplicity[pos] -= arg_multiplicity*multiplicity;
-            if subject_multiplicity[pos] < 0 {
+            subject_multiplicity[pos as usize] -= (arg_multiplicity * multiplicity) as i32;
+            if subject_multiplicity[pos as usize] < 0 {
               return false;
             }
           } // end iter over arg pairs
@@ -265,12 +322,12 @@ impl ACUDagNode {
 
     } // end if self.top_symbol == target.top_symbol
     else {
-      let pos = self.binary_search(target);
+      let pos = self.binary_search_by_dagnode(target);
       if pos < 0 {
         return false;
       }
-      subject_multiplicity[pos] -= multiplicity;
-      if subject_multiplicity[pos] < 0 {
+      subject_multiplicity[pos as usize] -= multiplicity as i32;
+      if subject_multiplicity[pos as usize] < 0 {
         return false;
       }
     }
@@ -332,26 +389,26 @@ impl DagNode for ACUDagNode {
   }
 
   fn iter_args(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>> {
-    Box::new(self.args.iter()) 
+    Box::new(self.args.iter())
   }
 
   fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {
     match other.as_any().downcast_ref::<ACUDagNode>() {
       Some(acu_dag_node) => {
         // Fail fast if lengths differ.
-        let r = self.args.len() - acu_dag_node.len();
+        let r: i32 = self.args.len() as i32 - acu_dag_node.len() as i32;
         if r != 0 {
-          return numeric_ordering(r.into());
+          return numeric_ordering(r as usize);
         }
         // Compare corresponding terms.
         for ((this_child, this_multiplicity), (other_child, other_multiplicity))
-            in self.iter().zip(acu_dag_node.iter()) {
-          let r = this_multiplicity - other_multiplicity;
-          if r!= 0 {
-            return numeric_ordering(r.into());
+            in self.iter_args().zip(acu_dag_node.iter_args()) {
+          let r: i32 = this_multiplicity as i32 - other_multiplicity as i32;
+          if r != 0 {
+            return numeric_ordering(r as usize);
           }
 
-          let r = this_child.compare(other_child);
+          let r = this_child.compare(other_child.as_ref());
           if r != Ordering::Equal {
             return r;
           }
@@ -371,7 +428,7 @@ impl DagNode for ACUDagNode {
     self.sort_index = sort_index;
   }
 
-  fn get_sort_index(&mut self) -> i32 {
+  fn get_sort_index(&self) -> i32 {
     self.sort_index
   }
 
@@ -383,7 +440,7 @@ impl DagNode for ACUDagNode {
     self
   }
 
-fn compute_base_sort(&self) -> u32 {
+fn compute_base_sort(&self) -> i32 {
         todo!()
     }
 

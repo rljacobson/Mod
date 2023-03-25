@@ -5,7 +5,10 @@ ACU term
 */
 
 
+
 use std::cmp::Ordering;
+use std::any::Any;
+
 use crate::ordering_value::numeric_ordering;
 use crate::theory::acu_theory::ACUDagNode;
 use crate::theory::DagNode;
@@ -46,7 +49,8 @@ impl Term for ACUTerm {
 
   // Returns zero if the terms are the same.
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {
-    match &(*other).as_any().downcast_ref::<ACUTerm>() {
+    match other.downcast_ref::<ACUTerm>() {
+
       Some(acu_term) => {
         // Fail fast if lengths differ.
         let r = self.args.len() - acu_term.args.len();
@@ -71,6 +75,7 @@ impl Term for ACUTerm {
         // Identical
         return Ordering::Equal;
       },
+
       None => panic!("Could not downcast a Term to an ACUTerm."),
     };
   }

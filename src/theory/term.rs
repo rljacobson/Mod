@@ -5,10 +5,13 @@
 
 use std::{
   cmp::Ordering,
-  rc::Rc
+  rc::Rc, any::Any
 };
 
-use dyn_clone::clone_trait_object;
+use dyn_clone::{
+  clone_trait_object,
+  DynClone
+};
 
 use crate::{
   theory::{
@@ -40,13 +43,13 @@ pub(crate) enum Flags {
 }
 
 
-pub trait Term {
+pub trait Term: Any {
   /// Gives the top symbol of this term.
   fn symbol(&self) -> &dyn Symbol;
 
   /// Is the term stable?
   fn is_stable(&self) -> bool;
-
+  
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
 
   fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
@@ -58,7 +61,7 @@ pub trait Term {
   }
 
   fn compare_dag_arguments(&self, other: &dyn DagNode) -> Ordering;
-  
+
   fn partial_compare(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
     if !self.is_stable() {
       // Only used for `VariableTerm`
@@ -91,7 +94,8 @@ pub trait Term {
 
 }
 
-clone_trait_object!(Term);
+// DynClone is implemented for implementing types.
+// clone_trait_object!(Term);
 
 /*
 Implementers:

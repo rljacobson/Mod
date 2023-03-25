@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 
 use reffers::rc1::{Strong, Weak};
-use dyn_clone::clone_trait_object;
+use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::{
   Sort,
@@ -51,6 +51,13 @@ impl DagNodeFlag {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct DagNodeFlags(u32);
+
+impl From<DagNodeFlag> for DagNodeFlags {
+    fn from(value: DagNodeFlag) -> Self {
+        Self(value as u32)
+    }
+}
+
 impl DagNodeFlags{
   fn  is_reduced(&self) -> bool {
     (self.0 & DagNodeFlag::Reduced as u32) != 0
