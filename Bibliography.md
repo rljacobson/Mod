@@ -6,7 +6,6 @@ S. Eker. [_Associative matching for linear terms_](https://ir.cwi.nl/pub/5425/54
 
 S. M. Eker, [_Associative-commutative matching via bipartite graph matching_](https://academic.oup.com/comjnl/article-pdf/38/5/381/1235222/380381.pdf), The Computer Journal, Volume 38, Issue 5, 1995, Pages 381–399, https://doi.org/10.1093/comjnl/38.5.381
 
-
 S. Eker, [_Fast matching in combinations of regular equational theories_](https://www.sciencedirect.com/science/article/pii/S1571066104000350/pdfft?isDTMRedir=true&download=true), Electronic Notes in Theoretical Computer
   Science, 1996,
   vol. 4, p. 90-109, ISSN 1571-0661, https://doi.org/10.1016/S1571-0661(04)00035-0.

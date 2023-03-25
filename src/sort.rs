@@ -47,7 +47,7 @@ impl Sort {
   /// The idea is that it's faster to avoid calling self.leq_sorts.contains(),
   /// but only returns the correctresult if (fastTest - 1) <= NatSet::smallIntBound.
   // Todo: This probably does not give a speed advantage. Benchmark.
-  pub fn fast_geq(&self, index: u32) -> bool {
+  pub fn fast_geq(&self, index: i32) -> bool {
     if index >= self.fast_test {
       true
     } else {
@@ -59,7 +59,7 @@ impl Sort {
   pub fn fast_geq_sufficient(&self) {
     // We assume a usize, which is 64 bits on most workstations.
     // Todo: This is another reason to get rid of this optimization. Creates platform dependence.
-    (self.fast_test - 1) <= 8*size_of::<usize>() as u32; //NatSet::smallIntBound
+    (self.fast_test - 1) <= 8*size_of::<usize>() as i32; //NatSet::smallIntBound
   }
 
   /// Computes self <= other.
@@ -78,7 +78,7 @@ impl Display for Sort {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
     // If let Some(c) = &self.sort_component
     let c = self.sort_component.get_ref();
-    if self.sort_index == SpecialSort::Kind as u32 {
+    if self.sort_index == SpecialSort::Kind as i32 {
       let sort_list = (1..c.maximal_sorts_count).map(
                 |idx| c.sort(idx as usize).get_ref().to_string()
               ).collect::<Vec<String>>().join(", ");
