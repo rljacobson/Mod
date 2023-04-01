@@ -16,12 +16,12 @@ Traits that the components of theory must implement.
 
 
 mod symbol;
-// mod acu_theory;
 mod dag_node;
 mod term;
 mod subproblem;
 mod free_theory;
 // mod associative_symbol;
+// mod acu_theory;
 
 pub(crate) use crate::{
   theory::{

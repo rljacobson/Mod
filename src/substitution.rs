@@ -43,13 +43,13 @@ impl Substitution {
     self.bindings.resize(size, None);
   }
 
-  pub fn value(&self, index: u32)  -> MaybeDagNode {
-    self.get(index as usize)
+  pub fn value(&self, index: i32)  -> MaybeDagNode {
+    self.get(index)
   }
 
-  
+
   // Todo: Is this the best way to implement a getter? I think we did it this way so it returned a value.
-  pub fn get(&self, index: usize) -> MaybeDagNode {
+  pub fn get(&self, index: i32) -> MaybeDagNode {
     if (index as usize) < self.bindings.len() {
       unsafe{
         (*self.bindings.get_unchecked(index as usize)).clone()
@@ -76,7 +76,7 @@ impl Substitution {
       assert!(j.is_none() || i==j, "substitution inconsistency at index {}", idx);
       if let (Some(a), Some(b)) = (i, j) {
         if a != b {
-          local_bindings.add_binding(idx as u32, (*a).clone());
+          local_bindings.add_binding(idx as i32, (*a).clone());
         }
       }
     }
@@ -88,7 +88,7 @@ impl Substitution {
     }
   }
 
-
+ /*
   pub fn assert(&self, solution: &Substitution) {
     // Todo: Implement assert
   }
@@ -97,9 +97,9 @@ impl Substitution {
   pub fn retract(&self, solution: &Substitution) {
     // Todo: Implement retract
   }
+ */
 
-
-  pub fn bind(&mut self, index: u32, maybe_value: Option<RcDagNode>) {
+  pub fn bind(&mut self, index: i32, maybe_value: Option<RcDagNode>) {
     assert!(index >= 0, "Negative index {}", index);
     assert!((index as usize) < self.bindings.len(), "Index too big {} vs {}", index, self.bindings.len());
 

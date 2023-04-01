@@ -65,7 +65,7 @@ pub trait Subproblem {
 
 pub struct VariableAbstractionSubproblem {
   pub abstracted_pattern  : Box<dyn LhsAutomaton>,
-  pub abstraction_variable: u32,
+  pub abstraction_variable: i32,
   pub variable_count      : u32,
   pub difference          : Option<LocalBindings>,
   pub subproblem          : Option<Box<dyn Subproblem>>,
@@ -74,7 +74,7 @@ pub struct VariableAbstractionSubproblem {
 }
 
 impl VariableAbstractionSubproblem {
-  pub fn new(abstracted_pattern: Box<dyn LhsAutomaton>, abstraction_variable: u32, variable_count: u32) -> Self {
+  pub fn new(abstracted_pattern: Box<dyn LhsAutomaton>, abstraction_variable: i32, variable_count: u32) -> Self {
     VariableAbstractionSubproblem {
       abstracted_pattern,
       abstraction_variable,
@@ -91,7 +91,7 @@ impl VariableAbstractionSubproblem {
 impl Subproblem for VariableAbstractionSubproblem {
   fn solve(
     &mut self,
-    mut find_first: bool,
+    find_first: bool,
     context     : &mut RewritingContext
   ) -> bool {
     if find_first {
@@ -177,16 +177,16 @@ impl SubproblemSequence {
 impl Subproblem for SubproblemSequence {
   fn solve(&mut self, mut find_first: bool, context: &mut RewritingContext) -> bool {
     let len = self.sequence.len();
-    let mut i = match find_first {
-      true => 0,
-      false => len - 1
+    let mut i: isize = match find_first {
+      true => 0isize,
+      false => len as isize - 1
     };
-
+    
     loop {
-      find_first = self.sequence[i].solve(find_first, context);
+      find_first = self.sequence[i as usize].solve(find_first, context);
       if find_first {
         i += 1;
-        if i == len { break; }
+        if i == len as isize { break; }
       } else {
         i -= 1;
         if i < 0 { break; }

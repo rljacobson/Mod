@@ -12,7 +12,7 @@ use crate::{theory::RcDagNode, Substitution};
 
 pub struct Binding {
   active        : bool,
-  variable_index: u32,
+  variable_index: i32,
   value         : RcDagNode,
 }
 
@@ -26,7 +26,7 @@ impl LocalBindings {
     Self::default()
   }
 
-  pub fn add_binding(&mut self, index: u32, value: RcDagNode) {
+  pub fn add_binding(&mut self, index: i32, value: RcDagNode) {
     self.bindings.push(
       Binding{
         active: false,

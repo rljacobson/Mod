@@ -31,8 +31,8 @@ impl From<Ordering> for OrderingValue {
   }
 }
 
-impl From<u32> for OrderingValue {
-  fn from(value: u32) -> Self {
+impl From<i32> for OrderingValue {
+  fn from(value: i32) -> Self {
     if value > 0 {
       OrderingValue::Greater
     } else if value < 0 {
@@ -45,9 +45,9 @@ impl From<u32> for OrderingValue {
 
 #[inline(always)]
 pub fn numeric_ordering<T>(value: T) -> Ordering
-  where T: Into<usize>
+  where T: Into<isize>
 {
-  let value: usize = value.into();
+  let value: isize = value.into();
   if value > 0 {
     Ordering::Greater
   } else if value < 0 {
@@ -59,9 +59,9 @@ pub fn numeric_ordering<T>(value: T) -> Ordering
 
 #[inline(always)]
 pub fn numeric_ordering_value<T>(value: T) -> OrderingValue
-  where T: Into<usize>
+  where T: Into<isize>
 {
-  let value: usize = value.into();
+  let value: isize = value.into();
   if value > 0 {
     OrderingValue::Greater
   } else if value < 0 {

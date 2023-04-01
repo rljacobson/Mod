@@ -1,4 +1,7 @@
 #![feature(new_uninit)]
+#![allow(dead_code)]
+#![allow(non_snake_case)]
+
 extern crate core;
 
 mod theory;

@@ -57,10 +57,10 @@ impl Sort {
   }
 
   /// See `fast_geq(..)`.
-  pub fn fast_geq_sufficient(&self) {
+  pub fn fast_geq_sufficient(&self) -> bool {
     // We assume a usize, which is 64 bits on most workstations.
     // Todo: This is another reason to get rid of this optimization. Creates platform dependence.
-    (self.fast_test - 1) <= 8*size_of::<usize>() as i32; //NatSet::smallIntBound
+    (self.fast_test - 1) <= 8*size_of::<usize>() as i32 //NatSet::smallIntBound
   }
 
   /// Computes self <= other.
