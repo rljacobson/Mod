@@ -9,6 +9,7 @@ use std::mem::size_of;
 use reffers::rc1::{Strong, Weak};
 use crate::NatSet;
 
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
 pub enum SpecialSort
 {

@@ -39,7 +39,7 @@ impl ACUTerm {
 
 impl Term for ACUTerm {
   fn symbol(&self) -> &dyn Symbol {
-    self.top_symbol.as_ref()
+    Box::as_ref(&self.top_symbol)
   }
 
   fn is_stable(&self) -> bool {
@@ -49,24 +49,24 @@ impl Term for ACUTerm {
 
   // Returns zero if the terms are the same.
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {
-    match other.downcast_ref::<ACUTerm>() {
+    match other.as_any().downcast_ref::<ACUTerm>() {
 
       Some(acu_term) => {
         // Fail fast if lengths differ.
         let r = self.args.len() - acu_term.args.len();
         if r != 0 {
-          return numeric_ordering(r.into());
+          return numeric_ordering(r as usize);
         }
 
         // Equal
         // Compare corresponding terms.
         for (this_record, other_record) in self.args.iter().zip(acu_term.args.iter()) {
-          let r = this_record.multiplicity - other_record.multiplicity;
+          let r: u32 = this_record.multiplicity - other_record.multiplicity;
           if r != 0 {
-            return numeric_ordering(r.into());
+            return numeric_ordering(r as usize);
           }
 
-          let r = this_record.term.compare(other_record.term);
+          let r = this_record.term.compare(other_record.term.as_ref());
           if r != Ordering::Equal {
             return r;
           }
@@ -85,7 +85,7 @@ impl Term for ACUTerm {
     match other.as_any().downcast_ref::<ACUDagNode>() {
       Some(acu_dag_node) => {
         // Fail fast if lengths differ.
-        let r = self.args.len() - acu_dag_node.len();
+        let r: i32 = self.args.len() as i32 - acu_dag_node.len() as i32;
         if r < 0 {
           return Ordering::Less;
         } else if r > 0 {
@@ -93,15 +93,15 @@ impl Term for ACUTerm {
         }
         // Equal
         // Compare corresponding terms.
-        for (this_record, (other_dag_node, other_multiplicity)) in self.args.iter().zip(acu_dag_node.iter()) {
-          let r = this_record.multiplicity - other_multiplicity;
+        for (this_record, (other_dag_node, other_multiplicity)) in self.args.iter().zip(acu_dag_node.iter_args()) {
+          let r: i32 = this_record.multiplicity as i32 - other_multiplicity as i32;
           if r < 0 {
             return Ordering::Less;
           } else if r > 0 {
             return Ordering::Greater;
           }
 
-          let r = this_record.term.compare(other_dag_node);
+          let r = this_record.term.compare_dag_node(other_dag_node.as_ref());
           if r != Ordering::Equal {
             return r;
           }
@@ -114,5 +114,9 @@ impl Term for ACUTerm {
     };
   }
 
+
+  fn as_any(&self) -> &dyn Any {
+      self
+  }
 
 }

@@ -63,7 +63,8 @@ pub trait Symbol: DynClone {
 impl PartialOrd for dyn Symbol {
 
   fn partial_cmp(&self, other: &dyn Symbol) -> Option<Ordering> {
-    Some(self.cmp(other))
+    let result = self.get_hash_value().cmp(&other.get_hash_value());
+    Some(result)
   }
 }
 

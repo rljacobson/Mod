@@ -88,7 +88,7 @@ struct TopVariable {
   pub(crate) abstracted   : Option<Box<dyn LhsAutomaton>>, // automaton for abstracted term
 
   //	Data storage for match-time use
-  pub(crate) previous_unbound: u32,
+  pub(crate) previous_unbound: Option<u32>,
   first_subject   : u32,
   subject_count   : u32,
 }

@@ -91,7 +91,10 @@ pub trait DagNode {
   /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
   /// the arguments.
   fn compare(&self, other: &dyn DagNode) -> Ordering {
-    let symbol_order = self.cmp(other);
+    // let symbol_order = self.cmp(other);
+    let s = self.symbol();
+    let symbol_order = //Ord::cmp(s, other.symbol());
+      s.get_hash_value().cmp(&other.symbol().get_hash_value());
 
     match symbol_order {
       Ordering::Equal => self.compare_arguments(other),
@@ -113,12 +116,18 @@ pub trait DagNode {
 
   fn compute_base_sort(&self) -> i32;
 
-  fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) {
+  fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) where Self: Sized {
     if *self.get_sort().get_ref().as_ref() != SpecialSort::Unknown {
       return (self.leq_sort(bound_sort.get_ref().as_ref()).into(), None);
     }
 
-    self.symbol_mut().compute_base_sort(self);
+    // This is a weird code smell.
+    // self.symbol_mut().compute_base_sort(self);
+    // The ACUSymbol just turns around and calls `compute_base_sort` on the owning `DagNode`.
+    let sort_index = self.compute_base_sort();
+    self.set_sort_index(sort_index);
+
+
     if self.leq_sort(bound_sort.get_ref().as_ref()) {
       if !self.symbol().sort_constraint_free() {
         self.set_sort_index( SpecialSort::Unknown as i32 );
@@ -172,19 +181,21 @@ impl Eq for dyn DagNode {}
 
 impl PartialEq for dyn DagNode {
   fn eq(&self, other: &dyn DagNode) -> bool {
-    self.symbol().eq(other.symbol())
+    // self.symbol().eq(other.symbol())
+    self.symbol().get_hash_value() == other.symbol().get_hash_value()
   }
 }
 
 
 impl PartialOrd for dyn DagNode {
   fn partial_cmp(&self, other: &dyn DagNode) -> Option<Ordering> {
-    Some(self.cmp(other))
+    let result = self.symbol().get_hash_value().cmp(&other.symbol().get_hash_value());
+    Some(result)
   }
 }
 
 impl Ord for dyn DagNode {
   fn cmp(&self, other: &dyn DagNode) -> std::cmp::Ordering {
-    self.symbol().cmp(other.symbol())
+    self.symbol().get_hash_value().cmp(&other.symbol().get_hash_value())
   }
 }

@@ -284,19 +284,19 @@ impl ACUDagNode {
   /// Matches the subject or else proves that the subject cannot match.
   pub fn eliminate_subject(
     &mut self,
-    target: &mut dyn DagNode,
+    target: &dyn DagNode,
     multiplicity: u32,
     subject_multiplicity: &mut Vec<i32>
   ) -> bool
   {
-    if let Some(identity) = self.top_symbol.as_ref().get_identity() {
+    if let Some(identity) = Rc::as_ref(&self.top_symbol).get_identity() {
       if identity.compare_dag_node(target) == Ordering::Equal{
         return true;
       }
     }
-    if target.symbol() == self.top_symbol.as_ref() as &dyn Symbol {
+    if target.symbol() == Rc::as_ref(&self.top_symbol) as &dyn Symbol {
       // Since self.top_symbol is an ACUDagNode, so must be target.
-      if let Some(acu_dag_node) = target.as_any().downcast_mut::<ACUDagNode>(){
+      if let Some(acu_dag_node) = target.as_any().downcast_ref::<ACUDagNode>(){
         // Todo: Why do we vectorize here?
         acu_dag_node.to_list_arguments();
         if let ACUDagNode{args: ACUArguments::List(args), ..} = acu_dag_node {
@@ -380,7 +380,7 @@ impl ACUDagNode {
 
 impl DagNode for ACUDagNode {
   fn symbol(&self) -> &dyn Symbol {
-    self.top_symbol.as_ref()
+    Rc::as_ref(&self.top_symbol) as &dyn Symbol
   }
 
   // Todo: Is this needed?

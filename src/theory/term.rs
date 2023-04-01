@@ -49,11 +49,11 @@ pub trait Term: Any {
 
   /// Is the term stable?
   fn is_stable(&self) -> bool;
-  
+
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
 
   fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
-    if self.symbol() == other.symbol() {
+    if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
       self.compare_dag_arguments(other)
     } else {
       self.symbol().compare(other.symbol())
@@ -68,12 +68,12 @@ pub trait Term: Any {
       return self.partial_compare_unstable(partial_substitution, other);
     }
 
-    if self.symbol()  == other.symbol() {
+    if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
       // Only used for `FreeTerm`
       return self.partial_compare_arguments(partial_substitution, other);
     }
 
-    // Todo: Where is Equal case?
+
     if self.symbol().compare(other.symbol())  == Ordering::Less {
       OrderingValue::Less
     } else {
@@ -81,6 +81,16 @@ pub trait Term: Any {
     }
   }
 
+
+  fn compare(&self, other: &dyn Term) -> Ordering {
+    let r = self.symbol().compare(other.symbol());
+    if r == Ordering::Equal {
+      return self.compare_term_arguments(other);
+    }
+    return r;
+  }
+
+  fn as_any(&self) -> &dyn Any;
 
   /// Overridden in `VariableTerm`
   fn partial_compare_unstable(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {

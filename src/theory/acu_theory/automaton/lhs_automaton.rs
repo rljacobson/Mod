@@ -4,7 +4,9 @@ The automaton for the pattern (the LHS).
 
 */
 
-use std::cell::Cell;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::{cell::Cell, cmp::Ordering};
 use std::ops::DerefMut;
 use intrusive_collections::rbtree::CursorMut;
 use reffers::rc1::Strong;
@@ -24,7 +26,7 @@ use crate::{
       VariableAbstractionSubproblem
     },
     symbol::BinarySymbol,
-    DagPair
+    DagPair, MaybeSubproblem, acu_theory::subproblem
   },
   OrderingValue,
   Sort,
@@ -51,12 +53,10 @@ use super::super::{
   red_black_tree::{
     RedBlackTree,
     RcRedBlackTree,
-    RedBlackNode,
-    RBTreeAdapter
+    RedBlackNode
   },
   subproblem::{
-    ACULazySubproblem,
-    MaybeSubproblem
+    ACULazySubproblem
   },
   symbol::RcACUSymbol,
   ACUSubproblem
@@ -65,12 +65,12 @@ use super::super::{
 
 pub struct ACULHSAutomaton<'a> {
   max_pattern_multiplicity: u32,
-  current_multiplicity    : Vec<u32>,
+  current_multiplicity    : Vec<i32>,
   total_lower_bound       : u32,
   total_upper_bound       : u32,
   total_multiplicity      : u32,
   total_non_ground_aliens_multiplicity: u32,
-  last_unbound_variable   : u32,
+  last_unbound_variable   : Option<u32>,
   unbound_variable_count  : u32,
   independent_aliens_count: u32,
   ground_aliens           : Vec<GroundAlien<'a>>,
@@ -100,10 +100,19 @@ impl ACULHSAutomaton<'_> {
   /// match alien-only subterms.
   fn aliens_only_match(
     &mut self,
-    subject  : RcACUDagNode,
+    subject  : &mut ACUDagNode,
     solution : &mut Substitution,
   ) -> (bool, MaybeSubproblem)
   {
+    let subject_args = match &mut subject.args {
+      ACUArguments::List(v) => {
+        v
+      },
+      ACUArguments::Tree(_) => {
+        unreachable!("aliens_only_match called on a tree dagnode instead of a list dagnode. This is a bug.");
+      }
+    };
+
     let mut subproblems = SubproblemSequence::new();
 
     if self.independent_aliens_count > 0 {
@@ -117,7 +126,7 @@ impl ACULHSAutomaton<'_> {
         let non_ground_alien: NonGroundAlien = self.non_ground_aliens[i];
         let t: Option<&dyn Term> = non_ground_alien.term;
         let a: &dyn LhsAutomaton = non_ground_alien.lhs_automaton.as_ref();
-        let m: u32               = non_ground_alien.multiplicity;
+        let m: i32               = non_ground_alien.multiplicity as i32;
 
         let start_idx = if t.is_none() {
           0
@@ -125,10 +134,10 @@ impl ACULHSAutomaton<'_> {
           subject.find_first_potential_match(t.unwrap(), solution) as usize
         };
 
-        for j in start_idx..subject.args.len() {
-          let d = subject.args[j].dag_node;
+        for j in start_idx..subject_args.len() {
+          let d = subject_args[j].dag_node;
 
-          if t.is_some() && t.unwrap().partial_compare(solution, d) == OrderingValue::Less {
+          if t.is_some() && t.unwrap().partial_compare(solution, d.as_ref()) == OrderingValue::Less {
             break;
           }
           if self.current_multiplicity[j] >= m {
@@ -136,7 +145,9 @@ impl ACULHSAutomaton<'_> {
             if succeeded {
               *solution = self.local.clone();
               self.current_multiplicity[j] -= m;
-              subproblems.add(sp);
+              if let Some(subproblem) = sp{
+                subproblems.add(subproblem);
+              }
               break 'nextIndependentAlien;
             }
 
@@ -149,7 +160,7 @@ impl ACULHSAutomaton<'_> {
       }
     }
 
-    if self.non_ground_aliens.len() > self.independent_aliens_count {
+    if self.non_ground_aliens.len() > self.independent_aliens_count as usize {
       // Need to build bipartite graph for remaining aliens as usual.
       // TODO: Implement build_bipartite_graph
       let maybe_subproblem: Option<ACUSubproblem> = self.build_bipartite_graph(subject, solution, 0, self.independent_aliens_count, subproblems);
@@ -216,7 +227,7 @@ impl ACULHSAutomaton<'_> {
     if self.max_pattern_multiplicity  > 1 {
       //	Because failure here is common we check this first.
       let mut ok = false;
-      for (_, multiplicity) in subject.iter() {
+      for (_, multiplicity) in subject.iter_args() {
         if multiplicity >= self.max_pattern_multiplicity {
           ok = true;
           break;
@@ -230,8 +241,8 @@ impl ACULHSAutomaton<'_> {
     // ok:
     self.current_multiplicity.resize(subject.len(), 0);
     let mut total_subject_multiplicity = 0;
-    for (idx, (_, multiplicity)) in subject.iter().enumerate() {
-      self.current_multiplicity[idx] = multiplicity;
+    for (idx, (_, multiplicity)) in subject.iter_args().enumerate() {
+      self.current_multiplicity[idx] = multiplicity as i32;
       total_subject_multiplicity += multiplicity;
 
     }
@@ -253,12 +264,12 @@ impl ACULHSAutomaton<'_> {
       // if self.current_multiplicity.is_empty() {
       //   return false;
       // }
-      let pos = subject.binary_search_by_term(alien.term.as_ref());
+      let pos = subject.binary_search_by_term(alien.term);
       if pos < 0 {
         return false;
       }
-      self.current_multiplicity[pos] -= alien.multiplicity;
-      if self.current_multiplicity[pos] < 0 {
+      self.current_multiplicity[pos as usize] -= alien.multiplicity as i32;
+      if self.current_multiplicity[pos as usize] < 0 {
         return false;
       }
     }
@@ -271,31 +282,31 @@ impl ACULHSAutomaton<'_> {
     self.unbound_variable_count = 0;
     for i in self.top_variables.iter() {
       if let Some(d) = solution.value(i.index){
-        if d.symbol() == self.top_symbol {
+        if d.symbol() == self.top_symbol.as_ref() as &dyn Symbol {
           return Outcome::Undecided /* UNDECIDED */;
         }
 
         match self.top_symbol.get_identity() {
           None => {
-            if self.current.size == 0 {
+            if self.current.get_ref().size == 0 {
               return Outcome::Failure /* false */;
             }
           }
 
-          Some(identity) if !identity.get_ref().eq(&d.get_ref()) => {
+          Some(identity) if identity.as_ref().compare_dag_node(d.as_ref())!=Ordering::Equal => {
             // Identical to `None` case
-            if self.current.size == 0 {
+            if self.current.get_ref().size == 0 {
               return Outcome::Failure /* false */;
             }
 
-            if let Some(mut j) = self.current.find_term_mut(d.as_ref()) {
+            if let Some(mut j) = self.current.get_ref().find_mut(d.as_ref()) {
               let multiplicity = i.multiplicity;
 
-              if j.get().unwrap().multiplicity < multiplicity {
+              if *j.multiplicity.borrow() < multiplicity {
                 return Outcome::Failure /* false */;
               }
 
-              self.current.delete_multiplicity_at_cursor(&mut j, multiplicity);
+              (*self.current.get_refmut()).delete_multiplicity(j.dag_node.as_ref(), multiplicity);
               // Todo: Should this go into `delete_multiplicity_at_cursor()` ?
               self.matched_multiplicity += multiplicity;
             } else {
@@ -327,14 +338,14 @@ impl ACULHSAutomaton<'_> {
   ) -> bool
   {
     let top_variables_count = self.top_variables.len();
-    self.last_unbound_variable = -1; // NONE
+    self.last_unbound_variable = None;
     for i in 0..top_variables_count {
-      if let Some(d) = solution.get_mut(self.top_variables[i].index as usize){
+      if let Some(d) = solution.get(self.top_variables[i].index as usize){
         if !(
               subject.eliminate_subject(
-                d,
+                d.as_ref(),
                 self.top_variables[i].multiplicity,
-                &self.current_multiplicity
+                &mut self.current_multiplicity
               )
             )
         {
@@ -343,7 +354,7 @@ impl ACULHSAutomaton<'_> {
       } else {
         //	Make linked list of unbound variables.
         self.top_variables[i].previous_unbound = self.last_unbound_variable;
-        self.last_unbound_variable = i as u32;
+        self.last_unbound_variable = Some(i as u32);
       }
 
     } // end for loop
@@ -355,20 +366,22 @@ impl ACULHSAutomaton<'_> {
     'next_alien:
     for alien in self.grounded_out_aliens.iter_mut() {
       assert!(alien.term.is_some(), "shouldn't be running on unstable terms");
-      if self.current.size != 0 {
-        if let Some(mut j) = self.current.find_first_potential_match(alien.term.unwrap(), solution) {
+      if self.current.get_ref().size != 0 {
+        if let Some(mut j) = self.current.get_ref().find_first_potential_match(alien.term.unwrap(), solution) {
           let mut a = alien.lhs_automaton.as_mut();
           let mut d_rb_node = Cell::<RedBlackNode>::get_mut((&j).get().as_deref_mut().unwrap());
 
           while !j.is_null() {
-            if a.match_(d_rb_node.dag_node.as_ref(), solution.deref_mut(), None){
+            if let (true, sp) = a.match_(d_rb_node.dag_node.clone(), solution.deref_mut(), None){
+              assert!(sp.is_none(), "grounded out alien gave rise to subproblem!");
+
               let mut multiplicity = alien.multiplicity;
 
-              if d_rb_node.multiplicity < multiplicity {
+              if *d_rb_node.multiplicity.borrow() < multiplicity {
                 return false;
               }
 
-              self.current.delete_multiplicity_at_cursor(&mut j, multiplicity);
+              self.current.get_refmut().delete_multiplicity(j.dag_node.as_ref(), multiplicity);
               self.matched_multiplicity += multiplicity;
               continue 'next_alien;
             }
@@ -991,7 +1004,7 @@ impl LhsAutomaton for ACULHSAutomaton<'_> {
     let mut returned_subproblem: MaybeSubproblem = None;
 
 
-    if subject.get_ref().symbol() != self.top_symbol() {
+    if subject.symbol() != self.top_symbol as dyn Symbol {
       if self.collapse_possible {
         return self.collapse_match(subject.clone(), solution, extension_info)
       }
@@ -1003,7 +1016,7 @@ impl LhsAutomaton for ACULHSAutomaton<'_> {
     // Todo: What is the point of this?
     // returned_subproblem  = 0;
 
-    if let Some(s) = subject.get_ref().as_any().downcast_mut::<ACUDagNode>() {
+    if let Some(s) = subject.as_ref().as_any().downcast_mut::<ACUDagNode>() {
       //	Check to see if we should use red-black matcher.
       if let ACUArguments::Tree(t) = &s.args {
         if self.tree_match_ok {
@@ -1031,7 +1044,7 @@ impl LhsAutomaton for ACULHSAutomaton<'_> {
 
       if extension_info.is_none() {
         //	Matching without extension special cases:
-        if self.last_unbound_variable == -1 /* NONE */ {
+        if self.last_unbound_variable.is_none() {
           // Todo: Implement `compute_total_multiplicity()`
           if self.total_non_ground_aliens_multiplicity != self.compute_total_multiplicity() {
             return (false, None);

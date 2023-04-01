@@ -1,5 +1,7 @@
 /*!
 
+DEPRECATED.
+
 This module contains structs shared by every associative theory.
 
 */
@@ -9,15 +11,6 @@ use std::fmt::Display;
 use crate::Sort;
 use crate::sort_constraint::SortConstraintTable;
 use crate::theory::Symbol;
-
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum AssociativeSymbolStructure {
-  Unstructured, // no guarantees
-  LimitSort,    // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
-  PureSort      // replaces ===> with <===>, taking sort constraints in to account
-}
-
-type Structure = AssociativeSymbolStructure;
 
 #[derive(Clone)]
 pub struct AssociativeSymbol<'s> {
@@ -39,15 +32,7 @@ pub struct AssociativeSymbol<'s> {
 
 }
 
-impl Display for Structure {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    match self {
-      Structure::LimitSort => write!(f, "LIMIT_SORT"),
-      Structure::PureSort => write!(f, "PURE_SORT"),
-      Structure::Unstructured => write!(f, "UNSTRUCTURED")
-    }
-  }
-}
+
 
 impl Symbol for AssociativeSymbol<'_> {
 
@@ -57,6 +42,10 @@ impl Symbol for AssociativeSymbol<'_> {
 
     fn get_hash_value(&self) -> u32 {
         self.hash_value
+    }
+
+    fn compute_base_sort(&self, subject: &mut dyn super::DagNode) {
+        todo!()
     }
 
 }

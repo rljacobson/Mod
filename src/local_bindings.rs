@@ -8,10 +8,9 @@ other validation is performed.
 */
 
 
-use crate::{theory::RcDagNode, substitution, Substitution};
+use crate::{theory::RcDagNode, Substitution};
 
-#[derive(Eq, PartialEq)]
-struct Binding {
+pub struct Binding {
   active        : bool,
   variable_index: u32,
   value         : RcDagNode,
@@ -41,10 +40,10 @@ impl LocalBindings {
     self.bindings.len()
   }
 
-  pub fn assert(&self, substitution: &mut Substitution) -> bool {
+  pub fn assert(&mut self, substitution: &mut Substitution) -> bool {
     for i in self.bindings.iter() {
       if let Some(d) = substitution.value(i.variable_index){
-        if d != i.value {
+        if d.as_ref() != i.value.as_ref() {
           return false;
         }
       }
@@ -53,7 +52,7 @@ impl LocalBindings {
     for i in self.bindings.iter_mut() {
       let index = i.variable_index;
       if substitution.value(index).is_none() {
-        substitution.bind(index, Some(i.value));
+        substitution.bind(index, Some(i.value.clone()));
         i.active = true;
       }
     }

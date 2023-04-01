@@ -16,11 +16,12 @@ Traits that the components of theory must implement.
 
 
 mod symbol;
-mod acu_theory;
+// mod acu_theory;
 mod dag_node;
 mod term;
 mod subproblem;
-mod associative_symbol;
+mod free_theory;
+// mod associative_symbol;
 
 pub(crate) use crate::{
   theory::{
@@ -31,7 +32,7 @@ pub(crate) use crate::{
       VariableAbstractionSubproblem,
       SubproblemSequence
     },
-    associative_symbol::AssociativeSymbolStructure,
+    // associative_symbol::AssociativeSymbolStructure,
     term::{
       Term,
       RcTerm,
@@ -72,12 +73,12 @@ impl From<bool> for Outcome {
 
 pub trait LhsAutomaton {
   fn match_(
-    &self,
+    &mut self,
     subject            : RcDagNode,
     solution           : &mut Substitution,
     // returned_subproblem: Option<&mut dyn Subproblem>,
     extension_info     : Option<&mut dyn ExtensionInfo>
-  ) -> bool;
+  ) -> (bool, MaybeSubproblem);
 }
 
 pub(crate) trait RhsAutomaton {}

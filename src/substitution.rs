@@ -47,6 +47,7 @@ impl Substitution {
     self.get(index as usize)
   }
 
+  
   // Todo: Is this the best way to implement a getter? I think we did it this way so it returned a value.
   pub fn get(&self, index: usize) -> MaybeDagNode {
     if (index as usize) < self.bindings.len() {
@@ -58,21 +59,10 @@ impl Substitution {
     }
   }
 
+
   pub fn iter(&self) -> std::slice::Iter<Option<Rc<dyn DagNode>>> {
     self.bindings.iter()
   }
-
-/*
-  pub fn get_mut(&mut self, index: usize) -> Option<&mut dyn DagNode> {
-    if (index as usize) < self.bindings.len() {
-      unsafe{
-        *self.bindings.get_unchecked_mut(index as usize)
-      }
-    } else {
-      None
-    }
-  }
-*/
 
 
   pub fn fragile_binding_count(&self) -> u32 {

@@ -27,8 +27,6 @@ use crate::sort::RcSort;
 
 use super::extension_info::ACUExtensionInfo;
 
-pub type MaybeSubproblem = Option<Box<dyn Subproblem>>;
-
 
 /// Private TopVariable type for subproblem.
 struct TopVariable {

@@ -96,7 +96,7 @@ impl RedBlackTree {
         .max()
         .unwrap_or(0)
   }
-  
+
   // Todo: Why not have `find*` methods take a `&Symbol` instead of a `Term` or `DagNode`? Then we'd only need one set.
 
   /// If found, returns a cursor to the node for the key.
@@ -161,6 +161,8 @@ impl RedBlackTree {
   //       use the `partial` `Substitution` parameter at all, and as far as I can tell, `Term::partialCompare()`
   //       never returns `UNDECIDED`. Therefore, "partialCompare" is actually just "compare", and this method is find
   //       the g.l.b. of `key` in `self`.
+  // Todo: What we need to do is return an iterator pointing to the mutable result. Then we can modify the multiplicity
+  //       the result and advance the iterator.
   pub(crate) fn find_first_potential_match(&mut self, key: &dyn Term, _partial: &mut Substitution)
     -> Option<CursorMut<RBTreeAdapter>>
   {
@@ -243,21 +245,6 @@ impl RedBlackTree {
     }
   }
 
-  /*
-  // / Deletes `multiplicity` copies of key. Returns the amount by which self.size changed.
-  pub fn cons_delete(&mut self, mut key: &dyn DagNode, multiplicity: u32)  {
-    let mut cursor = self.rb_tree.find_mut(&key.symbol().get_hash_value());
-    if let Some(mut victim) = cursor.remove() {
-      let new_mult = victim.multiplicity - multiplicity;
-      if new_mult > 0 {
-        victim.borrow_mut().multiplicity = new_mult;
-        cursor.insert(victim);
-      }
-      // We removed the node.
-      self.size -= 1;
-    }
-  }
-*/
 
   /// Iterates over the nodes and their multiplicities.
   pub fn iter(&self) -> impl Iterator<Item=(RcDagNode, u32)> + '_ {

@@ -14,7 +14,7 @@ use std::cmp::Ordering;
 // Todo: Instead of this custom enum, should we have `Option<Ordering>` or `Result<Ordering, ()>`?
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(i8)]
-pub(crate) enum OrderingValue {
+pub enum OrderingValue {
   Greater = 1,
   Less = -2,
   Equal = 0,

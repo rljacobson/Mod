@@ -54,7 +54,8 @@ pub trait ExtensionInfo {
 }
 
 pub type RcSubproblem = Rc<dyn Subproblem>;
-pub type MaybeSubproblem = Option<RcSubproblem>;
+// pub type MaybeSubproblem = Option<RcSubproblem>;
+pub type MaybeSubproblem = Option<Box<dyn Subproblem>>;
 
 /// Represents a subproblem of a matching problem.
 pub trait Subproblem {
@@ -99,7 +100,9 @@ impl Subproblem for VariableAbstractionSubproblem {
       let v = context.solution.value(self.abstraction_variable);
       assert!(v.is_some(), "Unbound abstraction variable");
       let v = v.unwrap();
-      if !self.abstracted_pattern.match_(
+
+      // Todo: What about the potential subproblem? Is it pushed to self.subproblem? If so, why return it?
+      if let (false, _) = self.abstracted_pattern.match_(
         v.clone(),
         &mut self.local,
         None
