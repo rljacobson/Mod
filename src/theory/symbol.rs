@@ -14,19 +14,28 @@ A Symbol implements the traits:
 
 */
 
-use std::cmp::{Ordering, PartialOrd, Ord, Eq, PartialEq};
+use std::{cmp::{Ordering, PartialOrd, Ord, Eq, PartialEq}, rc::Rc};
 
 use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::{
-  sort_constraint::SortConstraintTable,
+
+  core::{
+    SortConstraintTable,
+    Sort,
+    RcSort,
+    ModuleItem
+  },
   theory::{
     RcDagNode,
     RcTerm
-  }, Sort, sort::RcSort
+  },
 };
 
 use super::DagNode;
+
+pub type RcSymbol = Rc<dyn Symbol>;
+
 
 // #[derive(Clone, Copy, PartialEq, Eq)]
 // pub struct Symbol {
@@ -37,7 +46,7 @@ use super::DagNode;
 //   pub memo_flag         : u32,
 // }
 
-pub trait Symbol: DynClone {
+pub trait Symbol: DynClone + ModuleItem {
 
   fn get_hash_value(&self) -> u32;
 
@@ -59,6 +68,7 @@ pub trait Symbol: DynClone {
   }
 
 }
+
 
 impl PartialOrd for dyn Symbol {
 

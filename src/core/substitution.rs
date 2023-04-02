@@ -12,7 +12,7 @@ by placing a reference to the DagNode at the index of the number. Names are numb
 
 use std::rc::Rc;
 
-use crate::local_bindings::LocalBindings;
+use crate::core::LocalBindings;
 use crate::theory::{DagNode, RcDagNode};
 
 pub type MaybeDagNode = Option<RcDagNode>;

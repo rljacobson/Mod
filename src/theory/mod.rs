@@ -15,15 +15,18 @@ Traits that the components of theory must implement.
 // pub trait AssociativeSymbol {}
 
 
-mod symbol;
-mod dag_node;
-mod term;
-mod subproblem;
-mod free_theory;
+pub(crate) mod symbol;
+pub(crate) mod dag_node;
+pub(crate) mod term;
+pub(crate) mod subproblem;
+pub(crate) mod free_theory;
+pub(crate) mod automaton;
 // mod associative_symbol;
 // mod acu_theory;
 
-pub(crate) use crate::{
+use std::rc::Rc;
+
+pub(crate) use super::{
   theory::{
     subproblem::{
       ExtensionInfo,
@@ -45,11 +48,12 @@ pub(crate) use crate::{
     },
     symbol::{
       Symbol,
+      RcSymbol,
       BinarySymbol
     },
   }
 };
-use crate::Substitution;
+use crate::core::Substitution;
 
 
 // Todo: Should we use Option<bool>?
@@ -69,33 +73,4 @@ impl From<bool> for Outcome {
         }
     }
 }
-
-
-pub trait LhsAutomaton {
-  fn match_(
-    &mut self,
-    subject            : RcDagNode,
-    solution           : &mut Substitution,
-    // returned_subproblem: Option<&mut dyn Subproblem>,
-    extension_info     : Option<&mut dyn ExtensionInfo>
-  ) -> (bool, MaybeSubproblem);
-}
-
-pub(crate) trait RhsAutomaton {}
-
-//
-//	This trait must be derived from for equational theories that generate
-//	unification subproblems.
-//
-pub(crate) trait UnificationSubproblem {}
-//	These traits can be should be derived from for theories supported by
-//	the stack based interpreter.
-//
-pub(crate) trait Instruction {}
-pub(crate) trait RegularInstruction {}  // instruction with regular GC handling
-pub(crate) trait NonFinalInstruction {}  // regular instruction that is not the last instruction in its sequence
-pub(crate) trait NonFinalCtor {}  // regular ctor that is not the last instruction in its sequence
-pub(crate) trait NonFinalExtor {}  // regular extor that is not the last instruction in its sequence
-pub(crate) trait FinalInstruction {}  // regular instruction that is the final instruction in its sequence
-
 

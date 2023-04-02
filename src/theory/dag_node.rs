@@ -12,11 +12,18 @@ use reffers::rc1::{Strong, Weak};
 use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::{
-  Sort,
-  theory::Symbol
+  core::{
+    Sort,
+    RcSort, 
+    SpecialSort
+  },
+  theory::{
+    Symbol,
+    Outcome,
+    MaybeSubproblem
+  }
 };
-use crate::sort::{RcSort, SpecialSort};
-use crate::theory::{Outcome, MaybeSubproblem};
+
 
 // pub type BcDagNode = Box<Cell<DagNode>>;
 pub type BcDagNode = Box<dyn DagNode>;

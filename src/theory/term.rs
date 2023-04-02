@@ -5,7 +5,8 @@
 
 use std::{
   cmp::Ordering,
-  rc::Rc, any::Any
+  rc::Rc,
+  any::Any
 };
 
 use dyn_clone::{
@@ -18,8 +19,10 @@ use crate::{
     DagNode,
     Symbol
   },
-  Substitution,
-  OrderingValue,
+  core::{
+    Substitution,
+    OrderingValue
+  },
 };
 
 // Todo: Use `reffers::rc1::Strong` instead of `Rc`.

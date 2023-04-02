@@ -8,7 +8,10 @@ other validation is performed.
 */
 
 
-use crate::{theory::RcDagNode, Substitution};
+use crate::{
+  theory::RcDagNode,
+  core::Substitution
+};
 
 pub struct Binding {
   active        : bool,

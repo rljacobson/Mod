@@ -6,8 +6,8 @@ Maude uses inheritence: A `RewritingContext` is-a `Substitution`. We use composi
 
 */
 
-use crate::redex_position::RedexPosition;
-use crate::Substitution;
+use crate::core::RedexPosition;
+use crate::core::Substitution;
 use crate::theory::RcDagNode;
 
 

@@ -67,7 +67,7 @@ impl Symbol for ACUSymbol {
     fn get_hash_value(&self) -> u32 {
         self.hash_value
     }
-
+    
     // TODO: Weird code smell. Doesn't even use `self`.
     // fn compute_base_sort(&self, subject: &mut dyn DagNode) {
     //     // #[cfg(feature="DEBUG")]

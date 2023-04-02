@@ -30,12 +30,19 @@ object with its state updated. Thus, solutions can be extracted from the subprob
 
 use std::rc::Rc;
 
-use crate::local_bindings::LocalBindings;
-use crate::rewrite_context::RewritingContext;
-use crate::Substitution;
-use crate::theory::{LhsAutomaton};
+use crate::{
+  core::{
+    LocalBindings,
+    RewritingContext,
+    Substitution
+  }
+};
 
-use super::RcDagNode;
+use super::{
+  RcDagNode,
+  automaton::LhsAutomaton
+};
+
 
 //	These traits must be derived from for equational theories that
 //	need to generate matching or unification subproblems or
@@ -181,7 +188,7 @@ impl Subproblem for SubproblemSequence {
       true => 0isize,
       false => len as isize - 1
     };
-    
+
     loop {
       find_first = self.sequence[i as usize].solve(find_first, context);
       if find_first {

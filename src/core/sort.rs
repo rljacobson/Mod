@@ -7,7 +7,8 @@ Items related to sorts (types).
 use std::fmt::Display;
 use std::mem::size_of;
 use reffers::rc1::{Strong, Weak};
-use crate::NatSet;
+
+use crate::core::NatSet;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
@@ -29,6 +30,8 @@ impl SpecialSort{
 pub type RcSort = Strong<Sort>;
 // The pointers inside a sort to other sorts have to be weak pointers, because we expect there to be cycles.
 pub type RcWeakSort = Weak<Sort>;
+/// A lot of things have their own list of sorts.
+pub type SortSet = Vec<RcWeakSort>;
 
 
 #[derive(Clone, Default)]
@@ -36,8 +39,8 @@ pub struct Sort {
   name      : u32, // a.k.a ID
   sort_index: i32, // Used as `number_unresolved_supersorts` when computing supersorts.
   fast_test : i32,
-  subsorts  : Vec<RcWeakSort>,
-  supersorts: Vec<RcWeakSort>,
+  subsorts  : SortSet,
+  supersorts: SortSet,
   leq_sorts : NatSet,
 
   // Todo: Should this be an Option<..>?
@@ -172,7 +175,7 @@ pub(crate) struct ConnectedComponent {
   sort_count                : u32,
   maximal_sorts_count       : u32,
   error_free_flag            : bool,
-  sorts                     : Vec<RcWeakSort>,
+  sorts                     : SortSet,
   last_allocated_match_index: u32
 }
 
