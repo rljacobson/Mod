@@ -6,11 +6,12 @@ Discrimination net for the Free theory.
 
 use std::{collections::HashSet, default};
 
-use reffers::rc1::Weak;
-
-use crate::theory::{
-  Symbol,
-  DagNode, RcDagNode
+use crate::{
+  theory::{
+    Symbol,
+    DagNode, RcDagNode
+  },
+  abstractions::WeakCell
 };
 
 use super::{
@@ -20,7 +21,7 @@ use super::{
 
 
 pub type PatternSet = HashSet<i32>;
-pub type RcFreeNet = Weak<FreeNet>;
+pub type RcFreeNet = WeakCell<FreeNet>;
 
 
 struct Triple {
@@ -32,21 +33,21 @@ struct Triple {
 impl Eq for Triple {}
 
 impl PartialEq for Triple {
-    fn eq(&self, other: &Self) -> bool {
-        self.symbol.get_index_within_module() == other.symbol.get_index_within_module()
-    }
+  fn eq(&self, other: &Self) -> bool {
+    self.symbol.get_index_within_module() == other.symbol.get_index_within_module()
+  }
 }
 
 impl PartialOrd for Triple {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.symbol.get_index_within_module().cmp(&other.symbol.get_index_within_module()))
-    }
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    Some(self.symbol.get_index_within_module().cmp(&other.symbol.get_index_within_module()))
+  }
 }
 
 impl Ord for Triple {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.symbol.get_index_within_module().cmp(&other.symbol.get_index_within_module())
-    }
+  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    self.symbol.get_index_within_module().cmp(&other.symbol.get_index_within_module())
+  }
 }
 
 

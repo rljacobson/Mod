@@ -25,7 +25,7 @@ use crate::{
   },
 };
 
-// Todo: Use `reffers::rc1::Strong` instead of `Rc`.
+
 pub type RcTerm = Rc<dyn Term>;
 
 
@@ -59,7 +59,7 @@ pub trait Term: Any {
     if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
       self.compare_dag_arguments(other)
     } else {
-      self.symbol().compare(other.symbol())
+      self.symbol().compare(other.symbol().as_ref())
     }
   }
 
@@ -77,7 +77,7 @@ pub trait Term: Any {
     }
 
 
-    if self.symbol().compare(other.symbol())  == Ordering::Less {
+    if self.symbol().compare(other.symbol().as_ref())  == Ordering::Less {
       OrderingValue::Less
     } else {
       OrderingValue::Greater

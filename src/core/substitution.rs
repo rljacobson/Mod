@@ -60,7 +60,7 @@ impl Substitution {
   }
 
 
-  pub fn iter(&self) -> std::slice::Iter<Option<Rc<dyn DagNode>>> {
+  pub fn iter(&self) -> std::slice::Iter<Option<RcDagNode>> {
     self.bindings.iter()
   }
 

@@ -16,7 +16,6 @@ use intrusive_collections::{
   Bound,
   rbtree::{Cursor, CursorMut}
 };
-use reffers::rc1::Strong;
 
 use crate::{
   Substitution,
@@ -49,7 +48,7 @@ pub struct RedBlackTree {
 impl RedBlackTree {
 
   pub fn new(root: RcDagNode, multiplicity: u32) -> Self {
-    let root = Rc::new(
+    let root = RcCell::new(
       RedBlackNode::new(root, multiplicity)
     );
 

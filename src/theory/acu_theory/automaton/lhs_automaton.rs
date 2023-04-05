@@ -9,7 +9,6 @@ use std::cell::RefCell;
 use std::{cell::Cell, cmp::Ordering};
 use std::ops::DerefMut;
 use intrusive_collections::rbtree::CursorMut;
-use reffers::rc1::Strong;
 
 use crate::{
   Substitution,
@@ -434,7 +433,7 @@ impl ACULHSAutomaton<'_> {
 
         if j < arg_count {
           let a    : &dyn LhsAutomaton       = i.lhs_automaton.as_ref();
-          let mut d: Strong<dyn DagNode> = args[j].dag_node.clone();
+          let mut d: RcCell<dyn DagNode> = args[j].dag_node.clone();
 
           loop {
             if a.match_(d.clone(), solution, None) {
@@ -632,7 +631,7 @@ impl ACULHSAutomaton<'_> {
       ACUArguments::List(v)
     };
 
-    let b = Strong::new(
+    let b = RcCell::new(
         ACUDagNode{
           top_symbol: self.symbol(),
           args: b_args,
@@ -832,7 +831,7 @@ impl ACULHSAutomaton<'_> {
 
         if self.match_at_top && self.matched_multiplicity >= 1 {
           // Plan B: We must have extension so try assigning just one subject.
-          for (j, _multiplicity) in Strong::get_ref(&self.current).iter() {
+          for (j, _multiplicity) in RcCell::get_ref(&self.current).iter() {
             if j.leq(self.top_variable.sort) {
               solution.bind(self.top_variable.index, j);
               self.current.delete_mult(j, 1);
@@ -914,7 +913,7 @@ impl ACULHSAutomaton<'_> {
 fn make_high_multiplicity_assignment(
   &mut self,
   multiplicity: u32,
-  sort: Strong<Sort>,
+  sort: RcCell<Sort>,
   tree: &mut RedBlackTree
 ) -> Option<CursorMut<RBTreeAdapter>>
 {

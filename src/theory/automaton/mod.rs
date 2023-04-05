@@ -6,54 +6,48 @@ The matcher automaton for the free theory.
 
 use std::rc::Rc;
 
+use crate::abstractions::RcCell;
+
 use crate::{
-  core::{RcSort, Substitution},
-  theory::{
-    RcTerm,
-    RcDagNode,
-    ExtensionInfo,
-    MaybeSubproblem
-  },
+    core::{RcSort, Substitution},
+    theory::{ExtensionInfo, MaybeSubproblem, RcDagNode, RcTerm},
 };
 
-
-
 pub struct FreeVariable {
-  position: u16,
-  argIndex: u16,
-  varIndex: i32,
-  sort: RcSort,
+    position: u16,
+    argIndex: u16,
+    varIndex: i32,
+    sort: RcSort,
 }
 
 pub struct BoundVariable {
-  position: u16,
-  argIndex: u16,
-  varIndex: i32,
+    position: u16,
+    argIndex: u16,
+    varIndex: i32,
 }
 
 pub struct GroundAlien {
-  position: u16,
-  argIndex: u16,
-  alien: RcTerm,
+    position: u16,
+    argIndex: u16,
+    alien: RcTerm,
 }
 
 pub struct NonGroundAlien {
-  position: u16,
-  argIndex: u16,
-  automaton: RcLhsAutomaton,
+    position: u16,
+    argIndex: u16,
+    automaton: RcLhsAutomaton,
 }
 
+pub type RcLhsAutomaton = RcCell<dyn LHSAutomaton>;
 
-pub type RcLhsAutomaton = Rc<dyn LhsAutomaton>;
-
-pub trait LhsAutomaton {
-  fn match_(
-    &mut self,
-    subject       : RcDagNode,
-    solution      : &mut Substitution,
-    // returned_subproblem: Option<&mut dyn Subproblem>,
-    extension_info: Option<&mut dyn ExtensionInfo>
-  ) -> (bool, MaybeSubproblem);
+pub trait LHSAutomaton {
+    fn match_(
+        &mut self,
+        subject: RcDagNode,
+        solution: &mut Substitution,
+        // returned_subproblem: Option<&mut dyn Subproblem>,
+        extension_info: Option<&mut dyn ExtensionInfo>,
+    ) -> (bool, MaybeSubproblem);
 }
 
 pub(crate) trait RhsAutomaton {}
@@ -79,4 +73,3 @@ pub(crate) trait NonFinalCtor {}
 pub(crate) trait NonFinalExtor {}
 /// regular instruction that is the final instruction in its sequence
 pub(crate) trait FinalInstruction {}
-

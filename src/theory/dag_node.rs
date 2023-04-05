@@ -6,30 +6,31 @@ Trait for DAG nodes.
 
 use std::any::Any;
 use std::cmp::Ordering;
-use std::rc::Rc;
 
-use reffers::rc1::{Strong, Weak};
 use dyn_clone::{clone_trait_object, DynClone};
 
 use crate::{
   core::{
     Sort,
-    RcSort, 
+    RcSort,
     SpecialSort
   },
   theory::{
     Symbol,
     Outcome,
     MaybeSubproblem
-  }
+  },
+  abstractions::RcCell
 };
+
+use super::RcSymbol;
 
 
 // pub type BcDagNode = Box<Cell<DagNode>>;
 pub type BcDagNode = Box<dyn DagNode>;
 // Todo: `Rc<dyn DagNode>` with `Strong<dyn DagNode>`. Using `Strong` prevents `DagNod` from being a trait object for
 // some reason.
-pub type RcDagNode = Rc<dyn DagNode>;
+pub type RcDagNode = RcCell<dyn DagNode>;
 
 /// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 #[derive(Clone)]
@@ -89,11 +90,20 @@ impl DagNodeFlags{
 // Todo: Maude puts `copyPointer` and `top_symbol` in a union for optimization.
 pub trait DagNode {
   /// Gives the top symbol of this term.
-  fn symbol(&self)         -> &dyn Symbol;
-  fn symbol_mut(&mut self) -> &mut dyn Symbol;
-
+  fn symbol(&self)                                 -> RcSymbol;
+  fn symbol_mut(&mut self)                         -> &mut dyn Symbol;
   /// Returns an iterator over `(RcDagNode, u32)` pairs for the arguments.
-  fn iter_args(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)>> ;
+  fn iter_args(&self)                              -> Box<dyn Iterator<Item=(RcDagNode, u32)> + '_>;
+  fn compare_arguments(&self, other: &dyn DagNode) -> Ordering;
+  fn get_sort(&self)                               -> RcSort;
+  fn get_sort_index(&self)                         -> i32;
+  fn compute_base_sort(&self)                      -> i32;
+  fn set_sort_index(&mut self, sort_index: i32)    -> ();
+  /// The number of arguments.
+  fn len(&self)                                    -> usize;
+  fn as_any(&self)                                 -> &dyn Any;
+  fn as_any_mut(&mut self)                         -> &mut dyn Any;
+  fn flags(&self)                                  -> DagNodeFlags;
 
   /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
   /// the arguments.
@@ -109,23 +119,13 @@ pub trait DagNode {
     }
   }
 
-  fn compare_arguments(&self, other: &dyn DagNode) -> Ordering;
-
-
-  fn get_sort(&self) -> RcSort;
-
   fn leq_sort(&self, sort: &Sort) -> bool {
-    self.get_sort().get_ref().leq(sort)
+    self.get_sort().as_ref().leq(sort)
   }
 
-  fn set_sort_index(&mut self, sort_index: i32);
-  fn get_sort_index(&self) -> i32;
-
-  fn compute_base_sort(&self) -> i32;
-
   fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) where Self: Sized {
-    if *self.get_sort().get_ref().as_ref() != SpecialSort::Unknown {
-      return (self.leq_sort(bound_sort.get_ref().as_ref()).into(), None);
+    if *self.get_sort().as_ref() != SpecialSort::Unknown {
+      return (self.leq_sort(bound_sort.as_ref()).into(), None);
     }
 
     // This is a weird code smell.
@@ -135,7 +135,7 @@ pub trait DagNode {
     self.set_sort_index(sort_index);
 
 
-    if self.leq_sort(bound_sort.get_ref().as_ref()) {
+    if self.leq_sort(bound_sort.as_ref()) {
       if !self.symbol().sort_constraint_free() {
         self.set_sort_index( SpecialSort::Unknown as i32 );
       }
@@ -152,12 +152,6 @@ pub trait DagNode {
     return (Outcome::Success, None);
   }
 
-  /// The number of arguments.
-  fn len(&self) -> usize;
-
-  fn as_any(&self) -> &dyn Any;
-
-  fn flags(&self) -> DagNodeFlags;
 
   // region Flag Manipulation
   fn  is_reduced(&self) -> bool {
@@ -184,6 +178,7 @@ pub trait DagNode {
 
 // clone_trait_object!(DagNode);
 
+// region PartialEq, Eq, PartialOrd, Ord implementations
 impl Eq for dyn DagNode {}
 
 impl PartialEq for dyn DagNode {
@@ -206,3 +201,4 @@ impl Ord for dyn DagNode {
     self.symbol().get_hash_value().cmp(&other.symbol().get_hash_value())
   }
 }
+// endregion

@@ -44,7 +44,9 @@ pub(crate) use super::{
     dag_node::{
       DagNode,
       DagPair,
-      RcDagNode
+      RcDagNode,
+      DagNodeFlag,
+      DagNodeFlags
     },
     symbol::{
       Symbol,

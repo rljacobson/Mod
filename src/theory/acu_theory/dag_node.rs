@@ -7,11 +7,8 @@ Concrete types for the ACU theory implementing the DagNode trait.
 use std::{
   any::Any,
   borrow::BorrowMut,
-  cmp::Ordering,
-  rc::Rc
+  cmp::Ordering
 };
-
-use reffers::rc::Strong;
 
 use crate::{
   sort::{
@@ -41,7 +38,7 @@ use super::{
 };
 
 
-pub type RcACUDagNode = Rc<ACUDagNode>;
+pub type RcACUDagNode = RcCell<ACUDagNode>;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum NormalizationStatus {
@@ -83,9 +80,9 @@ impl ACUArguments {
       ACUArguments::List(v) => {
         v.binary_search_by(
           |pair| term.compare_dag_node(pair.dag_node.as_ref())  // Supposed to be term.compare_dag_node? or pair.dag_node.compare?
-      ).map(
-        |idx| v[idx].multiplicity
-      ).ok()
+        ).map(
+          |idx| v[idx].multiplicity
+        ).ok()
       },
 
       ACUArguments::Tree(t) => {
@@ -373,14 +370,15 @@ impl ACUDagNode {
 
 /// If the given DagNode is an ACUDagNode and it has tree args, vectorize it. Modifies the node in place.
 // fn to_acu_list_args(dag_node: &mut dyn DagNode) {
-//   if let Some(acu_dag_node) = dag_node.as_any().downcast_mut::<ACUDagNode>(){
-//     acu_dag_node.to_list_arguments();
-//   }
-// }
+  //   if let Some(acu_dag_node) = dag_node.as_any().downcast_mut::<ACUDagNode>(){
+    //     acu_dag_node.to_list_arguments();
+    //   }
+    // }
 
 impl DagNode for ACUDagNode {
   fn symbol(&self) -> &dyn Symbol {
-    Rc::as_ref(&self.top_symbol) as &dyn Symbol
+    // Rc::as_ref(&self.top_symbol) as &dyn Symbol
+    self.top_symbol.clone()
   }
 
   // Todo: Is this needed?
@@ -402,7 +400,7 @@ impl DagNode for ACUDagNode {
         }
         // Compare corresponding terms.
         for ((this_child, this_multiplicity), (other_child, other_multiplicity))
-            in self.iter_args().zip(acu_dag_node.iter_args()) {
+        in self.iter_args().zip(acu_dag_node.iter_args()) {
           let r: i32 = this_multiplicity as i32 - other_multiplicity as i32;
           if r != 0 {
             return numeric_ordering(r as usize);
@@ -440,13 +438,13 @@ impl DagNode for ACUDagNode {
     self
   }
 
-fn compute_base_sort(&self) -> i32 {
-        todo!()
-    }
+  fn compute_base_sort(&self) -> i32 {
+    todo!()
+  }
 
-fn flags(&self) -> DagNodeFlags {
-        self.flags
-    }
+  fn flags(&self) -> DagNodeFlags {
+    self.flags
+  }
 }
 
 
