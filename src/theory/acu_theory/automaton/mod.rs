@@ -1,15 +1,15 @@
 /*!
 
-A collection of structs used in LhsAutomaton/RhsAutomaton.
+A collection of structs used in LHSAutomaton/RhsAutomaton.
 
 */
 pub(crate) mod lhs_automaton;
 
-use crate::sort::RcSort;
+use crate::core::RcSort;
 
 use crate::theory::{
   AssociativeSymbolStructure,
-  LhsAutomaton,
+  LHSAutomaton,
   Term
 };
 
@@ -66,7 +66,7 @@ struct GroundAlien<'t> {
 struct NonGroundAlien<'t> {
   pub(crate) term         : Option<&'t dyn Term>,
   pub(crate) multiplicity : u32,
-  pub(crate) lhs_automaton: Box<dyn LhsAutomaton>
+  pub(crate) lhs_automaton: Box<dyn LHSAutomaton>
 }
 
 
@@ -85,7 +85,7 @@ struct TopVariable {
   upper_bound  : u32,
   structure    : AssociativeSymbolStructure,
   pub(crate) take_identity: bool,
-  pub(crate) abstracted   : Option<Box<dyn LhsAutomaton>>, // automaton for abstracted term
+  pub(crate) abstracted   : Option<Box<dyn LHSAutomaton>>, // automaton for abstracted term
 
   //	Data storage for match-time use
   pub(crate) previous_unbound: Option<u32>,

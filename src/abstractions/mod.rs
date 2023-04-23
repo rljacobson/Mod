@@ -10,5 +10,9 @@ module redirects to whatever chosen implementation we want.
 
 mod rc_cell;
 
+/// Interned string.
+pub use string_cache::DefaultAtom as IString;
+/// Reference counted pointers with mutable stable, and complementary weak pointers.
 pub use rc_cell::{RcCell, WeakCell};
-
+/// Arbitrary precision integers
+pub type BigInteger = isize;

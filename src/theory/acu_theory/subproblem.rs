@@ -13,18 +13,19 @@ use diophantine::DiophantineSystem;
 
 use crate::{
   theory::{
-    LhsAutomaton,
+    LHSAutomaton,
     RcDagNode,
     Term,
-    acu_theory::RedBlackTree,
-    subproblem::Subproblem
+    Subproblem
   },
-  Substitution,
-  RewritingContext,
-  local_bindings::LocalBindings
+  core::{
+    Substitution,
+    RewritingContext,
+    LocalBindings, RcSort
+  }
 };
-use crate::sort::RcSort;
 
+use super::red_black_tree::RedBlackTree;
 use super::extension_info::ACUExtensionInfo;
 
 
@@ -114,7 +115,7 @@ pub struct ACULazySubproblem<'a> {
   pub(crate) subject      : &'a RedBlackTree,
   pub(crate) current      : &'a mut RedBlackTree,
   pub(crate) solution     : &'a mut Substitution,
-  pub(crate) lhs_automaton: &'a mut dyn LhsAutomaton,
+  pub(crate) lhs_automaton: &'a mut dyn LHSAutomaton,
   pub(crate) term         : Option<&'a dyn Term>,
   pub(crate) index        : u32,
   pub(crate) sort         : RcSort

@@ -17,8 +17,9 @@ use intrusive_collections::{
   rbtree::{Cursor, CursorMut}
 };
 
+use crate::abstractions::RcCell;
 use crate::{
-  Substitution,
+  core::Substitution,
   theory::{
     DagNode,
     Term,
@@ -29,7 +30,7 @@ use crate::{
 use super::RedBlackNode;
 
 
-pub type RcRedBlackTree = Strong<RedBlackTree>;
+pub type RcRedBlackTree = RcCell<RedBlackTree>;
 
 
 intrusive_adapter!(pub RBTreeAdapter = Rc<RedBlackNode>: RedBlackNode { link: RBTreeLink });

@@ -8,16 +8,26 @@ mod ordering_value;
 mod redex_position;
 mod rewrite_context;
 mod sort;
-mod sort_constraint;
 mod substitution;
 
 pub(crate) use bit_set::BitSet as NatSet;
-pub use cached_dag::CachedDag;
-pub use local_bindings::{Binding, LocalBindings};
-pub use module::{Module, ModuleItem, WeakkModule};
-pub use ordering_value::{numeric_ordering, numeric_ordering_value, OrderingValue};
-pub use redex_position::RedexPosition;
-pub use rewrite_context::RewritingContext;
-pub use sort::{RcSort, Sort, SortSet, SpecialSort, WeakSort};
-pub use sort_constraint::{RcSortConstraint, SortConstraint, SortConstraintTable};
-pub use substitution::Substitution;
+pub(crate) use cached_dag::CachedDag;
+pub(crate) use local_bindings::{Binding, LocalBindings};
+pub(crate) use module::{Module, ModuleItem, WeakModule};
+pub(crate) use ordering_value::{numeric_ordering, numeric_ordering_value, OrderingValue};
+pub(crate) use redex_position::RedexPosition;
+pub(crate) use rewrite_context::RewritingContext;
+pub(crate) use sort::{
+  index_leq_sort,
+  RcSort,
+  Sort,
+  sort_leq_index,
+  SortSet,
+  SpecialSort,
+  WeakSort,
+  RcSortConstraint,
+  SortConstraint,
+  SortConstraintTable,
+  SortTable
+};
+pub(crate) use substitution::Substitution;

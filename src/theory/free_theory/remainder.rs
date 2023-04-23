@@ -10,6 +10,7 @@ use crate::theory::automaton::{
 };
 
 pub type RcFreeRemainder = Rc<FreeRemainder>;
+pub type FreeRemainderList = Vec<RcFreeRemainder>;
 
 pub struct FreeRemainder {
   //	To qualify for "fast" treatment the associated equation must:

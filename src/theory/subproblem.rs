@@ -98,7 +98,7 @@ impl Subproblem for VariableAbstractionSubproblem {
             // Todo: What about the potential subproblem? Is it pushed to self.subproblem? If so, why return it?
             if let (false, _) = self
                 .abstracted_pattern
-                .match_(v.clone(), &mut self.local, None)
+                .match_(v.clone(), &mut self.local, /*None*/)
             {
                 return false;
             }
@@ -135,6 +135,7 @@ impl Subproblem for VariableAbstractionSubproblem {
     }
 }
 
+/// Maude calls this SubproblemAccumulator
 pub struct SubproblemSequence {
     sequence: Vec<Box<dyn Subproblem>>,
 }

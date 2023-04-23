@@ -14,48 +14,62 @@ Traits that the components of theory must implement.
 // pub trait BinarySymbol {}	// or
 // pub trait AssociativeSymbol {}
 
+pub mod symbol_type;
 
-pub(crate) mod symbol;
-pub(crate) mod dag_node;
-pub(crate) mod term;
-pub(crate) mod subproblem;
-pub(crate) mod free_theory;
-pub(crate) mod automaton;
-// mod associative_symbol;
+
+mod symbol;
+mod dag_node;
+mod term;
+mod subproblem;
+mod automaton;
+mod associative_symbol;
+mod free_theory;
 // mod acu_theory;
 
 use std::rc::Rc;
 
-pub(crate) use super::{
-  theory::{
-    subproblem::{
-      ExtensionInfo,
-      Subproblem,
-      MaybeSubproblem,
-      VariableAbstractionSubproblem,
-      SubproblemSequence
-    },
-    // associative_symbol::AssociativeSymbolStructure,
-    term::{
-      Term,
-      RcTerm,
-      Flags
-    },
-    dag_node::{
-      DagNode,
-      DagPair,
-      RcDagNode,
-      DagNodeFlag,
-      DagNodeFlags
-    },
-    symbol::{
-      Symbol,
-      RcSymbol,
-      BinarySymbol
-    },
-  }
+
+pub(crate) use subproblem::{
+  ExtensionInfo,
+  Subproblem,
+  MaybeSubproblem,
+  VariableAbstractionSubproblem,
+  SubproblemSequence
 };
-use crate::core::Substitution;
+
+pub(crate) use associative_symbol::{
+  AssociativeSymbolStructure,
+
+};
+
+pub(crate) use term::{
+  Term,
+  RcTerm,
+  Flags
+};
+pub(crate) use dag_node::{
+  DagNode,
+  DagPair,
+  RcDagNode,
+  DagNodeFlag,
+  DagNodeFlags,
+  NodeList,
+};
+pub(crate) use symbol::{
+  Symbol,
+  RcSymbol,
+  BinarySymbol
+};
+pub(crate) use symbol_type::{
+  SymbolType,
+  BasicSymbolTypes
+};
+pub(crate) use automaton::{
+  LHSAutomaton,
+  BxLHSAutomaton,
+  RcLHSAutomaton
+};
+
 
 
 // Todo: Should we use Option<bool>?

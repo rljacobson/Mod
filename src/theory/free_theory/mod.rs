@@ -4,17 +4,45 @@ The free theory: Functions that are not assumed to have additional structure (as
 
 */
 
-mod dag_node;
-mod free_term;
-mod free_net;
-mod symbol;
-mod remainder;
 mod automaton;
+mod dag_node;
+mod free_net;
+mod free_term;
+mod remainder;
+mod symbol;
 
-
-pub use free_term::FreeTerm;
-pub use free_net::{FreeNet, RcFreeNet, PatternSet};
-pub use remainder::{FreeRemainder, RcFreeRemainder};
-pub use symbol::{FreeSymbol, RcFreeSymbol};
-pub use dag_node::{FreeDagNode, RcFreeDagNode};
 pub use automaton::FreeLHSAutomaton;
+pub use dag_node::{FreeDagNode, RcFreeDagNode};
+pub use free_net::{FreeNet, PatternSet, RcFreeNet};
+pub use free_term::FreeTerm;
+pub use remainder::{FreeRemainder, RcFreeRemainder, FreeRemainderList};
+pub use symbol::{FreeSymbol, RcFreeSymbol};
+
+
+use crate::core::RcSort;
+use super::{LHSAutomaton, Term};
+
+struct FreeVariable {
+  position : i16,
+  argIndex : i16,
+  varIndex : i32,
+  sort     : RcSort,
+}
+
+struct BoundVariable {
+  position : i16,
+  argIndex : i16,
+  varIndex : i32,
+}
+
+struct GroundAlien {
+  position : i16,
+  argIndex : i16,
+  ali      : Box<dyn Term>,
+}
+
+struct NonGroundAlien {
+  position  : i16,
+  argIndex  : i16,
+  automaton : Box<dyn LHSAutomaton>,
+}

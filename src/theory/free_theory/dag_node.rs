@@ -16,93 +16,131 @@ use crate::{
     RcSort,
     OrderingValue,
     numeric_ordering
-  }
+  }, abstractions::RcCell
 };
+use crate::core::{Sort, SpecialSort};
+use crate::theory::dag_node::DagNodeMembers;
 
 use super::RcFreeSymbol;
 
 pub type RcFreeDagNode = Rc<FreeDagNode>;
 
 pub struct FreeDagNode {
-  pub(crate) top_symbol: RcFreeSymbol,
-  pub(crate) args      : Vec<DagPair>,
-  pub(crate) sort      : RcSort,
-  pub(crate) flags      : DagNodeFlags,
-  pub(crate) sort_index: i32,
+  // Base DagNode Members
+  pub members: DagNodeMembers
 }
 
 impl DagNode for FreeDagNode {
-
-  fn iter_args(&self) -> Box<dyn Iterator<Item=(RcDagNode, u32)> + '_> {
-    Box::new(self.args.iter().map(|pair| (pair.dag_node.clone(), pair.multiplicity)))
+  #[inline(always)]
+  fn dag_node_members(&self) -> &DagNodeMembers {
+    &self.members
   }
 
-  fn symbol(&self) -> RcSymbol {
-    self.top_symbol.clone()
+
+  #[inline(always)]
+  fn dag_node_members_mut(&mut self) -> &mut DagNodeMembers {
+    &mut self.members
   }
 
-  // Todo: Is this needed?
-  fn symbol_mut(&mut self) -> &mut dyn Symbol {
-    Rc::get_mut(&mut self.top_symbol).unwrap()   //.borrow_mut()
+
+  #[inline(always)]
+  fn as_any(&self) -> &dyn Any {
+    self
   }
 
-  fn compare_arguments(&self, other: &dyn DagNode) -> std::cmp::Ordering {
-    match other.as_any().downcast_ref::<FreeDagNode>() {
-      Some(free_dag_node) => {
-        // Fail fast if lengths differ.
-        let r: i32 = self.args.len() as i32 - free_dag_node.len() as i32;
-        if r != 0 {
-          return numeric_ordering(r as isize);
+  #[inline(always)]
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  #[inline(always)]
+  fn as_ptr(&self) -> *const dyn DagNode {
+    self as *const dyn DagNode
+  }
+
+  fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {
+    assert!(self.symbol() == other.symbol(), "symbols differ");
+
+    let s = self.symbol();
+    let nr_args = s.arity() as usize;
+
+    if nr_args != 0 {
+      let mut pd = self;
+      let mut qd = match other.as_any().downcast_ref::<FreeDagNode>() {
+        Some(v) => v,
+        None => {
+          // Not even the same theory. It's not clear what to return in this case, so just compare symbols.
+          return s.compare(other.symbol().as_ref());
         }
-        // Compare corresponding terms.
-        for ((this_child, this_multiplicity), (other_child, other_multiplicity))
-        in self.iter_args().zip(free_dag_node.iter_args()) {
-          let r: i32 = this_multiplicity as i32 - other_multiplicity as i32;
-          if r != 0 {
-            return numeric_ordering(r as isize);
-          }
+      };
 
-          let r = this_child.as_ref().compare(other_child.as_ref());
-          if r != Ordering::Equal {
+      loop {
+
+        let p = &pd.dag_node_members().args;
+        let q = &qd.dag_node_members().args;
+
+        // Compare all but the last (rightmost) node.
+        for i in (0..nr_args - 1).rev() {
+          let r = DagNode::compare(p[i].as_ref(), q[i].as_ref());
+          if r.is_ne() {
             return r;
           }
         }
-        // Identical
-        return Ordering::Equal;
+
+        let pd2 = p[nr_args - 1].as_ref();
+        let qd2 = q[nr_args - 1].as_ref();
+        // Fast bail on equal pointers.
+        if std::ptr::addr_of!(pd2) == std::ptr::addr_of!(qd2) {
+          return Ordering::Equal; // Points to same node
+        }
+        // Compare symbols
+        let ps = pd2.symbol();
+        let qs = qd2.symbol();
+        let r = ps.compare(qs.as_ref());
+        if r.is_ne() {
+          return r  // different symbols
+        }
+        // Go ahead and check all arguments
+        if *ps != *s {
+          return pd2.compare_arguments(qd2);
+        }
+
+        // Next iteration will compare argument lists using tail recursion elimination. See https://imgur.com/a/12dtE3j.
+        pd = pd2.as_any().downcast_ref::<FreeDagNode>().unwrap();
+        qd = qd2.as_any().downcast_ref::<FreeDagNode>().unwrap();
       }
-      None => panic!("Could not downcast a Term to a FreeTerm. This is a bug."),
-    };
+    }
+    // Survived all attempts at finding inequality.
+    return Ordering::Equal;
   }
 
-  fn get_sort(&self) -> RcSort {
-    self.sort.clone()
+  fn compute_base_sort(&mut self) -> i32{
+
+    let symbol = self.symbol();
+    // assert_eq!(self as *const _, subject.symbol() as *const _, "bad symbol");
+    let nr_args = symbol.arity();
+    if nr_args == 0 {
+      let idx = symbol.sort_table().traverse(0, 0);
+      self.set_sort_index(idx); // Maude: HACK
+      return idx;
+    }
+
+
+    let mut state = 0;
+    // enumerate is only used for assertion
+    for (i, arg) in self.iter_args().enumerate() {
+      let t = arg.borrow().get_sort_index();
+      assert_ne!(
+        t,
+        SpecialSort::Unknown as i32,
+        "unknown sort encounter for arg {} subject = {}",
+        i,
+        self as &dyn DagNode
+      );
+      state = symbol.sort_table().traverse(state as usize, t as usize);
+    }
+    self.set_sort_index(state);
+    state
   }
 
-  fn set_sort_index(&mut self, sort_index: i32) {
-    self.sort_index = sort_index;
-  }
-
-  fn get_sort_index(&self) -> i32 {
-    self.sort_index
-  }
-
-  fn len(&self) -> usize {
-    self.args.len()
-  }
-
-  fn as_any(&self) -> &dyn Any{
-    self
-  }
-
-  fn as_any_mut(&mut self) -> &mut dyn Any{
-    self
-  }
-
-  fn compute_base_sort(&self) -> i32 {
-    todo!()
-  }
-
-  fn flags(&self) -> DagNodeFlags {
-    self.flags
-  }
 }

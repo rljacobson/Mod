@@ -1,6 +1,7 @@
 /*!
 
-Adapted from [rccell](https://crates.io/crates/rccell) ([GitHub](https://github.com/romancardenas/rccell)),
+Adapted with improvements from [rccell](https://crates.io/crates/rccell) ([GitHub](https://github
+com/romancardenas/rccell)),
 Copyright (c) 2021 Román Cárdenas, distributed unter the MIT License. Modified to allow unsized inner types.
 
 A convenient wrapper for `Rc<RefCell<T>>>` and `Weak<RefCell<T>>>`.
@@ -10,21 +11,21 @@ The `RcCell` library defines two structs:
 - `WeakCell<T>`: a wrapper for `Weak<RefCell<T>>`.
 
 ```rust
-use rccell::{RcCell, WeakCell};
+use Mod::abstractions::{RcCell, WeakCell};
 
-let a = RcCell::new(1);     // a is a RcCell that wraps an Rc<RefCell<i32>>
-let b = a.clone();          // You can create multiple RcCells pointing to the same data.
+let a = RcCell::new(1); // a is a RcCell that wraps an Rc<RefCell<i32>>
+let b = a.clone();      // You can create multiple RcCells pointing to the same data.
 
-let mut c = a.borrow_mut();  // You can use borrow and borrow_mut methods as if  RcCells were RefCells
+let mut c = a.borrow_mut(); // You can use borrow and borrow_mut methods as if  RcCells were RefCells
 *c = 2;
 // let mut d = b.borrow_mut()   You cannot create two RefMuts for the same RcCell.
 drop(c);
 
 assert!(a.try_borrow().is_ok());  // You can use try_borrow and try_borrow_mut to avoid panicking
 // let d = a.unwrap()  You can use unwrap to get the inner value (if there is only one RcCell)
-assert!(a.try_unwrap().is_err());  // You can use try_unwrap to avoid panicking
+assert!(a.try_unwrap().is_err()); // You can use try_unwrap to avoid panicking
 
-let d: WeakCell<i32> = b.downgrade();  // Use downgrade to create a WeakCell pointing to the same data
+let d: WeakCell<i32> = b.downgrade(); // Use downgrade to create a WeakCell pointing to the same data
 assert!(d.upgrade().is_some());  // Use the upgrade method to get a RcCell pointing to the same data as the WeakCell.
 ```
 
@@ -32,7 +33,6 @@ assert!(d.upgrade().is_some());  // Use the upgrade method to get a RcCell point
 
 */
 
-use std::any::Any;
 use std::cell::{BorrowError, BorrowMutError, Ref, RefCell, RefMut};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
@@ -45,10 +45,6 @@ use std::rc::{Rc, Weak};
 #[derive(Debug, Default, Eq)]
 pub struct RcCell<T: ?Sized>(Rc<RefCell<T>>);
 
-/// Version of `RefCell` that holds a non-owning reference to the managed allocation.
-#[derive(Debug, Default)]
-pub struct WeakCell<T: ?Sized>(Weak<RefCell<T>>);
-
 impl<T> RcCell<T> {
     /// Similar to [Rc::try_unwrap].
     /// Returns the inner value if the `RefCell` has only one strong reference.
@@ -56,7 +52,7 @@ impl<T> RcCell<T> {
     /// Note that this function success even if there are multiple weak references.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// assert_eq!(RcCell::try_unwrap(x), Ok(1));
@@ -74,7 +70,7 @@ impl<T> RcCell<T> {
     /// Constructs a new `RcCell<T>`.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// ```
@@ -91,7 +87,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Creates a new [WeakCell] pointer to this allocation.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let weak_five = x.downgrade();
@@ -104,7 +100,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Gets the number of [WeakCell] pointers to this allocation.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let weak_five = x.downgrade();
@@ -119,7 +115,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Gets the number of strong ([RcCell]) pointers to this allocation.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let _y = x.clone();
@@ -134,7 +130,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Returns `true` if two `RcCell`s point to the same allocation.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let xx = x.clone();
@@ -152,7 +148,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Otherwise, it returns a `BorrowError`.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     ///
@@ -168,7 +164,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Otherwise, it returns a `BorrowMutError`.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     ///
@@ -184,7 +180,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Otherwise, it panics.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let x_ref = x.borrow();
@@ -198,7 +194,7 @@ impl<T: ?Sized> RcCell<T> {
     /// Otherwise, it panics.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let x = RcCell::new(1);
     /// let x_ref = x.borrow_mut();
@@ -208,13 +204,12 @@ impl<T: ?Sized> RcCell<T> {
     }
 }
 
-impl<T: std::marker::Unpin> RcCell<T> {
+impl<T: Unpin> RcCell<T> {
     /// Constructs a new `Pin<RcCell<T>>`. It is only implemented if T implements [Unpin].
     pub fn pin(value: T) -> Pin<Self> {
         Pin::new(Self::new(value))
     }
 }
-
 
 impl<T: ?Sized> AsRef<T> for RcCell<T> {
     fn as_ref(&self) -> &T {
@@ -224,13 +219,51 @@ impl<T: ?Sized> AsRef<T> for RcCell<T> {
     }
 }
 
+impl<T: ?Sized> Deref for RcCell<T> {
+    type Target = RefCell<T>;
+    /// `RefCell<T>` does not implement `Deref`, and borrowing its inner value can cause a lot of panic errors.
+    /// Therefore, `Deref::deref` will return a reference to the inner `RefCell<T>`.
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl<T: ?Sized> Hash for RcCell<T> {
+    /// `RefCell<T>` does not implement `PartialEq`, and borrowing its inner value can cause a lot of panic errors.
+    /// Therefore, `Hash` will only use the value of the `Rc` pointer inside `RefCell<T>`.
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_ptr().hash(state);
+    }
+}
+
+impl<T: ?Sized> PartialEq for RcCell<T> {
+    /// The `RefCell<T>` trait does not implement `PartialEq`, and borrowing its inner value can cause a lot of panic
+    /// errors. Therefore, `PartialEq` will check that two `RefCell<T>` point to the exact same allocation.
+    fn eq(&self, other: &Self) -> bool {
+        RcCell::ptr_eq(&self, &other)
+    }
+}
+
+
+impl<T: ?Sized> Clone for RcCell<T> {
+    fn clone(&self) -> Self {
+        RcCell(self.0.clone())
+    }
+}
+
+
+
+/// Version of `RefCell` that holds a non-owning reference to the managed allocation.
+#[derive(Debug, Default)]
+pub struct WeakCell<T: ?Sized>(Weak<RefCell<T>>);
+
 
 impl<T> WeakCell<T> {
     /// Constructs a new `WeakCell<T>`, without allocating any memory.
     /// Calling [WeakCell::upgrade] on the return value always gives [None].
     /// # Examples
     /// ```rust
-    /// use rccell::WeakCell;
+    /// use Mod::abstractions::WeakCell;
     ///
     /// let empty: WeakCell<i32> = WeakCell::new();
     /// assert!(empty.upgrade().is_none());
@@ -248,7 +281,7 @@ impl<T: ?Sized> WeakCell<T> {
     /// Returns `None` if the inner value has been dropped.
     /// # Examples
     /// ```rust
-    /// use rccell::RcCell;
+    /// use Mod::abstractions::RcCell;
     ///
     /// let five = RcCell::new(5);
     ///
@@ -282,40 +315,19 @@ impl<T: ?Sized> WeakCell<T> {
     }
 }
 
-impl<T: ?Sized> Clone for RcCell<T> {
-    fn clone(&self) -> Self {
-        RcCell(self.0.clone())
-    }
-}
-
-/// `RefCell<T>` does not implement `Deref`, and borrowing its inner value can cause a lot of panic errors.
-/// Therefore, `Deref::deref` will return a reference to the inner `RefCell<T>`.
-impl<T: ?Sized> Deref for RcCell<T> {
-    type Target = RefCell<T>;
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
-    }
-}
-
-/// `RefCell<T>` does not implement `PartialEq`, and borrowing its inner value can cause a lot of panic errors.
-/// Therefore, `Hash` will only use the value of the `Rc` pointer inside `RefCell<T>`.
-impl<T: ?Sized> Hash for RcCell<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.as_ptr().hash(state);
-    }
-}
-
-/// `RefCell<T>` does not implement `PartialEq`, and borrowing its inner value can cause a lot of panic errors.
-/// Therefore, `PartialEq` will check that two `RefCell<T>` point to the exact same allocation.
-impl<T: ?Sized> PartialEq for RcCell<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.as_ptr() == other.0.as_ptr()
-    }
-}
-
 impl<T: ?Sized> Clone for WeakCell<T> {
     fn clone(&self) -> Self {
         WeakCell(self.0.clone())
     }
 }
 
+
+// `RefCell<T>` does not implement `PartialEq`, and borrowing its inner value can cause a lot of panic errors.
+// Therefore, `PartialEq` will check that two `RefCell<T>` point to the exact same allocation.
+impl<T: ?Sized> PartialEq for WeakCell<T> {
+    fn eq(&self, other: &Self) -> bool {
+        WeakCell::ptr_eq(&self, &other)
+    }
+}
+
+impl<T: ?Sized> Eq for WeakCell<T> {}

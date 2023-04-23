@@ -7,15 +7,16 @@ Concrete types for the ACU theory implementing the DagNode trait.
 use std::{
   any::Any,
   borrow::BorrowMut,
-  cmp::Ordering
+  cmp::Ordering, rc::Rc
 };
 
 use crate::{
-  sort::{
+  core::{
+    Sort,
     SpecialSort,
-    RcSort
+    RcSort,
+    Substitution,
   },
-  Substitution,
   theory::{
     RcDagNode,
     DagNode,
@@ -25,10 +26,10 @@ use crate::{
     BinarySymbol,
     dag_node::{DagNodeFlags, DagNodeFlag}
   },
-  ordering_value::{
+  core::{
     OrderingValue,
     numeric_ordering
-  }, Sort
+  }, abstractions::RcCell
 };
 
 use super::{
@@ -67,7 +68,7 @@ impl ACUArguments {
       ACUArguments::Tree(t) => { t.size }
     }
   }
-
+  
   /// Alias for size()
   pub fn len(&self) -> usize {
     self.size()
@@ -127,7 +128,7 @@ impl ACUDagNode {
       top_symbol: symbol,
       args: ACUArguments::List(Vec::with_capacity(size)),
       normalization_status,
-      sort: Strong::new(Sort::default()),
+      sort: RcCell::new(Sort::default()),
       flags: DagNodeFlag::Reduced.into(),
       is_reduced: true,
       sort_index: 0,
@@ -139,7 +140,7 @@ impl ACUDagNode {
     ACUDagNode {
       top_symbol: symbol,
       args: ACUArguments::Tree(tree),
-      sort: Strong::new(Sort::default()),
+      sort: RcCell::new(Sort::default()),
       flags: DagNodeFlag::Reduced.into(),
       is_reduced: true,
       sort_index: 0,
@@ -435,6 +436,10 @@ impl DagNode for ACUDagNode {
   }
 
   fn as_any(&self) -> &dyn Any{
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any{
     self
   }
 

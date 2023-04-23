@@ -1,21 +1,24 @@
 [package]
-name          = "Mod"
-author        = "Robert Jacobson <rljacobson@gmail.com"
-version       = "0.1.0"
-edition       = "2021"
-repository    = "https://www.github.com/rljacobson/Mod"
-license       = "This software library is distributed under the terms of the GNU Lesser General Public License. https://www.gnu.org/licenses/lgpl-3.0.en.html"
-license-file  = "LICENSE.txt"
-
-
+name = "Mod"
+description = "A RIIR for Maude's state-of-the-art pattern matching algorithms"
+authors = ["Robert Jacobson <rljacobson@gmail.com"]
+version = "0.1.0"
+edition = "2021"
+repository = "https://www.github.com/rljacobson/Mod"
+license = "LGPL-3.0-or-later"
+readme = "README.md"
+keywords = ["pattern-matching", "matching-algorithms", "unification", "term-rewriting", "equational-logic"]
+categories = ["algorithms", "compilers", "mathematics", "science", "parsing"]
 publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-intrusive-collections = "0.9.4"  # For Red-Black Trees
-bit-set   = "0.5.3" # Implements NatSet
-dyn-clone = "1.0.9" # Lets `Box<dyn myTrait>` derive `Clone`
+bit-set = "0.5.3" # Implements NatSet
+string_cache = "0.8.7" # String interning
+shared_vector = "0.4.4" # Rc<Vec<T>> type
+#dyn-clone = "1.0.9" # Lets `Box<dyn myTrait>` derive `Clone`
 
-diophantine = {path = "../diophantine"} # System of linear Diophantine equations solver
-
+## AUC Theory
+#intrusive-collections = "0.9.4"  # For Red-Black Trees
+#diophantine = {path = "../diophantine"} # System of linear Diophantine equations solver

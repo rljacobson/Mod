@@ -1,14 +1,12 @@
 use crate::theory::{
-  RcTerm,
-  automaton::RcLhsAutomaton
+    RcLHSAutomaton,
+    RcTerm
 };
 
-
-
 pub struct Equation {
-  label: u32,
-  lhs: RcTerm,
-  lhsAutomaton: RcLhsAutomaton,
-  // lhsDag: DagRoot,  // For unification
-  // condition: Vec<ConditionFragment>,
+    label: u32,
+    lhs: RcTerm,
+    lhsAutomaton: RcLHSAutomaton,
+    // lhsDag: DagRoot,  // For unification
+    // condition: Vec<ConditionFragment>,
 }

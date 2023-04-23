@@ -4,19 +4,37 @@ Items related to sorts (types).
 
 */
 
+mod component;
+pub mod sort_constraint;
+mod sort_table;
+
 use std::fmt::Display;
 use std::mem::size_of;
 
-use crate::abstractions::{RcCell, WeakCell};
+use crate::abstractions::{IString, RcCell, WeakCell};
 use crate::core::NatSet;
+
+
+pub use component::{ConnectedComponent, RcConnectedComponent};
+pub use sort_constraint::{RcSortConstraint, SortConstraint, SortConstraintTable};
+pub use sort_table::SortTable;
+
+
+pub type RcSort = RcCell<Sort>;
+// The pointers inside a sort to other sorts have to be weak pointers, because we expect there to be cycles.
+pub type WeakSort = WeakCell<Sort>;
+/// A lot of things have their own list of sorts. Weak pointers are used to break the cycles.
+pub type SortSet = Vec<WeakSort>;
+pub type OpDeclaration = Vec<RcSort>;
+
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(i32)]
 pub enum SpecialSort {
-    Kind = 0,
-    // ErrorSort = 0,
+    Kind          = 0,
+    // ErrorSort     = 0,
     FirstUserSort = 1,
-    Unknown = -1,
+    Unknown       = -1,
 }
 
 impl SpecialSort {
@@ -26,29 +44,27 @@ impl SpecialSort {
     pub const ErrorSort: SpecialSort = SpecialSort::Kind;
 }
 
-pub type RcSort = RcCell<Sort>;
-// The pointers inside a sort to other sorts have to be weak pointers, because we expect there to be cycles.
-pub type WeakSort = WeakCell<Sort>;
-/// A lot of things have their own list of sorts. Weak pointers are used to break the cycles.
-pub type SortSet = Vec<WeakSort>;
 
 #[derive(Clone, Default)]
 pub struct Sort {
-    name: u32,       // a.k.a ID
-    sort_index: i32, // Used as `number_unresolved_supersorts` when computing supersorts.
-    fast_test: i32,
-    subsorts: SortSet,
-    supersorts: SortSet,
-    leq_sorts: NatSet,
+    pub name      : IString, // a.k.a ID
+    pub sort_index: i32,     // Used as `number_unresolved_supersorts` when computing supersorts.
+    pub fast_test : i32,
+    pub subsorts  : SortSet,
+    pub supersorts: SortSet,
+    pub leq_sorts : NatSet,
 
+    /// The connected component this sort belongs to.
+    /// The ConnectedComponent holds weak references.
     // Todo: Should this be an Option<..>?
-    sort_component: RcConnectedComponent,
+    pub sort_component: RcConnectedComponent,
 }
 
 impl Sort {
-    /// The idea is that it's faster to avoid calling self.leq_sorts.contains(),
-    /// but only returns the correctresult if (fastTest - 1) <= NatSet::smallIntBound.
+    /// The idea is that it's faster to avoid calling `self.leq_sorts.contains()`,
+    /// but only returns the correct result if `(fastTest - 1) <= NatSet::smallIntBound`.
     // Todo: This probably does not give a speed advantage. Benchmark.
+    #[inline(always)]
     pub fn fast_geq(&self, index: i32) -> bool {
         if index >= self.fast_test {
             true
@@ -58,6 +74,7 @@ impl Sort {
     }
 
     /// See `fast_geq(..)`.
+    #[inline(always)]
     pub fn fast_geq_sufficient(&self) -> bool {
         // We assume a usize, which is 64 bits on most workstations.
         // Todo: This is another reason to get rid of this optimization. Creates platform dependence.
@@ -65,11 +82,13 @@ impl Sort {
     }
 
     /// Computes self <= other.
+    #[inline(always)]
     pub fn leq(&self, other: &Sort) -> bool {
         other.leq_sorts.contains(self.sort_index as usize)
     }
 
     /// Computes self <= other_sort where other_sort is the sort associated to index.
+    #[inline(always)]
     pub fn leq_index(&self, index: u32) -> bool {
         self.sort_component
             .as_ref()
@@ -82,10 +101,12 @@ impl Sort {
     }
 }
 
+// region trait impls
+
 impl Display for Sort {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         // If let Some(c) = &self.sort_component
-        let c = self.sort_component.as_ref();
+        let c = self.sort_component.borrow();
         if self.sort_index == SpecialSort::Kind as i32 {
             let sort_list = (1..c.maximal_sorts_count)
                 .map(|idx| c.sort(idx as usize).upgrade().unwrap().as_ref().to_string())
@@ -94,8 +115,7 @@ impl Display for Sort {
 
             write!(f, "[{}]", sort_list)
         } else {
-            // Todo: Fix this when a symbol table exists.
-            write!(f, "{}", "Token::sortName(sort->id())")
+            write!(f, "{}", self.name)
         }
     }
 }
@@ -155,12 +175,14 @@ impl PartialEq for Sort {
 }
 
 impl PartialEq<SpecialSort> for Sort {
+    #[inline(always)]
     fn eq(&self, other: &SpecialSort) -> bool {
         self.sort_index == *other as i32
     }
 }
 
 impl PartialEq<Sort> for SpecialSort {
+    #[inline(always)]
     fn eq(&self, other: &Sort) -> bool {
         other.sort_index == *self as i32
     }
@@ -168,38 +190,8 @@ impl PartialEq<Sort> for SpecialSort {
 
 impl Eq for Sort {}
 
-type RcConnectedComponent = RcCell<ConnectedComponent>;
+// endregion
 
-#[derive(Default)]
-pub(crate) struct ConnectedComponent {
-    sort_count: u32,
-    maximal_sorts_count: u32,
-    error_free_flag: bool,
-    sorts: SortSet,
-    last_allocated_match_index: u32,
-}
-
-impl ConnectedComponent {
-    // The `ConnectedComponent` takes ownership of the `Box<Sort>`.
-    pub fn append_sort(&mut self, sort: WeakSort) -> u32 {
-        let i = self.sorts.len();
-        self.sorts.push(sort);
-        return i as u32;
-    }
-
-    pub fn register_sort(&mut self) {
-        self.sort_count += 1;
-    }
-
-    pub fn sort(&self, i: usize) -> WeakSort {
-        self.sorts[i].clone()
-    }
-
-    pub fn get_new_match_index(&mut self) -> u32 {
-        self.last_allocated_match_index += 1;
-        return self.last_allocated_match_index;
-    }
-}
 
 #[inline(always)]
 pub fn index_leq_sort(index: i32, sort: &Sort) -> bool {
@@ -222,3 +214,7 @@ pub fn sort_leq_index(sort: &Sort, index: i32) -> bool {
             .as_ref()
     )
 }
+
+// Equality is implemented in WeakCell as pointer equality.
+// impl PartialEq for WeakSort
+// impl Eq for WeakSort

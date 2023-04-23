@@ -9,7 +9,7 @@ ACU term
 use std::cmp::Ordering;
 use std::any::Any;
 
-use crate::ordering_value::numeric_ordering;
+use crate::core::numeric_ordering;
 use crate::theory::acu_theory::ACUDagNode;
 use crate::theory::DagNode;
 use crate::theory::Symbol;
