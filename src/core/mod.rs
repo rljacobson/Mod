@@ -28,6 +28,9 @@ pub(crate) use sort::{
   RcSortConstraint,
   SortConstraint,
   SortConstraintTable,
-  SortTable
+  SortTable,
+  ConnectedComponent,
+  RcConnectedComponent,
+  OpDeclaration,
 };
 pub(crate) use substitution::Substitution;

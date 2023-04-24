@@ -36,7 +36,7 @@ pub struct NonGroundAlien {
     pub position  : u16,
     pub arg_index : u16,
     // TODO: `NonGroundAlien` owns its LHSAutomaton.
-    pub automaton : BxLHSAutomaton,
+    pub automaton : RcLHSAutomaton,
 }
 
 pub type RcLHSAutomaton = RcCell<dyn LHSAutomaton>;

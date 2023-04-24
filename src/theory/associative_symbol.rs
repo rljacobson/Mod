@@ -4,22 +4,37 @@ DEPRECATED.
 
 This module contains structs shared by every associative theory.
 
-*/
+ */
 
 
-use std::fmt::Display;
-use crate::core::{Sort, SortConstraintTable, ModuleItem, RcSort, WeakModule};
-use crate::theory::Symbol;
+use std::{
+  any::Any,
+  fmt::Display
+};
+
+use crate::{
+  core::{
+    Sort,
+    SortConstraintTable,
+    ModuleItem,
+    RcSort,
+    WeakModule
+  },
+  theory::Symbol
+};
 
 use super::symbol::SymbolMembers;
 
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum AssociativeSymbolStructure {
-  Unstructured, // no guarantees
-  LimitSort,    // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
-  PureSort      // replaces ===> with <===>, taking sort constraints in to account
+  Unstructured,
+  // no guarantees
+  LimitSort,
+  // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
+  PureSort,      // replaces ===> with <===>, taking sort constraints in to account
 }
+
 // Local convenience alias
 type Structure = AssociativeSymbolStructure;
 
@@ -35,7 +50,6 @@ impl Display for Structure {
 }
 
 pub struct AssociativeSymbol {
-
   pub sort_bounds: Vec<u32>,
   pub sort_structure: Vec<Structure>,
   pub uniform_sort: RcSort,
@@ -44,18 +58,20 @@ pub struct AssociativeSymbol {
   sort: RcSort,
   sort_constraint_table: SortConstraintTable,
 
-  pub symbol_members: SymbolMembers
-
+  pub symbol_members: SymbolMembers,
 }
 
 
 impl Symbol for AssociativeSymbol {
+  fn symbol_members(&self) -> &SymbolMembers {
+    &self.symbol_members
+  }
 
-    fn symbol_members(&self) -> &SymbolMembers {
-      &self.symbol_members
-    }
+  fn symbol_members_mut(&mut self) -> &mut SymbolMembers {
+    &mut self.symbol_members
+  }
 
-    fn symbol_members_mut(&mut self) -> &mut SymbolMembers {
-      &mut self.symbol_members
-    }
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
 }

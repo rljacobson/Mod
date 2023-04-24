@@ -7,42 +7,57 @@ The free theory: Functions that are not assumed to have additional structure (as
 mod automaton;
 mod dag_node;
 mod free_net;
-mod free_term;
+mod term;
 mod remainder;
 mod symbol;
 
 pub use automaton::FreeLHSAutomaton;
 pub use dag_node::{FreeDagNode, RcFreeDagNode};
 pub use free_net::{FreeNet, PatternSet, RcFreeNet};
-pub use free_term::FreeTerm;
+pub use term::{FreeTerm, RcFreeTerm};
 pub use remainder::{FreeRemainder, RcFreeRemainder, FreeRemainderList};
 pub use symbol::{FreeSymbol, RcFreeSymbol};
 
 
 use crate::core::RcSort;
+use crate::theory::RcTerm;
+use crate::theory::variable::RcVariableTerm;
 use super::{LHSAutomaton, Term};
 
+
+pub type FreeTermOccurrence = FreeOccurrence<RcFreeTerm>;
+pub type VariableTermOccurrence = FreeOccurrence<RcVariableTerm>;
+
+struct FreeOccurrence<T: Clone> {
+  position : u32,
+  arg_index: u32,
+  term     : T
+}
+
+// These structs are defined in theory/automaton/mod.rs
+/*
 struct FreeVariable {
-  position : i16,
-  argIndex : i16,
-  varIndex : i32,
+  position : u32,
+  arg_index: u32,
+  var_index: i32,
   sort     : RcSort,
 }
 
 struct BoundVariable {
-  position : i16,
-  argIndex : i16,
-  varIndex : i32,
+  position : u32,
+  arg_index: u32,
+  var_index: i32,
 }
 
 struct GroundAlien {
-  position : i16,
-  argIndex : i16,
-  ali      : Box<dyn Term>,
+  position : u32,
+  arg_index: u32,
+  alien      : Box<dyn Term>,
 }
 
 struct NonGroundAlien {
-  position  : i16,
-  argIndex  : i16,
+  position  : u32,
+  arg_index : u32,
   automaton : Box<dyn LHSAutomaton>,
 }
+*/

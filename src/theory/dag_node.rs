@@ -11,7 +11,7 @@ use std::ptr::addr_of;
 use std::rc::Rc;
 
 // use dyn_clone::{clone_trait_object, DynClone};
-use shared_vector::SharedVector;
+use shared_vector::{AtomicSharedVector, SharedVector};
 
 use crate::{
   abstractions::{BigInteger, RcCell},
@@ -26,6 +26,7 @@ use super::{RcSymbol, SymbolType};
 pub type BcDagNode = Box<dyn DagNode>;
 pub type RcDagNode = RcCell<dyn DagNode>;
 pub type NodeList = SharedVector<RcDagNode>;
+pub type AtomicNodeList = AtomicSharedVector<RcDagNode>;
 
 /// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 #[derive(Clone)]

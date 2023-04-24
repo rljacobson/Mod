@@ -44,10 +44,10 @@ impl Term for ACUTerm {
 
   fn is_stable(&self) -> bool {
     // (self.flags & Flags::Stable as u8) != 0
+    // ToDo: Why not just set the flag correctly?
     true
   }
 
-  // Returns zero if the terms are the same.
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {
     match other.as_any().downcast_ref::<ACUTerm>() {
 

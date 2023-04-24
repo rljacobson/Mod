@@ -18,21 +18,40 @@ use std::{
   cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
   rc::Rc,
 };
+use std::any::Any;
+use std::fmt::{Debug, Display, Formatter};
 
 use crate::{
-  abstractions::IString,
-  core::{ModuleItem, RcSort, Sort, SortConstraintTable, SortTable},
-  theory::{RcDagNode, RcTerm},
+  abstractions::{
+    Set,
+    IString
+  },
+  core::{
+    ModuleItem,
+    RcSort,
+    Sort,
+    SortConstraintTable,
+    SortTable,
+    WeakModule
+  },
+  theory::{
+    RcDagNode,
+    RcTerm
+  },
 };
-use crate::core::WeakModule;
 
 
 pub type RcSymbol = Rc<dyn Symbol>;
+pub type SymbolSet = Set<dyn Symbol>;
 
 /*
-One way to deal with a lack of trait data members is to have a struct containing the shared members and then have a macro that implements the getters and setters.
+One way to deal with a lack of trait data members is to have a struct containing the shared members and then
+either
+  1. have a macro that implements the getters and setters, or
+  2. have a trait-level getter for the struct that is implemented in every implementor, and have
+     shared-implementation at the trait level by using the getter in the `impl Trait`.
+We choose the second option.
 */
-
 #[derive(PartialEq, Eq)]
 pub struct SymbolMembers {
   /// `NamedEntity` members
@@ -110,7 +129,9 @@ pub trait Symbol {
     // Ord::cmp(&self, other)
     self.get_hash_value().cmp(&other.get_hash_value())
   }
-
+  
+  fn as_any(&self) -> &dyn Any;
+  
 }
 
 //  region Order and Equality impls
@@ -156,6 +177,19 @@ fn get_index_within_module(&self) -> u32 {
   #[inline(always)]
   fn get_module(&self) -> WeakModule {
     self.symbol_members().parent_module.clone()
+  }
+}
+
+
+impl Display for dyn Symbol {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "symbol({})", self.symbol_members().name)
+  }
+}
+
+impl Debug for dyn Symbol {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "symbol({})", self.symbol_members().name)
   }
 }
 

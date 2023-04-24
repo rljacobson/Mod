@@ -4,6 +4,7 @@ A symbol belonging to the free theory.
 
 */
 
+use std::any::Any;
 use std::rc::Rc;
 
 use crate::{
@@ -39,6 +40,10 @@ impl Symbol for FreeSymbol {
   fn symbol_members_mut (&mut self) -> &mut SymbolMembers{
     &mut self.symbol_members
   }
-
+  
+  #[inline(always)]
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
 }
 
