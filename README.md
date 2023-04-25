@@ -4,23 +4,14 @@
 > specification and programming for a wide range of applications.
 
 Maude is interesting in part because it implements some of the most performant and sophisticated pattern matching
-algorithms that are known. Some of the algorithms are described across the literature:
-
-* Eker, S.: _Fast sort computations for order-sorted matching and unification_. In: Formal Modeling:
-  Actors, Open Systems, Biological Systems - Essays Dedicated to Carolyn Talcott on the Occasion
-  of Her 70th Birthday. vol. 7000, pp. 299–314. Springer LNCS (2011)
-* Dur  ́an, F., Eker, S., Escobar, S., Mart ́ı-Oliet, N., Meseguer, J., Talcott, C.L.: _Associative unification and
-  symbolic reasoning modulo associativity in maude._ In: Rewriting Logic and Its Applications - 12th
-  International Workshop, WRLA 2018, Held as a Satellite Event of ETAPS, Thessaloniki, Greece, June
-  14-15, 2018, Proceedings. Lecture Notes in Computer Science, vol. 11152, pp. 98–114. Springer (2018)
+algorithms that are known. Some of the algorithms are described across the literature. (See the 
+[Bibliography](Bibliography.md).) The most important references are:
 * S. Eker, _Fast matching in combinations of regular equational theories_, Electronic Notes in Theoretical Computer
   Science, 1996,
   vol. 4, p. 90-109, ISSN 1571-0661, https://doi.org/10.1016/S1571-0661(04)00035-0.
 * S. Eker,
   _Associative-commutative matching via bipartite graph matching_,
   Computer Journal, 38 (5) (1995), pp. 381-399
-* S. Eker. _Associative matching for linear terms_. Technical Report CS-R9224, Center for Mathematics and Computer Science, Amsterdam, July 1992.
-* Eker, S. _Single Elementary Associative-Commutative Matching_. Journal of Automated Reasoning 28, 35–51 (2002). https://doi.org/10.1023/A:1020122610698
 
 The algorithms are complicated. Maude is implemented in C++. The code is excellent. However, because Maude was
 designed to be modular, and because of the algorithms in \[Eker 1996] that allow combinations of theories, the
@@ -29,6 +20,11 @@ own code.
 
 Thus, I am attempting to reimplement the algorithms in Rust and hopefully clarify some of the implementation details
 at the same time.
+
+There are variations of the matching problem that are not implemented in Maude. For example, there are 
+algorithms in the literature for many-to-one and many-to-many matching that, as far as I know, have no counterpart 
+in Maude. These matching problems have important applications. Implementing these algorithms would be an excellent 
+stretch goal for this project.  
 
 ## Building
 

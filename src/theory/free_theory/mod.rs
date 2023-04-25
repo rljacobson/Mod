@@ -25,7 +25,7 @@ use crate::theory::variable::RcVariableTerm;
 use super::{LHSAutomaton, Term};
 
 
-pub type FreeTermOccurrence = FreeOccurrence<RcFreeTerm>;
+pub type FreeTermOccurrence = FreeOccurrence<RcTerm>;
 pub type VariableTermOccurrence = FreeOccurrence<RcVariableTerm>;
 
 struct FreeOccurrence<T: Clone> {

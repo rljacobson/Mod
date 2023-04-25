@@ -10,25 +10,25 @@ use std::{
 };
 
 use crate::{
-  theory::{
-    DagNode,
-    NodeList,
-    Symbol
-  },
   core::{
     Substitution,
     OrderingValue,
-    RcConnectedComponent
+    RcConnectedComponent,
+    NatSet
   },
+  abstractions::{RcCell, Set},
+  theory::{
+    RcSymbol,
+    DagNode,
+    NodeList,
+    Symbol,
+    symbol::SymbolSet
+  }
 };
-use crate::abstractions::Set;
-use crate::core::NatSet;
-use crate::theory::RcSymbol;
-use crate::theory::symbol::SymbolSet;
 
 
-pub type RcTerm = Rc<dyn Term>;
-pub type TermSet = Set<dyn Term>; //
+pub type RcTerm = RcCell<dyn Term>;
+pub type TermSet = Set<dyn Term>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TermKind {

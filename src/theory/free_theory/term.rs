@@ -19,12 +19,13 @@ use crate::{
     RcTerm,
     TermFlags,
     DagNode
-  }
+  },
+  abstractions::RcCell
 };
 use super::FreeDagNode;
 
 
-pub type RcFreeTerm = Rc<FreeTerm>;
+pub type RcFreeTerm = RcCell<FreeTerm>;
 
 pub struct FreeTerm{
   term_members: TermMembers,

@@ -38,7 +38,9 @@ use crate::{
     }
   }
 };
+use crate::abstractions::RcCell;
 use crate::theory::free_theory::{FreeTerm, RcFreeTerm};
+use crate::theory::RcTerm;
 use super::super::{
   FreeOccurrence,
   FreeDagNode,
@@ -82,11 +84,11 @@ impl FreeLHSAutomaton {
     sub_automata: &[RcLHSAutomaton],
   ) -> Self {
     let nr_free_symbols = free_symbols.len();
-    let top_term: RcFreeTerm = free_symbols[0].term.clone();
-    let top_symbol = top_term.symbol();
+    let top_term: RcTerm = free_symbols[0].term.clone();
+    let top_symbol = top_term.borrow().symbol();
     let mut slot_nr = 1usize;
 
-    top_term.slot_index = 0;
+    top_term.borrow_mut().slot_index = 0;
 
     // Start with 1, because 0th term is `top_term`, which we set above.
     let mut free_subterms = (1..nr_free_symbols)
@@ -94,17 +96,17 @@ impl FreeLHSAutomaton {
           let oc           = &free_symbols[i];
           let parent       = free_symbols[oc.position as usize].term.clone();
           let term         = oc.term.clone();
-          let symbol       = term.symbol();
+          let symbol       = term.borrow().symbol();
           let free_subterm =
               FreeSubterm {
-                position  : parent.slot_index,
+                position  : parent.borrow().slot_index,
                 arg_index : oc.arg_index,
                 symbol: symbol.clone(),
-                save_index: term.term_members().save_index,
+                save_index: term.borrow().term_members().save_index,
               };
 
           if symbol.arity() > 0 {
-            term.slot_index = slot_nr as u32;
+            term.borrow_mut().slot_index = slot_nr as u32;
             slot_nr += 1;
           }
 
@@ -120,7 +122,7 @@ impl FreeLHSAutomaton {
           let parent = free_symbols[oc.position as usize].term.clone();
           let v = oc.term.clone();
           FreeVariable {
-            position: parent.slot_index as u16,
+            position: parent.borrow().slot_index as u16,
             arg_index: oc.arg_index as u16,
             var_index: v.index as i32,
             sort: v.sort(),
@@ -134,7 +136,7 @@ impl FreeLHSAutomaton {
           let parent = free_symbols[oc.position as usize].term.clone();
           let v = oc.term.clone();
           BoundVariable {
-            position: parent.slot_index as u16,
+            position: parent.borrow().slot_index as u16,
             arg_index: oc.arg_index as u16,
             var_index: v.index as i32,
           }
@@ -146,7 +148,7 @@ impl FreeLHSAutomaton {
         .map(|oc| {
           let parent = free_symbols[oc.position as usize].term.clone();
           GroundAlien {
-            position: parent.slot_index as u16,
+            position: parent.borrow().slot_index as u16,
             arg_index: oc.arg_index as u16,
             alien: oc.term.clone(),
           }
@@ -159,7 +161,7 @@ impl FreeLHSAutomaton {
           let oc = &non_gnd_aliens[i];
           let parent = free_symbols[oc.position as usize].term.clone();
           NonGroundAlien {
-            position: parent.slot_index as u16,
+            position: parent.borrow().slot_index as u16,
             arg_index: oc.arg_index as u16,
             automaton: sub_automata[i].clone(),
           }
