@@ -22,6 +22,8 @@ use crate::{
   },
   abstractions::RcCell
 };
+use crate::theory::RcDagNode;
+use crate::theory::term::NodeCache;
 use super::FreeDagNode;
 
 
@@ -81,5 +83,16 @@ impl Term for FreeTerm {
 
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+
+  fn dagify_aux(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
+    let mut node = FreeDagNode::new(self.symbol());
+
+    for arg in self.args {
+      node.members.args.push(arg.borrow_mut().dagify(sub_dags, set_sort_info));
+    }
+
+    RcCell::new(node)
   }
 }

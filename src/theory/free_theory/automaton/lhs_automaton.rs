@@ -15,13 +15,7 @@ use crate::{
     Sort
   },
   theory::{
-    automaton::{
-      BoundVariable,
-      FreeVariable,
-      GroundAlien,
-      LHSAutomaton,
-      NonGroundAlien
-    },
+    automaton::LHSAutomaton,
     DagNode,
     ExtensionInfo,
     MaybeSubproblem,
@@ -32,21 +26,25 @@ use crate::{
     RcLHSAutomaton,
     SubproblemSequence,
     Term,
-    free_theory::{
-      FreeTermOccurrence,
-      VariableTermOccurrence
-    }
-  }
+    RcTerm
+  },
+  abstractions::RcCell,
 };
-use crate::abstractions::RcCell;
-use crate::theory::free_theory::{FreeTerm, RcFreeTerm};
-use crate::theory::RcTerm;
+use crate::theory::BxLHSAutomaton;
 use super::super::{
+  FreeTermOccurrence,
+  VariableTermOccurrence,
+  RcFreeTerm,
+  BoundVariable,
   FreeOccurrence,
   FreeDagNode,
   FreeSymbol,
   RcFreeDagNode,
-  RcFreeSymbol
+  RcFreeSymbol,
+  FreeVariable,
+  GroundAlien,
+  NonGroundAlien,
+  FreeTerm
 };
 
 
@@ -81,10 +79,10 @@ impl FreeLHSAutomaton {
     gnd_aliens: &[FreeTermOccurrence],
     non_gnd_aliens: &[FreeTermOccurrence],
     best_sequence: &[usize],
-    sub_automata: &[RcLHSAutomaton],
+    sub_automata: &[BxLHSAutomaton],
   ) -> Self {
     let nr_free_symbols = free_symbols.len();
-    let top_term: RcTerm = free_symbols[0].term.clone();
+    let top_term: RcFreeTerm = free_symbols[0].term.clone();
     let top_symbol = top_term.borrow().symbol();
     let mut slot_nr = 1usize;
 
@@ -122,8 +120,8 @@ impl FreeLHSAutomaton {
           let parent = free_symbols[oc.position as usize].term.clone();
           let v = oc.term.clone();
           FreeVariable {
-            position: parent.borrow().slot_index as u16,
-            arg_index: oc.arg_index as u16,
+            position: parent.borrow().slot_index,
+            arg_index: oc.arg_index,
             var_index: v.index as i32,
             sort: v.sort(),
           }
@@ -136,8 +134,8 @@ impl FreeLHSAutomaton {
           let parent = free_symbols[oc.position as usize].term.clone();
           let v = oc.term.clone();
           BoundVariable {
-            position: parent.borrow().slot_index as u16,
-            arg_index: oc.arg_index as u16,
+            position: parent.borrow().slot_index,
+            arg_index: oc.arg_index,
             var_index: v.index as i32,
           }
         })
@@ -148,8 +146,8 @@ impl FreeLHSAutomaton {
         .map(|oc| {
           let parent = free_symbols[oc.position as usize].term.clone();
           GroundAlien {
-            position: parent.borrow().slot_index as u16,
-            arg_index: oc.arg_index as u16,
+            position: parent.borrow().slot_index,
+            arg_index: oc.arg_index,
             alien: oc.term.clone(),
           }
         })
@@ -161,9 +159,9 @@ impl FreeLHSAutomaton {
           let oc = &non_gnd_aliens[i];
           let parent = free_symbols[oc.position as usize].term.clone();
           NonGroundAlien {
-            position: parent.borrow().slot_index as u16,
-            arg_index: oc.arg_index as u16,
-            automaton: sub_automata[i].clone(),
+            position: parent.borrow().slot_index,
+            arg_index: oc.arg_index,
+            automaton: sub_automata[i]
           }
         })
         .collect::<Vec<_>>();

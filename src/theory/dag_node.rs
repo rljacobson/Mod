@@ -153,13 +153,22 @@ pub trait DagNode {
     self.dag_node_members().flags
   }
 
+  #[inline(always)]
+  fn set_flags(&mut self, flags: DagNodeFlags) {
+    self.dag_node_members_mut().flags |= flags;
+  }
+
   // endregion
 
 
   fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn as_ptr(&self) -> *const dyn DagNode;
+  // fn as_ptr(&self) -> *const dyn DagNode;
 
+  #[inline(always)]
+  fn as_ptr(&self) -> *const dyn DagNode {
+    self as *const dyn DagNode
+  }
 
   /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
   /// the arguments.
@@ -342,7 +351,7 @@ impl Display for dyn DagNode {
           "#{}",
           visited.iter()
                  .position(
-                    |&x| x == core::ptr::addr_of!(*a.borrow())
+                    |&x| x == addr_of!(*a.borrow())
                  ).unwrap()
         )?;
         first = false;

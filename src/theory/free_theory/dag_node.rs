@@ -30,6 +30,18 @@ pub struct FreeDagNode {
   pub members: DagNodeMembers
 }
 
+impl FreeDagNode {
+  pub fn new(symbol: RcSymbol) -> FreeDagNode {
+    let members = DagNodeMembers{
+      top_symbol: symbol,
+      args: Default::default(),
+      sort: Default::default(),
+      flags: Default::default(),
+      sort_index: 0,
+    };
+  }
+}
+
 impl DagNode for FreeDagNode {
   #[inline(always)]
   fn dag_node_members(&self) -> &DagNodeMembers {
@@ -51,11 +63,6 @@ impl DagNode for FreeDagNode {
   #[inline(always)]
   fn as_any_mut(&mut self) -> &mut dyn Any {
     self
-  }
-
-  #[inline(always)]
-  fn as_ptr(&self) -> *const dyn DagNode {
-    self as *const dyn DagNode
   }
 
   fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {

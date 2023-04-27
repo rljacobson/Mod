@@ -107,7 +107,7 @@ impl Substitution {
   }
 
   pub fn copy_from_substitution(&mut self, original: &Substitution) {
-    assert!(self.copy_size == original.copy_size);
+    assert_eq!(self.copy_size, original.copy_size);
 
     if self.copy_size > 0 {
       self.bindings = original.bindings.clone();

@@ -12,7 +12,8 @@ use crate::{
     core::{RcSort, Substitution},
     theory::{ExtensionInfo, MaybeSubproblem, RcDagNode, RcTerm},
 };
-
+use crate::theory::Term;
+/*
 pub struct FreeVariable {
     pub position  : u16,
     pub arg_index : u16,
@@ -26,10 +27,10 @@ pub struct BoundVariable {
     pub var_index : i32,
 }
 
-pub struct GroundAlien {
+pub struct GroundAlien<T: Term> {
     pub position  : u16,
     pub arg_index : u16,
-    pub alien     : RcTerm,
+    pub alien     : RcCell<T>,
 }
 
 pub struct NonGroundAlien {
@@ -38,7 +39,7 @@ pub struct NonGroundAlien {
     // TODO: `NonGroundAlien` owns its LHSAutomaton.
     pub automaton : RcLHSAutomaton,
 }
-
+*/
 pub type RcLHSAutomaton = RcCell<dyn LHSAutomaton>;
 pub type BxLHSAutomaton = Box<dyn LHSAutomaton>;
 

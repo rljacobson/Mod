@@ -25,7 +25,7 @@ use crate::theory::variable::RcVariableTerm;
 use super::{LHSAutomaton, Term};
 
 
-pub type FreeTermOccurrence = FreeOccurrence<RcTerm>;
+pub type FreeTermOccurrence = FreeOccurrence<RcFreeTerm>;
 pub type VariableTermOccurrence = FreeOccurrence<RcVariableTerm>;
 
 struct FreeOccurrence<T: Clone> {
@@ -34,8 +34,8 @@ struct FreeOccurrence<T: Clone> {
   term     : T
 }
 
-// These structs are defined in theory/automaton/mod.rs
-/*
+// These structs are specific to the free theory. The ACU theory has its own version.
+
 struct FreeVariable {
   position : u32,
   arg_index: u32,
@@ -52,7 +52,7 @@ struct BoundVariable {
 struct GroundAlien {
   position : u32,
   arg_index: u32,
-  alien      : Box<dyn Term>,
+  alien    : RcFreeTerm,
 }
 
 struct NonGroundAlien {
@@ -60,4 +60,4 @@ struct NonGroundAlien {
   arg_index : u32,
   automaton : Box<dyn LHSAutomaton>,
 }
-*/
+

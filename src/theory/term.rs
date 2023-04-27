@@ -8,6 +8,8 @@ use std::{
   rc::Rc,
   any::Any
 };
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use crate::{
   core::{
@@ -25,10 +27,13 @@ use crate::{
     symbol::SymbolSet
   }
 };
+use crate::core::SpecialSort;
+use crate::theory::{DagNodeFlag, DagNodeFlags, RcDagNode};
 
 
 pub type RcTerm = RcCell<dyn Term>;
 pub type TermSet = Set<dyn Term>;
+pub type NodeCache = HashMap<*const dyn Term, RcDagNode>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TermKind {
@@ -76,10 +81,19 @@ pub struct TermMembers {
   pub(crate) cached_size        : i32,
 
   // Static Members
-  // ToDo : Figure out what to do with `Term`'s static members.
-  pub(crate) sub_dags          : NodeList,
-  pub(crate) converted         : TermSet,
-  pub(crate) set_sort_info_flag: bool
+
+  // This is the HashMap of dag nodes that allows structural sharing. Maude implements it with two structures. It is
+  // reset on each call to term2dag and is only used during dagification. It should be able to be replaced with a
+  // parameter to `dagify()` in all cases.
+  // Note: `dagify2()` is the theory specific part of `dagify()`.
+  // pub(crate) sub_dags          : NodeList,
+  // pub(crate) converted         : TermSet,
+
+  // This is only used twice:
+  //   1. CachedDag::getDag()
+  //   2. SubtermTask::SubtermTask
+  // It should be able to be replaced with a parameter to `dagify()` in all cases.
+  // pub(crate) set_sort_info_flag: bool
 }
 
 
@@ -155,6 +169,38 @@ pub trait Term {
   /// Overridden in `FreeTerm`
   fn partial_compare_arguments(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {
     OrderingValue::Unknown
+  }
+
+  /// Create a directed acyclic graph from this term.
+  fn dagify(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
+    match sub_dags.entry(self) {
+
+      Entry::Occupied(entry) => {
+        entry.clone()
+      }
+
+      Entry::Vacant(entry) => {
+        let mut d = self.dagify_aux();
+        if set_sort_info {
+          assert_ne!(self.sort_index, SpecialSort::Unknown, "Missing sort info");
+          let mut d = d.borrow_mut();
+          d.set_sort_index(self.sort_index);
+          d.set_flags(DagNodeFlag::Reduced.into());
+        }
+        entry.insert(d.clone());
+        d
+      }
+
+    }
+  }
+
+  /// Create a directed acyclic graph from this term. This method has the implementation-specific stuff.
+  fn dagify_aux(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode;
+
+
+  #[inline(always)]
+  fn as_ptr(&self) -> *const dyn Term {
+    self as *const dyn Term
   }
 
 }
