@@ -94,7 +94,7 @@ impl DagNodeFlags {
 pub struct DagNodeMembers {
   pub(crate) top_symbol: RcSymbol,
   pub(crate) args      : NodeList,
-  pub(crate) sort      : RcSort,
+  // pub(crate) sort      : Option<RcSort>,
   pub(crate) flags     : DagNodeFlags,
   pub(crate) sort_index: i32,
 }
@@ -126,10 +126,26 @@ pub trait DagNode {
     Rc::get_mut(&mut self.dag_node_members_mut().top_symbol).unwrap()
   }
 
-
   #[inline(always)]
-  fn get_sort(&self) -> RcSort {
-    self.dag_node_members().sort.clone()
+  fn get_sort(&self) -> Option<RcSort> {
+    let sort_index: i32 = self.get_sort_index();
+    match sort_index {
+
+      n if n == SpecialSort::Unknown as i32 => {
+        None
+      }
+
+      // Anything else
+      sort_index => {
+        self.dag_node_members()
+            .top_symbol
+            .sort_table()
+            .range_component()
+            .borrow()
+            .sort(sort_index)
+            .upgrade()
+      }
+    }
   }
 
   #[inline(always)]
@@ -155,7 +171,7 @@ pub trait DagNode {
 
   #[inline(always)]
   fn set_flags(&mut self, flags: DagNodeFlags) {
-    self.dag_node_members_mut().flags |= flags;
+    self.dag_node_members_mut().flags.0 |= flags.0;
   }
 
   // endregion
@@ -165,10 +181,7 @@ pub trait DagNode {
   fn as_any_mut(&mut self) -> &mut dyn Any;
   // fn as_ptr(&self) -> *const dyn DagNode;
 
-  #[inline(always)]
-  fn as_ptr(&self) -> *const dyn DagNode {
-    self as *const dyn DagNode
-  }
+  fn as_ptr(&self) -> *const dyn DagNode;
 
   /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
   /// the arguments.
@@ -188,7 +201,8 @@ pub trait DagNode {
 
   #[inline(always)]
   fn leq_sort(&self, sort: &Sort) -> bool {
-    self.get_sort().as_ref().leq(sort)
+    assert_ne!(self.get_sort_index(), SpecialSort::Unknown as i32, "unknown sort");
+    self.get_sort().unwrap().as_ref().leq(sort)
   }
 
   /// Sets the sort_index of self. This is a method on Symbol in Maude.
@@ -197,7 +211,7 @@ pub trait DagNode {
   fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem)
     where Self: Sized
   {
-    if *self.get_sort().as_ref() != SpecialSort::Unknown {
+    if self.get_sort().is_some() {
       return (self.leq_sort(bound_sort.as_ref()).into(), None);
     }
 

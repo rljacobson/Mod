@@ -35,10 +35,14 @@ impl FreeDagNode {
     let members = DagNodeMembers{
       top_symbol: symbol,
       args: Default::default(),
-      sort: Default::default(),
+      // sort: Default::default(),
       flags: Default::default(),
       sort_index: 0,
     };
+
+    FreeDagNode{
+      members,
+    }
   }
 }
 
@@ -48,12 +52,10 @@ impl DagNode for FreeDagNode {
     &self.members
   }
 
-
   #[inline(always)]
   fn dag_node_members_mut(&mut self) -> &mut DagNodeMembers {
     &mut self.members
   }
-
 
   #[inline(always)]
   fn as_any(&self) -> &dyn Any {
@@ -62,6 +64,11 @@ impl DagNode for FreeDagNode {
 
   #[inline(always)]
   fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  #[inline(always)]
+  fn as_ptr(&self) -> *const dyn DagNode {
     self
   }
 
@@ -131,7 +138,6 @@ impl DagNode for FreeDagNode {
       self.set_sort_index(idx); // Maude: HACK
       return idx;
     }
-
 
     let mut state = 0;
     // enumerate is only used for assertion

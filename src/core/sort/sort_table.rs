@@ -146,7 +146,7 @@ impl SortTable {
     self.maximal_op_decl_set_table.resize(nr_sorts as usize, NatSet::new());
 
     for i in 0..nr_sorts {
-      let target = range.borrow().sort(i);
+      let target = range.borrow().sort(i.try_into().unwrap());
 
       for j in 0..nr_declarations {
         let target_strong = target.upgrade().unwrap();

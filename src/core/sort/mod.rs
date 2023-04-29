@@ -28,7 +28,7 @@ pub type SortSet = Vec<WeakSort>;
 pub type OpDeclaration = Vec<RcSort>;
 
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(i32)]
 pub enum SpecialSort {
     Kind          = 0,
@@ -92,7 +92,7 @@ impl Sort {
     pub fn leq_index(&self, index: u32) -> bool {
         self.sort_component
             .as_ref()
-            .sort(index as usize)
+            .sort(index.try_into().unwrap())
             .upgrade()
             .unwrap()
             .as_ref()
@@ -109,7 +109,7 @@ impl Display for Sort {
         let c = self.sort_component.borrow();
         if self.sort_index == SpecialSort::Kind as i32 {
             let sort_list = (1..c.maximal_sorts_count)
-                .map(|idx| c.sort(idx as usize).upgrade().unwrap().as_ref().to_string())
+                .map(|idx| c.sort(idx.try_into().unwrap()).upgrade().unwrap().as_ref().to_string())
                 .collect::<Vec<String>>()
                 .join(", ");
 
@@ -208,7 +208,7 @@ pub fn sort_leq_index(sort: &Sort, index: i32) -> bool {
         sort.sort_index,
         sort.sort_component
             .as_ref()
-            .sort(index as usize)
+            .sort(index.try_into().unwrap())
             .upgrade()
             .unwrap()
             .as_ref()

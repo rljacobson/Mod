@@ -43,7 +43,7 @@ use std::rc::{Rc, Weak};
 
 /// Wrapper for `Rc<RefCell<T>>`.
 #[derive(Debug, Default, Eq)]
-pub struct RcCell<T: ?Sized>(Rc<RefCell<T>>);
+pub struct RcCell<T: ?Sized>(pub Rc<RefCell<T>>);
 
 impl<T> RcCell<T> {
     /// Similar to [Rc::try_unwrap].

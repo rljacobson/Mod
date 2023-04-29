@@ -35,8 +35,8 @@ impl ConnectedComponent {
   }
 
   #[inline(always)]
-  pub fn sort(&self, i: usize) -> WeakSort {
-    self.sorts[i].clone()
+  pub fn sort(&self, i: i32) -> WeakSort {
+    self.sorts[i as usize].clone()
   }
 
   #[inline(always)]

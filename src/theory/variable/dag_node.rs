@@ -7,7 +7,8 @@ use std::any::Any;
 use std::cmp::Ordering;
 use crate::abstractions::IString;
 use crate::theory::dag_node::DagNodeMembers;
-use crate::theory::DagNode;
+use crate::theory::{DagNode, DagNodeFlags, NodeList, RcSymbol};
+use crate::theory::variable::symbol::VariableSymbol;
 
 
 pub struct VariableDagNode {
@@ -15,6 +16,24 @@ pub struct VariableDagNode {
   pub members: DagNodeMembers,
   pub name: IString,
   pub index: u32,
+}
+
+impl VariableDagNode {
+  pub fn new(symbol: RcSymbol, name: IString, index: u32) -> Self {
+    let members = DagNodeMembers {
+      top_symbol: symbol,
+      args      : NodeList::new(),
+      // sort      : None,
+      flags     : DagNodeFlags::default(),
+      sort_index: 0,
+    };
+
+    VariableDagNode {
+      members,
+      name,
+      index
+    }
+  }
 }
 
 impl DagNode for VariableDagNode {
@@ -47,8 +66,12 @@ impl DagNode for VariableDagNode {
   }
 
   fn compute_base_sort(&mut self) -> i32 {
-    let si = self.members.sort.borrow().sort_index;
-    self.set_sort_index(si);
-    si
+    if let Some(symbol) = self.members.top_symbol.as_any().downcast_ref::<VariableSymbol>() {
+      let si = symbol.sort().borrow().sort_index;
+      self.set_sort_index(si);
+      return si;
+    } else {
+      unreachable!("Failed to downcast to VariableSymbol. This is a bug.");
+    }
   }
 }
