@@ -1,7 +1,13 @@
 # Memory Management
 
-Anything that has a defined owner can be held in an `RcCell<T>`. Every other reference to it should be a 
+## Notes
+
+Implementation Strategy: Anything that has a defined owner can be held in an `RcCell<T>`. Every other reference to it should be a 
 `WeakCell<T>`. Thus, most `Rc*`s should be `Wk*`s.
+
+## Code Map of Ownership
+
+This data is far from complete. The two tables provide two different views. They describe the Maude C++ source code, not the Mod Rust source code.
 
 | Object              | Owned By         | Owns          | Deleted By                                       |
 |:--------------------|:-----------------|:--------------|--------------------------------------------------|
@@ -22,8 +28,8 @@ Anything that has a defined owner can be held in an `RcCell<T>`. Every other ref
 
 
 
-| Destructor      | Deletes               | Deleted type        | by                   |
-|:----------------|:----------------------|---------------------|----------------------|
+| Destructor      | Deleted name          | Deleted type        | by                   |
+| :-------------- | :-------------------- | ------------------- | -------------------- |
 | `~Rule`         | `nonExtLhsAutomaton`  | `LHSAutomaton`      | d                    |
 | '               | `extLhsAutomaton`     | `LHSAutomaton`      | d                    |
 | '               | `rhs`                 | `Term`              | `deepSelfDestruct()` |

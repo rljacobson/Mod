@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::core::equation::Equation;
 
-use crate::theory::automaton::{
+use super::{
   FreeVariable,
   BoundVariable,
   GroundAlien,

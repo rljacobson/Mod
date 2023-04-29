@@ -10,6 +10,7 @@ use std::{
 };
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::ptr::addr_of;
 
 use crate::{
   core::{
@@ -160,6 +161,7 @@ pub trait Term {
   }
 
   fn as_any(&self) -> &dyn Any;
+  fn as_any_mut(&mut self) -> &mut dyn Any;
 
   /// Overridden in `VariableTerm`
   fn partial_compare_unstable(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {
@@ -173,35 +175,30 @@ pub trait Term {
 
   /// Create a directed acyclic graph from this term.
   fn dagify(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
-    match sub_dags.entry(self) {
+    let self_ptr = self.as_ptr();
 
-      Entry::Occupied(entry) => {
-        entry.clone()
-      }
-
-      Entry::Vacant(entry) => {
-        let mut d = self.dagify_aux();
-        if set_sort_info {
-          assert_ne!(self.sort_index, SpecialSort::Unknown, "Missing sort info");
-          let mut d = d.borrow_mut();
-          d.set_sort_index(self.sort_index);
-          d.set_flags(DagNodeFlag::Reduced.into());
-        }
-        entry.insert(d.clone());
-        d
-      }
-
+    if let Entry::Occupied(occupied_entry) = sub_dags.entry(self_ptr) {
+      let entry = occupied_entry.get();
+      return entry.clone();
     }
+
+    let d = self.dagify_aux(sub_dags, set_sort_info);
+    if set_sort_info {
+      assert_ne!(self.term_members().sort_index, SpecialSort::Unknown as i32, "Missing sort info");
+      let mut d = d.borrow_mut();
+      d.set_sort_index(self.term_members().sort_index);
+      d.set_flags(DagNodeFlag::Reduced.into());
+    }
+    sub_dags.insert(self_ptr, d.clone());
+
+    d
   }
 
   /// Create a directed acyclic graph from this term. This method has the implementation-specific stuff.
   fn dagify_aux(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode;
 
 
-  #[inline(always)]
-  fn as_ptr(&self) -> *const dyn Term {
-    self as *const dyn Term
-  }
+  fn as_ptr(&self) -> *const dyn Term;
 
 }
 

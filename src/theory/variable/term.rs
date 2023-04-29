@@ -1,9 +1,11 @@
 use std::any::Any;
+use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
-use crate::abstractions::IString;
+use crate::abstractions::{IString, RcCell};
 use crate::core::RcSort;
-use crate::theory::{DagNode, Term, TermMembers};
+use crate::theory::{DagNode, RcDagNode, Term, TermMembers};
+use crate::theory::term::NodeCache;
 use crate::theory::variable::symbol::VariableSymbol;
 use crate::theory::variable::VariableDagNode;
 
@@ -53,5 +55,27 @@ impl Term for VariableTerm {
 
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  fn as_ptr(&self) -> *const dyn Term {
+    self
+  }
+
+  fn dagify_aux(&self, _sub_dags: &mut NodeCache, _set_sort_info: bool) -> RcDagNode {
+    RcCell(
+      Rc::new(
+        RefCell::new(
+          VariableDagNode::new(
+            self.symbol(),
+            self.name.clone(),
+            self.index
+          )
+        )
+      )
+    )
   }
 }
