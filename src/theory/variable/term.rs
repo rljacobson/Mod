@@ -3,8 +3,8 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
 use crate::abstractions::{IString, RcCell};
-use crate::core::RcSort;
-use crate::theory::{DagNode, RcDagNode, Term, TermMembers};
+use crate::core::{OrderingValue, RcSort, Substitution};
+use crate::theory::{DagNode, RcDagNode, RcSymbol, RcTerm, Term, TermMembers};
 use crate::theory::term::NodeCache;
 use crate::theory::variable::symbol::VariableSymbol;
 use crate::theory::variable::VariableDagNode;
@@ -15,7 +15,7 @@ pub type RcVariableTerm = Rc<VariableTerm>;
 pub struct VariableTerm{
   term_members: TermMembers,
   name: IString,
-  pub(crate) index: u32
+  pub(crate) index: i32
 }
 
 impl VariableTerm {
@@ -24,6 +24,16 @@ impl VariableTerm {
       v.sort()
     } else {
       unreachable!("Downcast to VariableSymbol failed. This is a bug.");
+    }
+  }
+
+  pub fn new(name: IString, symbol: RcSymbol) -> VariableTerm {
+    let term_members = TermMembers::new(symbol);
+
+    VariableTerm{
+      term_members,
+      name,
+      index: -1 // What should this be?
     }
   }
 }
@@ -50,6 +60,19 @@ impl Term for VariableTerm {
       self.name.cmp(&other.name)
     } else {
       Ordering::Less
+    }
+  }
+
+  fn partial_compare_unstable(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
+    match partial_substitution.get(self.index) {
+
+      None => {
+        return OrderingValue::Unknown;
+      }
+
+      Some(d) => {
+        d.borrow().compare(other).into()
+      }
     }
   }
 

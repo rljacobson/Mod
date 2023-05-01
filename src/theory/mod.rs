@@ -25,6 +25,7 @@ mod automaton;
 mod associative_symbol;
 mod free_theory;
 mod variable;
+mod dag_node_flags;
 // mod acu_theory;
 
 use std::rc::Rc;
@@ -37,24 +38,24 @@ pub(crate) use subproblem::{
   VariableAbstractionSubproblem,
   SubproblemSequence
 };
-
 pub(crate) use associative_symbol::{
   AssociativeSymbolStructure,
 
 };
-
 pub(crate) use term::{
   Term,
   RcTerm,
   TermFlags,
   TermMembers
 };
+pub(crate) use dag_node_flags::{
+  DagNodeFlag,
+  DagNodeFlags,
+};
 pub(crate) use dag_node::{
   DagNode,
   DagPair,
   RcDagNode,
-  DagNodeFlag,
-  DagNodeFlags,
   NodeList,
   AtomicNodeList,
 };

@@ -10,4 +10,7 @@ mod symbol;
 
 pub use term::{VariableTerm, RcVariableTerm};
 pub use dag_node::{VariableDagNode};
-
+pub use symbol::{
+  VariableSymbol,
+  RcVariableSymbol
+};

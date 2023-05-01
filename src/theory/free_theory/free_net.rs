@@ -2,6 +2,8 @@
 
 Discrimination net for the Free theory.
 
+Used for rewriting.
+
 */
 
 use std::{collections::HashSet, default};

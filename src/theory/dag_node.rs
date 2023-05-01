@@ -18,7 +18,9 @@ use crate::{
   core::{RcSort, Sort, SpecialSort},
   theory::{MaybeSubproblem, Outcome, Symbol}
 };
+use crate::core::Substitution;
 use crate::theory::free_theory::RcFreeSymbol;
+use crate::theory::{DagNodeFlags, ExtensionInfo, RcTerm, Subproblem};
 
 use super::{RcSymbol, SymbolType};
 
@@ -33,62 +35,6 @@ pub type AtomicNodeList = AtomicSharedVector<RcDagNode>;
 pub struct DagPair {
   pub(crate) dag_node: RcDagNode,
   pub(crate) multiplicity: u32,
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-#[repr(u32)]
-pub enum DagNodeFlag {
-  Reduced = 1,      // Reduced up to strategy by equations
-  Copied = 2,       // Copied in current copy operation; copyPointer valid
-  Unrewritable = 4, // Reduced and not rewritable by rules
-  Unstackable = 8,  // Unrewritable and all subterms unstackable or frozen
-  Ground = 16,      // No variables occur below this node
-  HashValid = 32,   // Node has a valid hash value (storage is theory dependent)
-}
-
-impl DagNodeFlag {
-  // We can share the same bit as UNREWRITABLE for this flag since the rule rewriting strategy that needs UNREWRITABLE
-  // never be combined with variant narrowing. Implemented as associated type since Rust does not allow variant aliases.
-  //    IRREDUCIBLE_BY_VARIANT_EQUATIONS = 4
-  #[allow(non_upper_case_globals)]
-  pub const IrreducibleByVariantEquations: DagNodeFlag = DagNodeFlag::Unrewritable;
-}
-
-#[derive(Copy, Clone, PartialEq, Eq, Default, Hash, Debug)]
-pub struct DagNodeFlags(u32);
-
-impl From<DagNodeFlag> for DagNodeFlags {
-  #[inline(always)]
-  fn from(value: DagNodeFlag) -> Self {
-    Self(value as u32)
-  }
-}
-
-impl DagNodeFlags {
-  #[inline(always)]
-  fn is_reduced(&self) -> bool {
-    (self.0 & DagNodeFlag::Reduced as u32) != 0
-  }
-  #[inline(always)]
-  fn is_copied(&self) -> bool {
-    (self.0 & DagNodeFlag::Copied as u32) != 0
-  }
-  #[inline(always)]
-  fn is_unrewritable(&self) -> bool {
-    (self.0 & DagNodeFlag::Unrewritable as u32) != 0
-  }
-  #[inline(always)]
-  fn is_unstackable(&self) -> bool {
-    (self.0 & DagNodeFlag::Unstackable as u32) != 0
-  }
-  #[inline(always)]
-  fn is_ground(&self) -> bool {
-    (self.0 & DagNodeFlag::Ground as u32) != 0
-  }
-  #[inline(always)]
-  fn is_hash_valid(&self) -> bool {
-    (self.0 & DagNodeFlag::HashValid as u32) != 0
-  }
 }
 
 pub struct DagNodeMembers {
@@ -208,9 +154,8 @@ pub trait DagNode {
   /// Sets the sort_index of self. This is a method on Symbol in Maude.
   fn compute_base_sort(&mut self) -> i32;
 
-  fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem)
-    where Self: Sized
-  {
+
+  fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) {
     if self.get_sort().is_some() {
       return (self.leq_sort(bound_sort.as_ref()).into(), None);
     }
@@ -265,7 +210,12 @@ pub trait DagNode {
   }
   // endregion
 
+  fn termify(&self) -> RcTerm;
 
+  fn shallow_copy(&self) -> RcDagNode;
+
+  // In Maude this is a method on DagNode, but it makes more sense as a method on `LHSAutomaton`.
+  // fn match_variable(…)
 
 }
 

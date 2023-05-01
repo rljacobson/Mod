@@ -23,7 +23,9 @@ use crate::{
   },
   abstractions::RcCell
 };
-use crate::theory::RcDagNode;
+use crate::core::{OrderingValue, Substitution};
+use crate::theory::free_theory::FreeSymbol;
+use crate::theory::{RcDagNode, RcSymbol};
 use crate::theory::term::NodeCache;
 use super::FreeDagNode;
 
@@ -37,6 +39,28 @@ pub struct FreeTerm{
   pub(crate) visited     : bool
 }
 
+impl FreeTerm {
+  pub fn new(symbol: RcSymbol) -> FreeTerm {
+    let term_members = TermMembers::new(symbol);
+    FreeTerm{
+      term_members,
+      args: vec![],
+      slot_index: 0,
+      visited: false,
+    }
+  }
+
+  pub fn with_args(symbol: RcSymbol, args: Vec<RcTerm>) -> FreeTerm {
+    let term_members = TermMembers::new(symbol);
+    FreeTerm{
+      term_members,
+      args,
+      slot_index: 0,
+      visited: false,
+    }
+  }
+}
+
 impl Term for FreeTerm {
   fn term_members(&self) -> &TermMembers {
     &self.term_members
@@ -44,6 +68,25 @@ impl Term for FreeTerm {
 
   fn term_members_mut(&mut self) -> &mut TermMembers {
     &mut self.term_members
+  }
+
+  // ToDo: This method makes no use of partial_substitution except for `partial_compare_unstable` in `VariableTerm`.
+  fn partial_compare_arguments(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
+    assert!(self.symbol().compare(other.symbol().as_ref()).is_eq(), "symbols differ");
+
+    if let Some(da) = other.as_any().downcast_ref::<FreeDagNode>(){
+      for (term_arg, dag_arg) in self.args.iter().zip(da.iter_args()) {
+        let r = term_arg.borrow()
+                        .partial_compare(partial_substitution, dag_arg.as_ref());
+        if r != OrderingValue::Equal {
+          return r;
+        }
+      }
+      return OrderingValue::Equal
+    }
+    else {
+      unreachable!("{}:{}: Could not downcast to FreeDagNode. This is a bug.", file!(), line!())
+    }
   }
 
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {

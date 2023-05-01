@@ -12,7 +12,7 @@ use crate::{
     core::{RcSort, Substitution},
     theory::{ExtensionInfo, MaybeSubproblem, RcDagNode, RcTerm},
 };
-use crate::theory::Term;
+use crate::theory::{Outcome, Term};
 /*
 pub struct FreeVariable {
     pub position  : u16,
@@ -51,6 +51,48 @@ pub trait LHSAutomaton {
         // returned_subproblem: Option<&mut dyn Subproblem>,
         // extension_info: Option<&mut dyn ExtensionInfo>,
     ) -> (bool, MaybeSubproblem);
+
+
+    // In Maude this is a method on DagNode.
+    fn match_variable(
+        &self,
+        dag_node: RcDagNode,
+        index: i32,
+        sort: RcSort,
+        copy_to_avoid_overwriting: bool,
+        solution: &mut Substitution,
+        // extension_info: Option<&mut dyn ExtensionInfo>,
+    ) -> (bool, MaybeSubproblem)
+    {
+        // if let Some(ext_info) = extension_info {
+        //   return self.match_variable_with_extension(
+        //     index,
+        //     sort,
+        //     solution,
+        //     returned_subproblem,
+        //     ext_info,
+        //   );
+        // }
+
+        if let Some(d) = solution.value(index) {
+            if dag_node.borrow().compare(d.as_ref()).is_eq() {
+                return (true, None);
+            }
+        }
+        else if let (Outcome::Success, subproblem) = dag_node.borrow_mut().check_sort(sort) {
+            let new_dag_node = if copy_to_avoid_overwriting {
+                dag_node.borrow().shallow_copy()
+            } else {
+                dag_node.clone()
+            };
+            solution.bind(index, Some(new_dag_node));
+            return (true, subproblem);
+        }
+
+        (false, None)
+    }
+
+
 }
 
 pub(crate) trait RHSAutomaton {}

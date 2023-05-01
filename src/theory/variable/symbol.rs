@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::rc::Rc;
-use crate::core::{OpDeclaration, RcSort};
+use crate::abstractions::IString;
+use crate::core::{OpDeclaration, RcSort, SortConstraintTable, SortTable};
 use crate::theory::Symbol;
 use crate::theory::symbol::SymbolMembers;
 
@@ -13,6 +14,12 @@ pub struct VariableSymbol {
 }
 
 impl VariableSymbol {
+  pub fn new(name: IString) -> VariableSymbol {
+    VariableSymbol{
+      symbol_members: SymbolMembers::new(name),
+    }
+  }
+
   pub fn sort(&self) -> RcSort {
     // Maude: Temporary hack until sorts mechanism revised.
     let s = self.symbol_members.sort_table.get_op_declarations();

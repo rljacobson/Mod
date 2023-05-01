@@ -72,8 +72,25 @@ pub struct SymbolMembers {
   pub sort_table: SortTable,
 
   // `ModuleItem`
-  index_within_parent : u32,
-  parent_module       : WeakModule,
+  pub(crate) index_within_parent : u32,
+  pub(crate) parent_module       : WeakModule,
+}
+
+impl SymbolMembers {
+  pub fn new(name: IString) -> SymbolMembers {
+    SymbolMembers{
+      name,
+      hash_value: 0,
+      unique_sort_index: 0,
+      match_index: 0,
+      arity: 0,
+      memo_flag: 0,
+      sort_constraint_table: Default::default(),
+      sort_table: Default::default(),
+      index_within_parent: 0,
+      parent_module: Default::default(),
+    }
+  }
 }
 
 pub trait Symbol {
@@ -129,9 +146,9 @@ pub trait Symbol {
     // Ord::cmp(&self, other)
     self.get_hash_value().cmp(&other.get_hash_value())
   }
-  
+
   fn as_any(&self) -> &dyn Any;
-  
+
 }
 
 //  region Order and Equality impls

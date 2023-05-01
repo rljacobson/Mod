@@ -4,28 +4,43 @@ Variables have very minimal DAG nodes.
 
 */
 use std::any::Any;
+use std::cell::RefCell;
 use std::cmp::Ordering;
-use crate::abstractions::IString;
-use crate::theory::dag_node::DagNodeMembers;
-use crate::theory::{DagNode, DagNodeFlags, NodeList, RcSymbol};
-use crate::theory::variable::symbol::VariableSymbol;
+use std::rc::Rc;
+use crate::{
+  theory::{
+    DagNode,
+    dag_node_flags,
+    NodeList,
+    RcSymbol,
+    RcTerm,
+    DagNodeFlags,
+    RcDagNode,
+    variable::{
+      VariableSymbol,
+      VariableTerm
+    },
+    dag_node::DagNodeMembers,
+  },
+  abstractions::{IString, RcCell},
+};
 
 
 pub struct VariableDagNode {
   // Base DagNode Members
   pub members: DagNodeMembers,
   pub name: IString,
-  pub index: u32,
+  pub index: i32,
 }
 
 impl VariableDagNode {
-  pub fn new(symbol: RcSymbol, name: IString, index: u32) -> Self {
+  pub fn new(symbol: RcSymbol, name: IString, index: i32) -> Self {
     let members = DagNodeMembers {
       top_symbol: symbol,
       args      : NodeList::new(),
       // sort      : None,
       flags     : DagNodeFlags::default(),
-      sort_index: 0,
+      sort_index: -1,
     };
 
     VariableDagNode {
@@ -74,4 +89,24 @@ impl DagNode for VariableDagNode {
       unreachable!("Failed to downcast to VariableSymbol. This is a bug.");
     }
   }
+
+  fn termify(&self) -> RcTerm {
+    RcCell(
+      Rc::new(
+        RefCell::new(
+          VariableTerm::new(self.name.clone(), self.symbol())
+        )
+      )
+    )
+  }
+
+
+  fn shallow_copy(&self) -> RcDagNode {
+    // There are no args, so just make a new one.
+    let mut fdg = VariableDagNode::new(self.symbol(), self.name.clone(), self.index);
+    fdg.set_flags(self.flags() & DagNodeFlags::RewritingFlags);
+
+    RcCell(Rc::new(RefCell::new(fdg)))
+  }
+
 }

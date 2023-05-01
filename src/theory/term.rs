@@ -1,5 +1,15 @@
 /*!
 
+The `Term` trait is implemented by things that can be nodes in the expression tree. That is, an expression tree is a
+term, and each subexpression is a term. The algorithms do not operate on expression trees (terms). Instead, the
+algorithms operate on a directed acyclic graph (DAG) is constructed from the tree. Thus, for each `Term` type, there
+is a corresponding `DagNode` type. However, because of structural sharing, the node instances themselves are not in
+1-to-1 correspondence.
+
+Types Implementing `Term`:
+    `ACUTerm`
+    `FreeTerm`
+    `VariableTerm`
 
 */
 
@@ -29,7 +39,7 @@ use crate::{
   }
 };
 use crate::core::SpecialSort;
-use crate::theory::{DagNodeFlag, DagNodeFlags, RcDagNode};
+use crate::theory::{DagNodeFlag, dag_node_flags, RcDagNode};
 
 
 pub type RcTerm = RcCell<dyn Term>;
@@ -83,20 +93,36 @@ pub struct TermMembers {
 
   // Static Members
 
+  // pub(crate) static sub_dags : NodeList,
+  // pub(crate) static converted: TermSet,
   // This is the HashMap of dag nodes that allows structural sharing. Maude implements it with two structures. It is
   // reset on each call to term2dag and is only used during dagification. It should be able to be replaced with a
   // parameter to `dagify()` in all cases.
   // Note: `dagify2()` is the theory specific part of `dagify()`.
-  // pub(crate) sub_dags          : NodeList,
-  // pub(crate) converted         : TermSet,
 
+  // pub(crate) static set_sort_info_flag: bool
   // This is only used twice:
   //   1. CachedDag::getDag()
   //   2. SubtermTask::SubtermTask
   // It should be able to be replaced with a parameter to `dagify()` in all cases.
-  // pub(crate) set_sort_info_flag: bool
 }
 
+impl TermMembers {
+  pub fn new(symbol: RcSymbol) -> TermMembers {
+    TermMembers {
+      top_symbol         : symbol,
+      occurs_set         : Default::default(),
+      context_set        : Default::default(),
+      collapse_set       : Default::default(),
+      flags              : 0,
+      sort_index         : SpecialSort::Unknown as i32,
+      connected_component: Default::default(),
+      save_index         : 0,
+      hash_value         : 0,
+      cached_size        : 0,
+    }
+  }
+}
 
 
 pub trait Term {
@@ -110,13 +136,12 @@ pub trait Term {
   fn term_members(&self) -> &TermMembers;
   fn term_members_mut(&mut self) -> &mut TermMembers;
 
-
   /// Is the term stable?
   fn is_stable(&self) -> bool {
     self.term_members().flags & TermFlags::Stable as u8 != 0
   }
 
-  /// Downcasts to Self
+  /// Downcasts to concrete implementing type
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
 
   fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
@@ -137,11 +162,10 @@ pub trait Term {
       return self.partial_compare_unstable(partial_substitution, other);
     }
 
-    if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
+    if Rc::ptr_eq(&self.symbol(), &other.symbol()) {
       // Only used for `FreeTerm`
       return self.partial_compare_arguments(partial_substitution, other);
     }
-
 
     if self.symbol().compare(other.symbol().as_ref())  == Ordering::Less {
       OrderingValue::Less
@@ -173,7 +197,9 @@ pub trait Term {
     OrderingValue::Unknown
   }
 
-  /// Create a directed acyclic graph from this term.
+  /// Create a directed acyclic graph from this term. This trait-level implemented function takes care of structural
+  /// sharing. Each implementing type will supply its own implementation of `dagify_aux(…)`, which recursively
+  /// calls `dagify(…)` on its children and then converts itself to a type implementing DagNode, returning `RcDagNode`.
   fn dagify(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
     let self_ptr = self.as_ptr();
 
@@ -202,8 +228,4 @@ pub trait Term {
 
 }
 
-/*
-Implementers:
-  ACUTerm
-  FreeTerm
-*/
+

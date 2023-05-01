@@ -6,10 +6,11 @@ use crate::core::sort::OpDeclaration;
 use super::{RcSort, RcConnectedComponent};
 
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 #[repr(u8)]
 pub enum ConstructorStatus {
   // ToDo: Are the numeric values necessary?
+  #[default]
   Constructor    = 1,
   NonConstructor = 2,
   Complex        = 1 | 2,
@@ -36,7 +37,7 @@ impl BitOrAssign for ConstructorStatus {
 }
 
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Default)]
 pub struct SortTable {
   nr_args                  : usize,
   op_declarations          : Vec<OpDeclaration>,
