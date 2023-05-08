@@ -62,7 +62,7 @@ pub struct SymbolMembers {
   pub unique_sort_index : i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
   pub match_index       : u32,       // For fast matching
   pub arity             : u32,
-  pub memo_flag         : u32,
+  pub memo_flag         : bool,
 
   /// `SortConstraintTable` members.
   /// It is Maude's Symbol superclass, but we use composition instead.
@@ -77,19 +77,32 @@ pub struct SymbolMembers {
 }
 
 impl SymbolMembers {
-  pub fn new(name: IString) -> SymbolMembers {
-    SymbolMembers{
-      name,
-      hash_value: 0,
-      unique_sort_index: 0,
-      match_index: 0,
-      arity: 0,
-      memo_flag: 0,
-      sort_constraint_table: Default::default(),
-      sort_table: Default::default(),
-      index_within_parent: 0,
-      parent_module: Default::default(),
-    }
+  pub fn new(name: IString, arity: u32, memo_flag: bool) -> SymbolMembers {
+    let mut new_symbol =
+      SymbolMembers{
+        name,
+        hash_value: 0,
+        unique_sort_index: 0,
+        match_index: 0,
+        arity,
+        memo_flag,
+        sort_constraint_table: Default::default(),
+        sort_table: Default::default(),
+        index_within_parent: 0,
+        parent_module: Default::default(),
+      };
+    // The only time the hash is computed.
+    new_symbol.hash_value = new_symbol.compute_hash();
+
+    new_symbol
+  }
+
+  fn compute_hash(&self) -> u32 {
+    // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
+    // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
+    // IString implementation.
+    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
+    IString::get_hash(&self.name) | (self.arity << 24)
   }
 }
 
@@ -200,13 +213,13 @@ fn get_index_within_module(&self) -> u32 {
 
 impl Display for dyn Symbol {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "symbol({})", self.symbol_members().name)
+    write!(f, "{}", self.symbol_members().name)
   }
 }
 
 impl Debug for dyn Symbol {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "symbol({})", self.symbol_members().name)
+    write!(f, "{}", self.symbol_members().name)
   }
 }
 
@@ -220,3 +233,4 @@ pub trait BinarySymbol: Symbol {
   fn get_identity(&self) -> Option<RcTerm>;
   fn get_identity_dag(&self) -> Option<RcDagNode>;
 }
+

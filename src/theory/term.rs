@@ -20,6 +20,9 @@ use std::{
 };
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::net::Shutdown::Write;
 use std::ptr::addr_of;
 
 use crate::{
@@ -29,7 +32,7 @@ use crate::{
     RcConnectedComponent,
     NatSet
   },
-  abstractions::{RcCell, Set},
+  abstractions::{RcCell, Set, FastHasher, FastHasherBuilder},
   theory::{
     RcSymbol,
     DagNode,
@@ -44,7 +47,7 @@ use crate::theory::{DagNodeFlag, dag_node_flags, RcDagNode};
 
 pub type RcTerm = RcCell<dyn Term>;
 pub type TermSet = Set<dyn Term>;
-pub type NodeCache = HashMap<*const dyn Term, RcDagNode>;
+pub type NodeCache<'s> = HashMap<u32, RcDagNode, FastHasherBuilder>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TermKind {
@@ -88,7 +91,7 @@ pub struct TermMembers {
   pub(crate) sort_index         : i32, //i16,
   pub(crate) connected_component: RcConnectedComponent,
   pub(crate) save_index         : i32,
-  pub(crate) hash_value         : u32,
+  // pub(crate) hash_value         : u32,
   pub(crate) cached_size        : i32,
 
   // Static Members
@@ -118,7 +121,7 @@ impl TermMembers {
       sort_index         : SpecialSort::Unknown as i32,
       connected_component: Default::default(),
       save_index         : 0,
-      hash_value         : 0,
+      // hash_value         : 0,
       cached_size        : 0,
     }
   }
@@ -127,6 +130,7 @@ impl TermMembers {
 
 pub trait Term {
   /// Gives the top symbol of this term.
+  #[inline(always)]
   fn symbol(&self) -> RcSymbol {
     self.term_members().top_symbol.clone()
   }
@@ -137,6 +141,7 @@ pub trait Term {
   fn term_members_mut(&mut self) -> &mut TermMembers;
 
   /// Is the term stable?
+  #[inline(always)]
   fn is_stable(&self) -> bool {
     self.term_members().flags & TermFlags::Stable as u8 != 0
   }
@@ -144,6 +149,7 @@ pub trait Term {
   /// Downcasts to concrete implementing type
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
 
+  #[inline(always)]
   fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
     if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
       self.compare_dag_arguments(other)
@@ -174,7 +180,7 @@ pub trait Term {
     }
   }
 
-
+  #[inline(always)]
   fn compare(&self, other: &dyn Term) -> Ordering {
     let other_symbol = other.symbol();
     let r = self.symbol().compare(other_symbol.as_ref());
@@ -197,13 +203,21 @@ pub trait Term {
     OrderingValue::Unknown
   }
 
+  /// Create a directed acyclic graph from this term. This is a convenience method to be an entry point for `dagify(…)`.
+  #[inline(always)]
+  fn make_dag(&self) -> RcDagNode {
+    let mut node_cache = NodeCache::with_hasher(FastHasherBuilder);
+    self.dagify(&mut node_cache, false)
+  }
+
   /// Create a directed acyclic graph from this term. This trait-level implemented function takes care of structural
   /// sharing. Each implementing type will supply its own implementation of `dagify_aux(…)`, which recursively
   /// calls `dagify(…)` on its children and then converts itself to a type implementing DagNode, returning `RcDagNode`.
   fn dagify(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
-    let self_ptr = self.as_ptr();
+    // let self_ptr = self.as_ptr().addr();
+    let self_hash = self.compute_hash();
 
-    if let Entry::Occupied(occupied_entry) = sub_dags.entry(self_ptr) {
+    if let Entry::Occupied(occupied_entry) = sub_dags.entry(self.compute_hash()) {
       let entry = occupied_entry.get();
       return entry.clone();
     }
@@ -215,7 +229,7 @@ pub trait Term {
       d.set_sort_index(self.term_members().sort_index);
       d.set_flags(DagNodeFlag::Reduced.into());
     }
-    sub_dags.insert(self_ptr, d.clone());
+    sub_dags.insert(self_hash, d.clone());
 
     d
   }
@@ -226,6 +240,34 @@ pub trait Term {
 
   fn as_ptr(&self) -> *const dyn Term;
 
+  fn repr(&self) -> String;
+
+  fn compute_hash(&self) -> u32;
+
+  /// Normalizes the term, returning the computed hash and `true` if the normalization changed
+  /// the term or `false` otherwise.
+  fn normalize(&mut self, full: bool) -> (u32, bool);
+
+}
+
+impl Display for dyn Term{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.repr())
+  }
 }
 
 
+/// Use the `Term::compute_hash(…)` hash for `HashSet`s and friends.
+impl Hash for dyn Term {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    state.write_u32(self.compute_hash())
+  }
+}
+
+impl PartialEq for dyn Term {
+  fn eq(&self, other: &Self) -> bool {
+    self.compute_hash() == other.compute_hash()
+  }
+}
+
+impl Eq for dyn Term{}

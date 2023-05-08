@@ -2,7 +2,10 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
-use crate::abstractions::{IString, RcCell};
+
+use simple_error::simple_error;
+
+use crate::abstractions::{IString, RcCell, hash2 as term_hash};
 use crate::core::{OrderingValue, RcSort, Substitution};
 use crate::theory::{DagNode, RcDagNode, RcSymbol, RcTerm, Term, TermMembers};
 use crate::theory::term::NodeCache;
@@ -27,7 +30,9 @@ impl VariableTerm {
     }
   }
 
+  // ToDo: What is the relationship between the term's name and the symbol's name?
   pub fn new(name: IString, symbol: RcSymbol) -> VariableTerm {
+
     let term_members = TermMembers::new(symbol);
 
     VariableTerm{
@@ -100,5 +105,22 @@ impl Term for VariableTerm {
         )
       )
     )
+  }
+
+
+  fn repr(&self) -> String {
+    format!("var<{}>", (self.name.to_string()))
+  }
+
+  fn compute_hash(&self) -> u32 {
+    // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
+    // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
+    // IString implementation.
+    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
+    term_hash(self.symbol().get_hash_value(), IString::get_hash(&self.name))
+  }
+
+  fn normalize(&mut self, _full: bool) -> (u32, bool) {
+    (self.compute_hash(), false)
   }
 }

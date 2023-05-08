@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::core::equation::Equation;
+use crate::core::Equation;
 
 use super::{
   FreeVariable,

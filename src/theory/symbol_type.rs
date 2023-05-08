@@ -4,8 +4,8 @@ A `SymbolType` is a bitfield of symbol attributes.
 
 */
 
-const FLAG_MASK: u32 = 0xffffff;
-const TYPE_SHIF: u32 = 24;
+const FLAG_MASK : u32 = 0xffffff;
+const TYPE_SHIFT: u32 = 24;
 
 // ToDo: It's a little weird that `BasicSymbolTypes` aren't `SymbolTypes`.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]

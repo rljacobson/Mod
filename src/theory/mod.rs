@@ -23,8 +23,8 @@ mod term;
 mod subproblem;
 mod automaton;
 mod associative_symbol;
-mod free_theory;
-mod variable;
+pub mod free_theory;
+pub mod variable;
 mod dag_node_flags;
 // mod acu_theory;
 

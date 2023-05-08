@@ -13,7 +13,8 @@ use crate::{
     Module,
     ModuleItem,
     SortConstraintTable,
-    WeakModule
+    WeakModule,
+    Strategy,
   },
   theory::{Symbol, symbol::SymbolMembers},
 };
@@ -31,13 +32,16 @@ pub struct FreeSymbol {
   // `SymbolMembers`
   symbol_members: SymbolMembers,
 
+  // `Strategy`
+  strategy: Strategy
 }
 
 impl FreeSymbol {
-  pub fn new(name: IString) -> FreeSymbol {
+  pub fn new(name: IString, arity: u32, memo_flag: bool, strategy: Strategy) -> FreeSymbol {
     FreeSymbol{
       discrimination_net: Default::default(),
-      symbol_members: SymbolMembers::new(name),
+      symbol_members: SymbolMembers::new(name, arity, memo_flag),
+      strategy
     }
   }
 

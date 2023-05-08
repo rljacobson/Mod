@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 
 mod cached_dag;
-pub mod equation;
+mod equation;
 mod local_bindings;
 mod module;
 mod ordering_value;
@@ -9,8 +9,10 @@ mod redex_position;
 mod rewrite_context;
 mod sort;
 mod substitution;
+mod strategy;
 
 pub(crate) use bit_set::BitSet as NatSet;
+pub(crate) use equation::Equation;
 pub(crate) use cached_dag::CachedDag;
 pub(crate) use local_bindings::{Binding, LocalBindings};
 pub(crate) use module::{Module, ModuleItem, WeakModule};
@@ -34,3 +36,4 @@ pub(crate) use sort::{
   OpDeclaration,
 };
 pub(crate) use substitution::Substitution;
+pub(crate) use strategy::Strategy;

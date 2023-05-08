@@ -7,6 +7,7 @@ Trait for DAG nodes.
 use std::collections::HashSet;
 use std::{any::Any, fmt::Display};
 use std::cmp::Ordering;
+use std::ops::Index;
 use std::ptr::addr_of;
 use std::rc::Rc;
 
@@ -282,7 +283,7 @@ impl Display for dyn DagNode {
 
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let dag_node = self;
-    let mut visited: HashSet<*const dyn DagNode> = HashSet::new();
+    let mut visited: Vec<*const dyn DagNode> = Vec::new();
     let mut counts: Vec<BigInteger> = vec![];
 
     graph_count(dag_node, &mut visited, &mut counts);
@@ -305,7 +306,9 @@ impl Display for dyn DagNode {
       let symbol = dag_node.symbol();
 
       write!(f, "#{} = {}", i, symbol.name())?;
-      write!(f, "(")?;
+      if dag_node.len() > 0 {
+        write!(f, "(")?;
+      }
 
       let mut first = true;
       for a in dag_node.iter_args() {
@@ -315,15 +318,19 @@ impl Display for dyn DagNode {
           "#{}",
           visited.iter()
                  .position(
-                    |&x| x == addr_of!(*a.borrow())
+                    |&x| x.addr() == addr_of!(*a.borrow()).addr()
                  ).unwrap()
         )?;
         first = false;
       }
-      write!(f, ")")?;
 
+      if dag_node.len() > 0 {
+        write!(f, ")")?;
+      }
+      write!(f, "\n")?;
     }
 
+    writeln!(f, "Begin{{Graph Representation}}")?;
     Ok(())
 
   }
@@ -333,26 +340,31 @@ impl Display for dyn DagNode {
 
 fn graph_count(
   dag_node: &dyn DagNode,
-  visited: &mut HashSet<*const dyn DagNode>,
+  visited: &mut Vec<*const dyn DagNode>,
   counts: &mut Vec<BigInteger>
 )
 {
+  // Beware the semantics of Rust pointer comparison. See
+  // https://stackoverflow.com/questions/47489449/why-can-comparing-two-seemingly-equal-pointers-with-return-false
+  // https://doc.rust-lang.org/std/primitive.pointer.html#method.addr-1
+
   let dag_node_ptr: *const dyn DagNode = dag_node.as_ptr();
-  visited.insert(dag_node_ptr);
+  // println!("Pushing d_ptr ({:?})", dag_node_ptr);
+  visited.push(dag_node_ptr);
 
   let index = counts.len();
-  assert_eq!(index, visited.iter().position(|&x| x == dag_node_ptr).unwrap(), "counts out of step");
+  assert_eq!(index, visited.iter().position(|&x|  x.addr() == dag_node_ptr.addr()).unwrap(), "counts out of step");
   counts.push(0);
 
   let mut count: BigInteger = 1;
 
   for d in dag_node.iter_args().map(|v| v.clone()) {
     let d_ptr = d.as_ptr();
-    if !visited.contains(&d_ptr.cast_const()) {
+    if visited.iter().find(|&&p| d_ptr.cast_const().addr() == p.addr()).is_none() {
       graph_count(d.as_ref(), visited, counts);
     }
 
-    let child_count = counts[visited.iter().position(|&x| x == d_ptr).unwrap()];
+    let child_count = counts[visited.iter().position(|&x|  x.addr() == d_ptr.cast_const().addr()).unwrap()];
     assert_ne!(child_count, 0, "cycle in dag");
     count += child_count;
   }

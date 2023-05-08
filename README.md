@@ -5,7 +5,8 @@
 
 Maude is interesting in part because it implements some of the most performant and sophisticated pattern matching
 algorithms that are known. Some of the algorithms are described across the literature. (See the 
-[Bibliography](Bibliography.md).) The most important references are:
+[Bibliography](doc/Bibliography.md).) The most important references are:
+
 * S. Eker, _Fast matching in combinations of regular equational theories_, Electronic Notes in Theoretical Computer
   Science, 1996,
   vol. 4, p. 90-109, ISSN 1571-0661, https://doi.org/10.1016/S1571-0661(04)00035-0.

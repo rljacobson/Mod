@@ -1,0 +1,4 @@
+NAME_STRING| PRECEDENCE|L_TOKEN| N_TOKEN| O_TOKEN| ASSOCIATIVITY| AFFIX| ARITY
+Construct  | 160       | (     |        | )      | L            | I    | 2
+Sequence   | 60        | ,     |        |        | F            | I    | 2
+Parentheses| 50        |       | (      | )      |              | M    | 1

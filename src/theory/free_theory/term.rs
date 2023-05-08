@@ -21,7 +21,7 @@ use crate::{
     TermFlags,
     DagNode
   },
-  abstractions::RcCell
+  abstractions::{RcCell, hash2 as term_hash}
 };
 use crate::core::{OrderingValue, Substitution};
 use crate::theory::free_theory::FreeSymbol;
@@ -148,4 +148,69 @@ impl Term for FreeTerm {
 
     RcCell(node)
   }
+
+
+  fn repr(&self) -> String {
+    let mut accumulator = String::new();
+
+    accumulator.push_str(
+      format!(
+        "free<{}>",
+        self.term_members.top_symbol.to_string().as_str()
+      ).as_str()
+    );
+    if !self.args.is_empty() {
+      accumulator.push('(');
+      accumulator.push_str(
+        self.args
+            .iter()
+            .map(|arg| arg.borrow().repr())
+            .collect::<Vec<String>>()
+            .join(", ")
+            .as_str()
+      );
+      accumulator.push(')');
+    }
+
+    accumulator
+  }
+
+  /// In sync with `normalize`.
+  fn compute_hash(&self) -> u32 {
+    let mut hash_value: u32 = self.symbol().get_hash_value();
+
+    for arg in &self.args {
+      let mut child_hash = 0;
+
+      child_hash = arg.borrow().compute_hash();
+
+      hash_value = term_hash(
+        hash_value,
+        child_hash
+      );
+    }
+
+    hash_value
+  }
+
+  fn normalize(&mut self, full: bool) -> (u32, bool) {
+    let mut changed: bool = false;
+    let mut hash_value: u32 = self.symbol().get_hash_value();
+
+    for arg in &self.args {
+      let mut child_hash = 0;
+      let mut child_changed = false;
+
+      (child_hash, child_changed) = arg.borrow_mut().normalize(full);
+      changed = changed || child_changed;
+
+      hash_value = term_hash(
+        hash_value,
+        child_hash
+      );
+    }
+
+    (hash_value, changed)
+  }
+
 }

@@ -17,6 +17,11 @@ publish = false
 bit-set = "0.5.3" # Implements NatSet
 string_cache = "0.8.7" # String interning
 shared_vector = "0.4.4" # Rc<Vec<T>> type
+
+pratt          = {path = "../pratt"}
+unicode-blocks = "0.1.6" # Greek Unicode characters
+simple-error   = "0.3.0" # Minimal error handling
+
 #once_cell = "1.17.1" # Initialize static members
 #lazy_static = "1.4.0" # Initialize static members
 

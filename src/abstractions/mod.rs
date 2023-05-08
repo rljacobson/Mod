@@ -9,6 +9,7 @@ module redirects to whatever chosen implementation we want.
 */
 
 mod rc_cell;
+mod hash;
 
 use std::collections::HashSet;
 
@@ -17,6 +18,7 @@ use std::collections::HashSet;
 pub use string_cache::DefaultAtom as IString;
 // Reference counted pointers with mutable stable, and complementary weak pointers.
 pub use rc_cell::{RcCell, WeakCell};
+pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
 
 
 /// Arbitrary precision integers

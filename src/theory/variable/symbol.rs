@@ -16,7 +16,7 @@ pub struct VariableSymbol {
 impl VariableSymbol {
   pub fn new(name: IString) -> VariableSymbol {
     VariableSymbol{
-      symbol_members: SymbolMembers::new(name),
+      symbol_members: SymbolMembers::new(name, 0, false),
     }
   }
 
