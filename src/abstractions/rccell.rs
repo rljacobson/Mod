@@ -45,6 +45,21 @@ use std::rc::{Rc, Weak};
 #[derive(Debug, Default, Eq)]
 pub struct RcCell<T: ?Sized>(pub Rc<RefCell<T>>);
 
+#[macro_export]
+macro_rules! rc_cell {
+    ($obj:expr) => {
+        RcCell(
+            Rc::new(
+                RefCell::new(
+                    $obj
+                )
+            )
+        )
+    };
+}
+
+pub use rc_cell;
+
 impl<T> RcCell<T> {
     /// Similar to [Rc::try_unwrap].
     /// Returns the inner value if the `RefCell` has only one strong reference.

@@ -204,6 +204,8 @@ impl LHSAutomaton for FreeLHSAutomaton {
       let mut stack_idx: usize = 0;
       // Match free symbol skeleton.
       for i in &self.free_subterms {
+        // It is important that this is _immutable_ access to the args list, because
+        // a `SharedVec` is copy on write if the ref count is greater than 1.
         let d = self.stack[i.position as usize][i.arg_index as usize].clone();
         if *d.borrow().symbol() != *i.symbol {
           return (false, None);

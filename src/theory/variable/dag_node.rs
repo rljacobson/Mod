@@ -7,23 +7,20 @@ use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::rc::Rc;
-use crate::{
-  theory::{
-    DagNode,
-    dag_node_flags,
-    NodeList,
-    RcSymbol,
-    RcTerm,
-    DagNodeFlags,
-    RcDagNode,
-    variable::{
-      VariableSymbol,
-      VariableTerm
-    },
-    dag_node::DagNodeMembers,
+use crate::{theory::{
+  DagNode,
+  dag_node_flags,
+  NodeList,
+  RcSymbol,
+  RcTerm,
+  DagNodeFlags,
+  RcDagNode,
+  variable::{
+    VariableSymbol,
+    VariableTerm
   },
-  abstractions::{IString, RcCell},
-};
+  dag_node::DagNodeMembers,
+}, abstractions::{IString, RcCell}, rc_cell};
 
 
 pub struct VariableDagNode {
@@ -91,13 +88,7 @@ impl DagNode for VariableDagNode {
   }
 
   fn termify(&self) -> RcTerm {
-    RcCell(
-      Rc::new(
-        RefCell::new(
-          VariableTerm::new(self.name.clone(), self.symbol())
-        )
-      )
-    )
+    rc_cell!(VariableTerm::new(self.name.clone(), self.symbol()))
   }
 
 
@@ -106,7 +97,7 @@ impl DagNode for VariableDagNode {
     let mut fdg = VariableDagNode::new(self.symbol(), self.name.clone(), self.index);
     fdg.set_flags(self.flags() & DagNodeFlags::RewritingFlags);
 
-    RcCell(Rc::new(RefCell::new(fdg)))
+    rc_cell!(fdg)
   }
 
 }

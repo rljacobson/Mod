@@ -7,6 +7,7 @@ Variables implement a lot of the same traits as a theory does, but it's technica
 mod term;
 mod dag_node;
 mod symbol;
+mod automaton;
 
 pub use term::{VariableTerm, RcVariableTerm};
 pub use dag_node::{VariableDagNode};

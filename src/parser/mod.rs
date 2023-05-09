@@ -29,7 +29,7 @@ use crate::theory::free_theory::{FreeSymbol, FreeTerm};
 use crate::theory::variable::VariableTerm;
 
 
-struct Parser(ParserCore);
+pub(crate) struct Parser(ParserCore);
 
 impl Parser {
   pub fn new() -> Parser {
@@ -82,24 +82,12 @@ fn termify_atom(atom: Atom) -> RcTerm {
 
           // Variable
           if is_variable {
-            RcCell(
-            Rc::new(
-              RefCell::new(
-                VariableTerm::new(IString::from(name.as_str()), symbol)
-              )
-            )
-            )
+            rc_cell!(VariableTerm::new(IString::from(name.as_str()), symbol))
           }
 
           // Symbol (nonvariable)
           else {
-            RcCell(
-            Rc::new(
-              RefCell::new(
-                FreeTerm::new(symbol)
-              )
-            )
-            )
+            rc_cell!(FreeTerm::new(symbol))
           }
         }
 
@@ -113,7 +101,7 @@ fn termify_atom(atom: Atom) -> RcTerm {
 
             // ToDo: How do I represent a "function variable"?
             let (_is_variable, symbol) = name_to_symbol(IString::from(name.as_str()), arity);
-            RcCell(Rc::new(RefCell::new(FreeTerm::with_args(symbol, rest))))
+            rc_cell!(FreeTerm::with_args(symbol, rest))
           } else {
             unreachable!("Could not destructure head as a symbol. This is a bug.");
           }
@@ -162,4 +150,5 @@ mod tests {
     let dag = term.borrow_mut().make_dag();
     println!("DAG: {}", dag.borrow());
   }
+
 }

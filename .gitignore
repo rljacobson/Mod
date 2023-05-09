@@ -5,3 +5,10 @@
 *.pdf
 
 .DS_Store
+
+/doc/pseudocode/
+
+/doc/pseudocode/.idea/BipartiteGraphMatching.iml
+/doc/pseudocode/.idea/modules.xml
+/doc/pseudocode/.idea/vcs.xml
+/doc/pseudocode/.idea/workspace.xml

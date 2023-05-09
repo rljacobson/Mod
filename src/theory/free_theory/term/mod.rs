@@ -1,9 +1,15 @@
 /*!
 
-Term for free theory.
+`Term` implementation for the free theory.
+
+The definition of `FreeTerm` and its implementation of the `Term` trait live in this file. The
+(non-trait) `impl` for `FreeTerm` is spread over multiple files to keep the file size small enough
+to navigate. In particular, the compiler for the matcher is in `compiler.rs`.
 
 */
 
+
+mod compiler;
 
 use std::{
   cmp::Ordering,
@@ -12,21 +18,25 @@ use std::{
 };
 use std::cell::RefCell;
 
-
 use crate::{
+  core::{OrderingValue, Substitution},
   theory::{
     TermMembers,
     Term,
     RcTerm,
     TermFlags,
-    DagNode
+    DagNode,
+    free_theory::FreeSymbol,
+    RcDagNode,
+    RcSymbol,
+    NodeCache
   },
-  abstractions::{RcCell, hash2 as term_hash}
+  abstractions::{
+    RcCell,
+    hash2 as term_hash
+  },
+  rc_cell,
 };
-use crate::core::{OrderingValue, Substitution};
-use crate::theory::free_theory::FreeSymbol;
-use crate::theory::{RcDagNode, RcSymbol};
-use crate::theory::term::NodeCache;
 use super::FreeDagNode;
 
 
@@ -37,28 +47,6 @@ pub struct FreeTerm{
   pub(crate) args        : Vec<RcTerm>,
   pub(crate) slot_index  : u32,
   pub(crate) visited     : bool
-}
-
-impl FreeTerm {
-  pub fn new(symbol: RcSymbol) -> FreeTerm {
-    let term_members = TermMembers::new(symbol);
-    FreeTerm{
-      term_members,
-      args: vec![],
-      slot_index: 0,
-      visited: false,
-    }
-  }
-
-  pub fn with_args(symbol: RcSymbol, args: Vec<RcTerm>) -> FreeTerm {
-    let term_members = TermMembers::new(symbol);
-    FreeTerm{
-      term_members,
-      args,
-      slot_index: 0,
-      visited: false,
-    }
-  }
 }
 
 impl Term for FreeTerm {
@@ -77,7 +65,7 @@ impl Term for FreeTerm {
     if let Some(da) = other.as_any().downcast_ref::<FreeDagNode>(){
       for (term_arg, dag_arg) in self.args.iter().zip(da.iter_args()) {
         let r = term_arg.borrow()
-                        .partial_compare(partial_substitution, dag_arg.as_ref());
+            .partial_compare(partial_substitution, dag_arg.as_ref());
         if r != OrderingValue::Equal {
           return r;
         }
@@ -137,16 +125,14 @@ impl Term for FreeTerm {
   }
 
   fn dagify_aux(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
-    let node = Rc::new(RefCell::new(FreeDagNode::new(self.symbol())));
+    let mut node = FreeDagNode::new(self.symbol());
 
-    {
-      let mut node = node.borrow_mut();
-      for arg in &self.args {
-        node.members.args.push(arg.borrow_mut().dagify(sub_dags, set_sort_info));
-      }
+    for arg in &self.args {
+      node.members.args.push(arg.borrow_mut().dagify(sub_dags, set_sort_info));
     }
-
-    RcCell(node)
+    // Needed to specify generic trait object.
+    let node: RcCell<dyn DagNode> = rc_cell!(node);
+    node
   }
 
 
@@ -213,4 +199,26 @@ impl Term for FreeTerm {
     (hash_value, changed)
   }
 
+}
+
+impl FreeTerm {
+  pub fn new(symbol: RcSymbol) -> FreeTerm {
+    let term_members = TermMembers::new(symbol);
+    FreeTerm{
+      term_members,
+      args: vec![],
+      slot_index: 0,
+      visited: false,
+    }
+  }
+
+  pub fn with_args(symbol: RcSymbol, args: Vec<RcTerm>) -> FreeTerm {
+    let term_members = TermMembers::new(symbol);
+    FreeTerm{
+      term_members,
+      args,
+      slot_index: 0,
+      visited: false,
+    }
+  }
 }

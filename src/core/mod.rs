@@ -10,6 +10,8 @@ mod rewrite_context;
 mod sort;
 mod substitution;
 mod strategy;
+mod variable_info;
+mod automata;
 
 pub(crate) use bit_set::BitSet as NatSet;
 pub(crate) use equation::Equation;
@@ -37,3 +39,5 @@ pub(crate) use sort::{
 };
 pub(crate) use substitution::Substitution;
 pub(crate) use strategy::Strategy;
+pub(crate) use variable_info::VariableInfo;
+pub(crate) use automata::BindingLHSAutomaton;

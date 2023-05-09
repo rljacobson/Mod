@@ -370,3 +370,50 @@ fn graph_count(
   }
   counts[index] = count;
 }
+
+
+
+// region Free Functions
+// This function now lives in `theory::automaton::LHSAutomaton`.
+/*
+pub fn match_variable(
+  this: RcDagNode,
+  index: i32,
+  sort: RcSort,
+  copy_to_avoid_overwriting: bool,
+  solution: &mut Substitution,
+  // extension_info: Option<&ExtensionInfo>
+) -> (bool, MaybeSubproblem)
+{
+
+  // if let Some(ext_info) = extension_info {
+  //   return self.match_variable_with_extension(index, sort, solution, returned_subproblem, ext_info);
+  // }
+  let d = solution.value(index);
+  match d {
+    None => {
+      if let (Outcome::Success, maybe_subproblem) = this.borrow().check_sort(sort) {
+        let dag_node_ref =
+            if copy_to_avoid_overwriting {
+              this.borrow().shallow_copy()
+            } else {
+              this.clone()
+            };
+        solution.bind(index, Some(dag_node_ref));
+        (true, maybe_subproblem)
+      } else {
+        (false, None)
+      }
+    }
+    Some(existing_d) => {
+      if this.borrow().compare(&*existing_d.borrow()).is_eq() {
+        (true, None)
+      } else {
+        (false, None)
+      }
+    }
+  }
+
+}
+*/
+// endregion

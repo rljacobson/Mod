@@ -31,6 +31,46 @@ pub trait LHSAutomaton {
   fn match_variable(
     &self,
     dag_node: RcDagNode,
+    index   : i32,
+    sort    : RcSort,
+    copy_to_avoid_overwriting: bool,
+    solution: &mut Substitution,
+    // extension_info: Option<&ExtensionInfo>
+  ) -> (bool, MaybeSubproblem)
+  {
+    // if let Some(ext_info) = extension_info {
+    //   return self.match_variable_with_extension(index, sort, solution, returned_subproblem, ext_info);
+    // }
+    let d = solution.value(index);
+    match d {
+      None => {
+        if let (Outcome::Success, maybe_subproblem) = dag_node.borrow().check_sort(sort) {
+          let dag_node_ref =
+              if copy_to_avoid_overwriting {
+                dag_node.borrow().shallow_copy()
+              } else {
+                dag_node.clone()
+              };
+          solution.bind(index, Some(dag_node_ref));
+          (true, maybe_subproblem)
+        } else {
+          (false, None)
+        }
+      }
+      Some(existing_d) => {
+        if dag_node.borrow().compare(&*existing_d.borrow()).is_eq() {
+          (true, None)
+        } else {
+          (false, None)
+        }
+      }
+    }
+
+  }
+  /*
+  fn match_variable(
+    &self,
+    dag_node: RcDagNode,
     index: i32,
     sort: RcSort,
     copy_to_avoid_overwriting: bool,
@@ -65,6 +105,7 @@ pub trait LHSAutomaton {
 
     (false, None)
   }
+  */
 
 
 }

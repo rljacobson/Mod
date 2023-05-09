@@ -41,8 +41,8 @@ use crate::{
     symbol::SymbolSet
   }
 };
-use crate::core::SpecialSort;
-use crate::theory::{DagNodeFlag, dag_node_flags, RcDagNode};
+use crate::core::{SpecialSort, VariableInfo};
+use crate::theory::{DagNodeFlag, dag_node_flags, RcDagNode, LHSAutomaton, RcLHSAutomaton};
 
 
 pub type RcTerm = RcCell<dyn Term>;
@@ -90,7 +90,7 @@ pub struct TermMembers {
   pub(crate) flags              : u8,
   pub(crate) sort_index         : i32, //i16,
   pub(crate) connected_component: RcConnectedComponent,
-  pub(crate) save_index         : i32,
+  pub(crate) save_index         : i32, // NoneIndex = -1
   // pub(crate) hash_value         : u32,
   pub(crate) cached_size        : i32,
 
@@ -250,6 +250,7 @@ pub trait Term {
 
 }
 
+// region trait impls for Term
 impl Display for dyn Term{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.repr())
@@ -271,3 +272,17 @@ impl PartialEq for dyn Term {
 }
 
 impl Eq for dyn Term{}
+// endregion
+
+
+/// Methods related to compiling a `Term` to a `LHSAutomaton`.
+pub trait TermCompiler: Term {
+
+  fn compile_lhs(
+    &self, match_at_top: bool,
+    variable_info: &VariableInfo,
+    bound_uniquely: &mut NatSet,
+    subproblem_likely: &mut bool  // Output parameter
+  ) -> RcLHSAutomaton;
+
+}

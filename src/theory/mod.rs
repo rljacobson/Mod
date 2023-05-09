@@ -18,6 +18,7 @@ pub mod symbol_type;
 
 
 mod symbol;
+mod dag_node_flags;
 mod dag_node;
 mod term;
 mod subproblem;
@@ -25,7 +26,6 @@ mod automaton;
 mod associative_symbol;
 pub mod free_theory;
 pub mod variable;
-mod dag_node_flags;
 // mod acu_theory;
 
 use std::rc::Rc;
@@ -43,8 +43,9 @@ pub(crate) use associative_symbol::{
 
 };
 pub(crate) use term::{
-  Term,
+  NodeCache,
   RcTerm,
+  Term,
   TermFlags,
   TermMembers
 };

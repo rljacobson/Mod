@@ -1,3 +1,15 @@
+/*!
+
+`Term` implementation for the free theory.
+
+The definition of `VariableTerm` and its implementation of the `Term` trait live in this file. The
+(non-trait) `impl` for `VariableTerm` is spread over multiple files to keep the file size small enough
+to navigate. In particular, the compiler for the matcher is in `compiler.rs`.
+
+ */
+
+mod compiler;
+
 use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -7,6 +19,7 @@ use simple_error::simple_error;
 
 use crate::abstractions::{IString, RcCell, hash2 as term_hash};
 use crate::core::{OrderingValue, RcSort, Substitution};
+use crate::rc_cell;
 use crate::theory::{DagNode, RcDagNode, RcSymbol, RcTerm, Term, TermMembers};
 use crate::theory::term::NodeCache;
 use crate::theory::variable::symbol::VariableSymbol;
@@ -94,19 +107,14 @@ impl Term for VariableTerm {
   }
 
   fn dagify_aux(&self, _sub_dags: &mut NodeCache, _set_sort_info: bool) -> RcDagNode {
-    RcCell(
-      Rc::new(
-        RefCell::new(
-          VariableDagNode::new(
-            self.symbol(),
-            self.name.clone(),
-            self.index
-          )
-        )
+    rc_cell!(
+      VariableDagNode::new(
+        self.symbol(),
+        self.name.clone(),
+        self.index
       )
     )
   }
-
 
   fn repr(&self) -> String {
     format!("var<{}>", (self.name.to_string()))

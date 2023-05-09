@@ -22,7 +22,7 @@ use crate::{
 use crate::core::{Sort, SpecialSort};
 use crate::theory::dag_node::DagNodeMembers;
 use crate::theory::free_theory::FreeTerm;
-use crate::theory::{DagNodeFlag, DagNodeFlags, RcTerm};
+use crate::theory::{DagNodeFlag, DagNodeFlags, NodeList, RcTerm};
 
 use super::RcFreeSymbol;
 
@@ -170,26 +170,20 @@ impl DagNode for FreeDagNode {
                 }
               )
               .collect();
-    RcCell(
-      Rc::new(
-        RefCell::new(
-          FreeTerm::with_args(self.symbol(), args)
-        )
-      )
-    )
+    rc_cell!(FreeTerm::with_args(self.symbol(), args))
   }
 
   fn shallow_copy(&self) -> RcDagNode {
     let fdg = FreeDagNode{
       members: DagNodeMembers{
         top_symbol: self.symbol(),
-        args: self.members.args.clone(),
-        flags: self.flags() & DagNodeFlags::RewritingFlags,
+        args      : self.members.args.clone_buffer(), // Clones all elements of the `SharedVec`
+        flags     : self.flags() & DagNodeFlags::RewritingFlags,
         sort_index: self.get_sort_index(),
       }
     };
 
-    RcCell(Rc::new(RefCell::new(fdg)))
+    rc_cell!(fdg)
   }
 
 }
