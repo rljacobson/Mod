@@ -29,10 +29,9 @@ use crate::{
   core::{
     Substitution,
     OrderingValue,
-    RcConnectedComponent,
-    NatSet
+    RcConnectedComponent
   },
-  abstractions::{RcCell, Set, FastHasher, FastHasherBuilder},
+  abstractions::{RcCell, Set, FastHasher, FastHasherBuilder, NatSet},
   theory::{
     RcSymbol,
     DagNode,
@@ -129,6 +128,20 @@ impl TermMembers {
 
 
 pub trait Term {
+
+  fn as_any(&self) -> &dyn Any;
+  fn as_any_mut(&mut self) -> &mut dyn Any;
+  fn as_ptr(&self) -> *const dyn Term;
+  /// A human-readable string representation of the term
+  fn repr(&self) -> String;
+  fn compute_hash(&self) -> u32;
+  /// Normalizes the term, returning the computed hash and `true` if the normalization changed
+  /// the term or `false` otherwise.
+  fn normalize(&mut self, full: bool) -> (u32, bool);
+
+
+  // region Accessors
+
   /// Gives the top symbol of this term.
   #[inline(always)]
   fn symbol(&self) -> RcSymbol {
@@ -145,6 +158,41 @@ pub trait Term {
   fn is_stable(&self) -> bool {
     self.term_members().flags & TermFlags::Stable as u8 != 0
   }
+
+  /// A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
+  /// when all the terms variables are already bound.
+  #[inline(always)]
+  fn honors_ground_out_match(&self) -> bool {
+    self.term_members().flags & TermFlags::HonorsGroundOutMatch as u8 != 0
+  }
+
+  #[inline(always)]
+  fn is_eager_context(&self) -> bool {
+    self.term_members().flags & TermFlags::EagerContext as u8 != 0
+  }
+
+  #[inline(always)]
+  fn ground(&self) -> bool {
+    self.term_members().occurs_set.is_empty()
+  }
+
+  #[inline(always)]
+  fn occurs_below(&self) -> &NatSet {
+    &self.term_members().occurs_set
+  }
+
+  #[inline(always)]
+  fn occurs_in_context(&self) -> &NatSet {
+    &self.term_members().context_set
+  }
+
+  #[inline(always)]
+  fn collapse_symbols(&self) -> &SymbolSet {
+    &self.term_members().collapse_set
+  }
+  // endregion
+
+  // region Comparison Functions
 
   /// Downcasts to concrete implementing type
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering;
@@ -190,9 +238,6 @@ pub trait Term {
     return r;
   }
 
-  fn as_any(&self) -> &dyn Any;
-  fn as_any_mut(&mut self) -> &mut dyn Any;
-
   /// Overridden in `VariableTerm`
   fn partial_compare_unstable(&self, _partial_substitution: &mut Substitution, _other: &dyn DagNode) -> OrderingValue {
     OrderingValue::Unknown
@@ -203,6 +248,9 @@ pub trait Term {
     OrderingValue::Unknown
   }
 
+  // endregion
+
+  // region DAG Creation
   /// Create a directed acyclic graph from this term. This is a convenience method to be an entry point for `dagify(…)`.
   #[inline(always)]
   fn make_dag(&self) -> RcDagNode {
@@ -237,17 +285,27 @@ pub trait Term {
   /// Create a directed acyclic graph from this term. This method has the implementation-specific stuff.
   fn dagify_aux(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode;
 
+  // endregion
 
-  fn as_ptr(&self) -> *const dyn Term;
+  // region Compiler-related Functions //
 
-  fn repr(&self) -> String;
+  /// Compiles the LHS automaton, returning the tuple `(lhs_automaton, subproblem_likely): (RcLHSAutomaton, bool)`
+  fn compile_lhs(
+    &self,
+    match_at_top  : bool,
+    variable_info : &VariableInfo,
+    bound_uniquely: &mut NatSet,
+  ) -> (RcLHSAutomaton, bool);
 
-  fn compute_hash(&self) -> u32;
+  // A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
+  // when all the terms variables are already bound.
+  fn will_ground_out_match(&self, bound_uniquely: &NatSet) -> bool {
+    self.honors_ground_out_match() && bound_uniquely.is_superset(&self.term_members().occurs_set)
+  }
 
-  /// Normalizes the term, returning the computed hash and `true` if the normalization changed
-  /// the term or `false` otherwise.
-  fn normalize(&mut self, full: bool) -> (u32, bool);
+  fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet);
 
+  // endregion
 }
 
 // region trait impls for Term
@@ -258,7 +316,7 @@ impl Display for dyn Term{
 }
 
 
-/// Use the `Term::compute_hash(…)` hash for `HashSet`s and friends.
+// Use the `Term::compute_hash(…)` hash for `HashSet`s and friends.
 impl Hash for dyn Term {
   fn hash<H: Hasher>(&self, state: &mut H) {
     state.write_u32(self.compute_hash())
@@ -275,14 +333,3 @@ impl Eq for dyn Term{}
 // endregion
 
 
-/// Methods related to compiling a `Term` to a `LHSAutomaton`.
-pub trait TermCompiler: Term {
-
-  fn compile_lhs(
-    &self, match_at_top: bool,
-    variable_info: &VariableInfo,
-    bound_uniquely: &mut NatSet,
-    subproblem_likely: &mut bool  // Output parameter
-  ) -> RcLHSAutomaton;
-
-}

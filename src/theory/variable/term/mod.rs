@@ -2,13 +2,7 @@
 
 `Term` implementation for the free theory.
 
-The definition of `VariableTerm` and its implementation of the `Term` trait live in this file. The
-(non-trait) `impl` for `VariableTerm` is spread over multiple files to keep the file size small enough
-to navigate. In particular, the compiler for the matcher is in `compiler.rs`.
-
- */
-
-mod compiler;
+*/
 
 use std::any::Any;
 use std::cell::RefCell;
@@ -17,20 +11,44 @@ use std::rc::Rc;
 
 use simple_error::simple_error;
 
-use crate::abstractions::{IString, RcCell, hash2 as term_hash};
-use crate::core::{OrderingValue, RcSort, Substitution};
-use crate::rc_cell;
-use crate::theory::{DagNode, RcDagNode, RcSymbol, RcTerm, Term, TermMembers};
-use crate::theory::term::NodeCache;
-use crate::theory::variable::symbol::VariableSymbol;
-use crate::theory::variable::VariableDagNode;
+use crate::{
+  abstractions::{
+    rc_cell,
+    IString,
+    RcCell,
+    hash2 as term_hash,
+    NatSet
+  },
+  core::{
+    OrderingValue,
+    RcSort,
+    Substitution,
+    VariableInfo,
+    BindingLHSAutomaton
+  },
+  theory::{
+    variable::{
+      VariableDagNode,
+      symbol::VariableSymbol,
+      automaton::VariableLHSAutomaton
+    },
+    term::NodeCache,
+    DagNode,
+    RcDagNode,
+    RcLHSAutomaton,
+    RcSymbol,
+    RcTerm,
+    Term,
+    TermMembers,
+  },
 
+};
 
 pub type RcVariableTerm = Rc<VariableTerm>;
 
 pub struct VariableTerm{
-  term_members: TermMembers,
-  name: IString,
+  term_members    : TermMembers,
+  name            : IString,
   pub(crate) index: i32
 }
 
@@ -57,6 +75,37 @@ impl VariableTerm {
 }
 
 impl Term for VariableTerm {
+  // region Representation and Reduction
+  fn as_any(&self) -> &dyn Any {
+    self
+  }
+
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  fn as_ptr(&self) -> *const dyn Term {
+    self
+  }
+
+  fn repr(&self) -> String {
+    format!("var<{}>", (self.name.to_string()))
+  }
+
+  fn compute_hash(&self) -> u32 {
+    // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
+    // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
+    // IString implementation.
+    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
+    term_hash(self.symbol().get_hash_value(), IString::get_hash(&self.name))
+  }
+
+  fn normalize(&mut self, _full: bool) -> (u32, bool) {
+    (self.compute_hash(), false)
+  }
+  // endregion
+
+  // region Accessors
   fn term_members(&self) -> &TermMembers {
     &self.term_members
   }
@@ -64,7 +113,9 @@ impl Term for VariableTerm {
   fn term_members_mut(&mut self) -> &mut TermMembers {
     &mut self.term_members
   }
+  // endregion
 
+  // region Comparisons
   fn compare_term_arguments(&self, other: &dyn Term) -> Ordering {
     if let Some(other) = other.as_any().downcast_ref::<VariableTerm>(){
       self.name.cmp(&other.name)
@@ -93,18 +144,7 @@ impl Term for VariableTerm {
       }
     }
   }
-
-  fn as_any(&self) -> &dyn Any {
-    self
-  }
-
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
-
-  fn as_ptr(&self) -> *const dyn Term {
-    self
-  }
+  // endregion
 
   fn dagify_aux(&self, _sub_dags: &mut NodeCache, _set_sort_info: bool) -> RcDagNode {
     rc_cell!(
@@ -116,19 +156,41 @@ impl Term for VariableTerm {
     )
   }
 
-  fn repr(&self) -> String {
-    format!("var<{}>", (self.name.to_string()))
+  // region Compiler-Related
+  fn compile_lhs(
+    &self,
+    match_at_top: bool,
+    _variable_info: &VariableInfo,
+    bound_uniquely: &mut NatSet,
+  ) -> (RcLHSAutomaton, bool)
+  {
+    bound_uniquely.insert(self.index as usize);
+
+    let mut a: RcLHSAutomaton =
+        rc_cell!(
+        VariableLHSAutomaton::new(
+          self.index,
+          self.sort().clone(),
+          match_at_top
+        )
+      );
+
+    if self.term_members.save_index != -1 /*None*/{
+      a = rc_cell!(
+        BindingLHSAutomaton::new(
+          self.term_members.save_index,
+          a
+        )
+      );
+    }
+
+    // subproblem is never likely for `VariableTerm`
+    (a, false)
   }
 
-  fn compute_hash(&self) -> u32 {
-    // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
-    // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
-    // IString implementation.
-    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
-    term_hash(self.symbol().get_hash_value(), IString::get_hash(&self.name))
+  fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
+    bound_uniquely.insert(self.index as usize);
   }
 
-  fn normalize(&mut self, _full: bool) -> (u32, bool) {
-    (self.compute_hash(), false)
-  }
+  // endregion
 }

@@ -4,7 +4,7 @@ The execution strategy.
 
 */
 
-use crate::core::NatSet;
+use crate::abstractions::NatSet;
 
 #[derive(Default)]
 pub struct Strategy {

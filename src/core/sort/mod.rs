@@ -11,8 +11,7 @@ mod sort_table;
 use std::fmt::Display;
 use std::mem::size_of;
 
-use crate::abstractions::{IString, RcCell, WeakCell};
-use crate::core::NatSet;
+use crate::abstractions::{IString, RcCell, WeakCell, NatSet};
 
 
 pub use component::{ConnectedComponent, RcConnectedComponent};

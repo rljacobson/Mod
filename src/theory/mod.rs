@@ -47,7 +47,7 @@ pub(crate) use term::{
   RcTerm,
   Term,
   TermFlags,
-  TermMembers
+  TermMembers,
 };
 pub(crate) use dag_node_flags::{
   DagNodeFlag,

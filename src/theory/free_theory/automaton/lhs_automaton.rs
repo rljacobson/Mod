@@ -72,13 +72,13 @@ pub struct FreeLHSAutomaton {
 
 impl FreeLHSAutomaton {
   pub fn new(
-    free_symbols  : &[FreeOccurrence],
-    uncertain_vars: &[FreeOccurrence],
-    bound_vars    : &[FreeOccurrence],
-    gnd_aliens    : &[FreeOccurrence],
-    non_gnd_aliens: &[FreeOccurrence],
-    best_sequence : &[usize],
-    sub_automata  : &[RcLHSAutomaton],
+    free_symbols  : Vec<FreeOccurrence>,
+    uncertain_vars: Vec<FreeOccurrence>,
+    bound_vars    : Vec<FreeOccurrence>,
+    gnd_aliens    : Vec<FreeOccurrence>,
+    non_gnd_aliens: Vec<FreeOccurrence>,
+    best_sequence : Vec<u32>,
+    sub_automata  : Vec<RcLHSAutomaton>,
   ) -> Self {
     let nr_free_symbols = free_symbols.len();
     let top_term        = free_symbols[0].dereference_term::<FreeTerm>();
@@ -155,12 +155,12 @@ impl FreeLHSAutomaton {
     let non_ground_aliens = best_sequence
         .iter()
         .map(|&i| {
-          let oc = &non_gnd_aliens[i];
-          let parent = free_symbols[oc.position as usize].dereference_term::<FreeTerm>();
+          let occurance: &FreeOccurrence = &non_gnd_aliens[i as usize];
+          let parent = free_symbols[occurance.position as usize].dereference_term::<FreeTerm>();
           NonGroundAlien {
             position : parent.slot_index,
-            arg_index: oc.arg_index,
-            automaton: sub_automata[i].clone()
+            arg_index: occurance.arg_index,
+            automaton: sub_automata[i as usize].clone()
           }
         })
         .collect::<Vec<_>>();

@@ -1,6 +1,6 @@
 use std::ops::{BitOr, BitOrAssign};
-use crate::abstractions::WeakCell;
-use crate::core::{NatSet, Sort, WeakSort};
+use crate::abstractions::{WeakCell, NatSet};
+use crate::core::{Sort, WeakSort};
 use crate::core::sort::OpDeclaration;
 
 use super::{RcSort, RcConnectedComponent};

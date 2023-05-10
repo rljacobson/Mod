@@ -4,21 +4,18 @@ use std::{
 };
 use std::cell::RefCell;
 
-use crate::{
-  theory::{
-    dag_node_flags,
-    DagNode,
-    RcDagNode,
-    DagPair,
-    RcSymbol,
-    Symbol,
-  },
-  core::{
-    RcSort,
-    OrderingValue,
-    numeric_ordering
-  }, abstractions::RcCell
-};
+use crate::{theory::{
+  dag_node_flags,
+  DagNode,
+  RcDagNode,
+  DagPair,
+  RcSymbol,
+  Symbol,
+}, core::{
+  RcSort,
+  OrderingValue,
+  numeric_ordering
+}, abstractions::RcCell, rc_cell};
 use crate::core::{Sort, SpecialSort};
 use crate::theory::dag_node::DagNodeMembers;
 use crate::theory::free_theory::FreeTerm;

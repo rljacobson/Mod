@@ -44,7 +44,7 @@ pub trait LHSAutomaton {
     let d = solution.value(index);
     match d {
       None => {
-        if let (Outcome::Success, maybe_subproblem) = dag_node.borrow().check_sort(sort) {
+        if let (Outcome::Success, maybe_subproblem) = dag_node.borrow_mut().check_sort(sort) {
           let dag_node_ref =
               if copy_to_avoid_overwriting {
                 dag_node.borrow().shallow_copy()

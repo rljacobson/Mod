@@ -8,7 +8,7 @@ Information about a variable that gets passed down through the compilation funct
 use std::collections::HashSet;
 use std::ops::Index;
 
-use crate::core::NatSet;
+use crate::abstractions::NatSet;
 use crate::theory::{RcTerm};
 
 

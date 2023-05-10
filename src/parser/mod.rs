@@ -24,6 +24,7 @@ use unicode_blocks;
 use pratt::{Atom, Parser as ParserCore, ParserBuilder};
 use crate::abstractions::{IString, RcCell};
 use crate::core::Strategy;
+use crate::rc_cell;
 use crate::theory::{RcSymbol, RcTerm, variable::{VariableSymbol}};
 use crate::theory::free_theory::{FreeSymbol, FreeTerm};
 use crate::theory::variable::VariableTerm;
