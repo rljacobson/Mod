@@ -115,31 +115,31 @@ impl SymbolAttribute {
     const SimpleAttributes: SymbolType = SymbolType(
         SymbolAttribute::Assoc as u32
             | SymbolAttribute::Comm as u32
-            | SymbolAttribute::Idem as u32
-            | SymbolAttribute::Memo as u32
-            | SymbolAttribute::Ctor as u32
             | SymbolAttribute::Config as u32
-            | SymbolAttribute::Object as u32
-            | SymbolAttribute::Message as u32
+            | SymbolAttribute::Ctor as u32
+            | SymbolAttribute::Idem as u32
             | SymbolAttribute::Iter as u32
-            | SymbolAttribute::PConst as u32,
+            | SymbolAttribute::Memo as u32
+            | SymbolAttribute::Message as u32
+            | SymbolAttribute::Object as u32
+            | SymbolAttribute::PConst as u32
     );
 
     /// All flagged attributes except ctor, poly, ditto. They need to agree between declarations of an operator.
     const Attributes: SymbolType = SymbolType(
-        SymbolAttribute::Prec as u32
-            | SymbolAttribute::Gather as u32
-            | SymbolAttribute::Format as u32
-            | SymbolAttribute::Latex as u32
-            | SymbolAttribute::Strat as u32
-            | SymbolAttribute::Memo as u32
-            | SymbolAttribute::Frozen as u32
+              SymbolAttribute::Axioms.0
             | SymbolAttribute::Config as u32
-            | SymbolAttribute::Object as u32
-            | SymbolAttribute::Message as u32
-            | SymbolAttribute::Axioms.0
+            | SymbolAttribute::Format as u32
+            | SymbolAttribute::Frozen as u32
+            | SymbolAttribute::Gather as u32
             | SymbolAttribute::Iter as u32
-            | SymbolAttribute::PConst as u32,
+            | SymbolAttribute::Latex as u32
+            | SymbolAttribute::Memo as u32
+            | SymbolAttribute::Message as u32
+            | SymbolAttribute::Object as u32
+            | SymbolAttribute::PConst as u32
+            | SymbolAttribute::Prec as u32
+            | SymbolAttribute::Strat as u32
     );
 }
 

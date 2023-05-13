@@ -16,7 +16,7 @@ use crate::{theory::{
   OrderingValue,
   numeric_ordering
 }, abstractions::RcCell, rc_cell};
-use crate::core::{Sort, SpecialSort};
+use crate::core::{RedexPosition, Sort, SpecialSort};
 use crate::theory::dag_node::DagNodeMembers;
 use crate::theory::free_theory::FreeTerm;
 use crate::theory::{DagNodeFlag, DagNodeFlags, NodeList, RcTerm};
@@ -183,4 +183,49 @@ impl DagNode for FreeDagNode {
     rc_cell!(fdg)
   }
 
+
+  fn copy_with_replacements(&self, redex_stack: &[RedexPosition], mut first_idx: usize, last_idx: usize) -> RcDagNode {
+    assert!(first_idx <= last_idx && last_idx < redex_stack.len(), "bad replacement range");
+    let symbol = self.symbol();
+    let nr_args = symbol.arity() as i32;
+    assert!(
+      redex_stack[first_idx].arg_index < nr_args && redex_stack[last_idx].arg_index < nr_args,
+      "bad replacement arg index"
+    );
+
+    let mut new_dag_node = FreeDagNode::new(symbol);
+    let args = &self.members.args;
+    let new_args = &mut new_dag_node.members.args;
+    let mut next_replacement_index = redex_stack[first_idx].arg_index;
+
+    for i in 0..nr_args {
+      if i == next_replacement_index {
+        new_args.push(redex_stack[first_idx].dag_node.clone());
+        first_idx += 1;
+        next_replacement_index = if first_idx <= last_idx {
+          redex_stack[first_idx].arg_index
+        } else {
+          -1
+        };
+      } else {
+        new_args.push(args[i as usize].clone());
+      }
+    }
+    rc_cell!(new_dag_node)
+  }
+
+  fn copy_with_replacement(&self, replacement: RcDagNode, arg_index: usize) -> RcDagNode{
+    let symbol = self.symbol();
+    let nr_args = symbol.arity() as usize;
+    assert!(arg_index < nr_args, "bad argIndex");
+
+    let mut new_dag_node = FreeDagNode::new(symbol);
+    let new_args = &mut new_dag_node.members.args;
+    // Because args is COW, we could just clone. But this is safer, in case someone forgets and changes args to non-COW.
+    *new_args = self.members.args.clone_buffer();
+
+    new_args[arg_index] = replacement;
+
+    rc_cell!(new_dag_node)
+  }
 }

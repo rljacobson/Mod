@@ -41,12 +41,12 @@ use crate::{
     RcLHSAutomaton
   }
 };
+use crate::core::TermBag;
 use super::FreeDagNode;
-
 
 pub type RcFreeTerm = RcCell<FreeTerm>;
 
-pub struct FreeTerm{
+pub struct FreeTerm {
   pub(crate) term_members: TermMembers,
   pub(crate) args        : Vec<RcTerm>,
   pub(crate) slot_index  : u32,
@@ -150,15 +150,20 @@ impl Term for FreeTerm {
   // endregion
 
   // region Accessors
-
+  #[inline(always)]
   fn term_members(&self) -> &TermMembers {
     &self.term_members
   }
 
+  #[inline(always)]
   fn term_members_mut(&mut self) -> &mut TermMembers {
     &mut self.term_members
   }
 
+  #[inline(always)]
+  fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_>{
+    Box::new(self.args.iter().cloned())
+  }
   // endregion
 
   // region Comparison Methods
@@ -245,6 +250,11 @@ impl Term for FreeTerm {
   #[inline(always)]
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
     FreeTerm::analyse_constraint_propagation(self, bound_uniquely)
+  }
+
+  #[inline(always)]
+  fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool) {
+    FreeTerm::find_available_terms_aux(&self, available_terms, eager_context, at_top);
   }
 
 }

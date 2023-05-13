@@ -21,6 +21,7 @@ use crate::{theory::{
   },
   dag_node::DagNodeMembers,
 }, abstractions::{IString, RcCell}, rc_cell};
+use crate::core::RedexPosition;
 
 
 pub struct VariableDagNode {
@@ -100,4 +101,11 @@ impl DagNode for VariableDagNode {
     rc_cell!(fdg)
   }
 
+  fn copy_with_replacements(&self, _stack: &[RedexPosition], _first_idx: usize, _last_idx: usize) -> RcDagNode {
+    unreachable!("This execution path should be unreachable. This is a bug.")
+  }
+
+  fn copy_with_replacement(&self, _replacement: RcDagNode, _arg_index: usize) -> RcDagNode {
+    unreachable!("This execution path should be unreachable. This is a bug.")
+  }
 }

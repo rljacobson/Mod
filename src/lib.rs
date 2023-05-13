@@ -9,43 +9,56 @@ pub mod parser;
 
 // use Pratt::Parser;
 
+// Sentinel Values
+// ToDo: Do UNDEFINED the right way. Is this great? No. But it's convenient.
+const UNDEFINED: i32 = -1;
+const NONE: i32 = -1;
+const  ROOT_OK: i32 = -2;
 
 #[cfg(test)]
 mod tests {
-    use parser::Parser;
-    use super::*;
+  use parser::Parser;
+  use crate::abstractions::NatSet;
+  use crate::core::VariableInfo;
+  use crate::theory::RcLHSAutomaton;
+  use super::*;
 
 
-    #[test]
-    fn simple_match_expr_test() {
-        // set_verbosity(5);
+  #[test]
+  fn simple_match_expr_test() {
+    // set_verbosity(5);
 
-        let mut parser = Parser::new();
+    let mut parser = Parser::new();
 
-        let mut pattern = "f(α, β)";
-        let mut pattern_term = match parser.parse(pattern) {
-            Ok(term) => term,
-            Err(_err) => {
-                panic!("FAILED TO PARSE.");
-            }
-        };
+    let pattern = "f(α, β)";
+    let pattern_term = match parser.parse(pattern) {
+      Ok(term) => term,
+      Err(_err) => {
+        panic!("FAILED TO PARSE.");
+      }
+    };
 
-        let mut subject = "f(a, b)";
-        let mut subject_term = match parser.parse(subject) {
-            Ok(term) => term,
-            Err(_err) => {
-                panic!("FAILED TO PARSE.");
-            }
-        };
+    let subject = "f(a, b)";
+    let subject_term = match parser.parse(subject) {
+      Ok(term) => term,
+      Err(_err) => {
+        panic!("FAILED TO PARSE.");
+      }
+    };
 
-        println!("PATTERN: {}", pattern);
-        println!("TERM: {}", pattern_term.borrow());
-        println!("SUBJECT: {}", subject);
-        println!("TERM: {}", subject_term.borrow());
+    println!("PATTERN: {}", pattern);
+    println!("TERM: {}"   , pattern_term.borrow());
+    println!("SUBJECT: {}", subject);
+    println!("TERM: {}"   , subject_term.borrow());
 
-        let mut pattern_dag = pattern_term.borrow_mut().make_dag();
-        // pattern_dag.borrow_mut().
+    let (_pattern_automata, _subproblem_likely): (RcLHSAutomaton, bool) =
+        pattern_term.borrow_mut()
+                    .compile_lhs(
+                      true,
+                      &VariableInfo::default(),
+                      &mut NatSet::default()
+                    );
 
 
-    }
+  }
 }

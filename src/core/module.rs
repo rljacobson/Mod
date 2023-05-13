@@ -1,10 +1,14 @@
 /*!
 
-A `Module` serves as a kind of symbol table and holds information local to a module.
+A `Module` serves as a kind of symbol table and holds information local to a module. It's the equivalent of a
+translation unit in C++ or a module in Python or Rust.
 
 */
 
 use std::default;
+use std::fmt::format;
+use pratt::Channel::Debug;
+use pratt::log;
 
 use super::{
   RcSort,
@@ -85,7 +89,9 @@ pub struct Module {
   // strategies: Vec<RcRewriteStrategy> ,
   // strategyDefinitions: Vec<RcStrategyDefinition> ,
   // sortBdds: RcSortBdds ,
-  // minimumSubstitutionSize: i32 ,
+
+  minimum_substitution_size: i32,
+
   // memoMap: RcMemoMap ,  // global memo map for all symbols in module
 
   // NamedEntity members
@@ -105,4 +111,23 @@ impl Module {
       ..Module::default()
     }
   }
+
+  #[inline(always)]
+  pub fn notify_substitution_size(&mut self, minimum_size: i32) {
+    if minimum_size > self.minimum_substitution_size {
+
+      log(Debug,
+        5,
+        format!(
+          "minimumSubstitutionSize for {:?} increased from {} to {}",
+          self.name,
+          self.minimum_substitution_size,
+          minimum_size
+        ).as_str()
+      );
+      self.minimum_substitution_size = minimum_size;
+    }
+  }
+
+
 }

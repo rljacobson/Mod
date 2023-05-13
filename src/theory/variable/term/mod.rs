@@ -4,6 +4,8 @@
 
 */
 
+mod compiler;
+
 use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -43,6 +45,7 @@ use crate::{
   },
 
 };
+use crate::core::TermBag;
 
 pub type RcVariableTerm = Rc<VariableTerm>;
 
@@ -113,6 +116,10 @@ impl Term for VariableTerm {
   fn term_members_mut(&mut self) -> &mut TermMembers {
     &mut self.term_members
   }
+
+  fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_> {
+    Box::new(std::iter::empty::<RcTerm>())
+  }
   // endregion
 
   // region Comparisons
@@ -139,13 +146,13 @@ impl Term for VariableTerm {
         return OrderingValue::Unknown;
       }
 
-      Some(d) => {
-        d.borrow().compare(other).into()
+      Some(dag_node) => {
+        dag_node.borrow().compare(other).into()
       }
     }
   }
   // endregion
-
+  #[inline(always)]
   fn dagify_aux(&self, _sub_dags: &mut NodeCache, _set_sort_info: bool) -> RcDagNode {
     rc_cell!(
       VariableDagNode::new(
@@ -164,9 +171,11 @@ impl Term for VariableTerm {
     bound_uniquely: &mut NatSet,
   ) -> (RcLHSAutomaton, bool)
   {
+    assert!(self.index > 100, "index too big");
+    assert!(self.index <0, "index negative");
     bound_uniquely.insert(self.index as usize);
 
-    let mut a: RcLHSAutomaton =
+    let mut automaton: RcLHSAutomaton =
         rc_cell!(
         VariableLHSAutomaton::new(
           self.index,
@@ -176,20 +185,24 @@ impl Term for VariableTerm {
       );
 
     if self.term_members.save_index != -1 /*None*/{
-      a = rc_cell!(
+      automaton = rc_cell!(
         BindingLHSAutomaton::new(
           self.term_members.save_index,
-          a
+          automaton
         )
       );
     }
 
     // subproblem is never likely for `VariableTerm`
-    (a, false)
+    (automaton, false)
   }
 
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
     bound_uniquely.insert(self.index as usize);
+  }
+
+  fn find_available_terms_aux(&self, _available_terms: &mut TermBag, _eager_context: bool, _at_top: bool) {
+    // There are no arguments to descend into for `VariableTerm`, so this is a no-op.
   }
 
   // endregion

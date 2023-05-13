@@ -12,6 +12,10 @@ mod sort;
 mod strategy;
 mod substitution;
 mod variable_info;
+mod pre_equation;
+mod condition_fragment;
+mod term_bag;
+mod pre_equation_attributes;
 
 pub(crate) use automata::BindingLHSAutomaton;
 pub(crate) use cached_dag::CachedDag;
@@ -39,4 +43,13 @@ pub(crate) use sort::{
 };
 pub(crate) use strategy::Strategy;
 pub(crate) use substitution::Substitution;
+pub(crate) use term_bag::TermBag;
 pub(crate) use variable_info::VariableInfo;
+pub(crate) use pre_equation::{ConditionState, PreEquationAttribute, PreEquation};
+pub(crate) use condition_fragment::{Condition, RcConditionFragment, ConditionFragment};
+
+// NOT YET IMPLEMENTED
+pub struct Rule{}
+pub struct NarrowingVariableInfo{}
+pub struct StrategyDefinition{}
+pub struct StateTransitionGraph{}

@@ -122,54 +122,6 @@ impl Display for Sort {
 impl PartialEq for Sort {
     fn eq(&self, other: &Sort) -> bool {
         return self.name == other.name && self.sort_index == other.sort_index;
-        /*
-        if self.name == other.name
-            && self.sort_index == other.sort_index
-            && self.fast_test == other.fast_test
-            && self.leq_sorts == other.leq_sorts
-            && self.sort_component == other.sort_component
-            && self.subsorts.len()==other.subsorts.len()
-            && self.supersorts.len() == other.supersorts.len()
-        {
-
-          for (s, t) in self.subsorts.iter().zip(other.subsorts.iter()) {
-            match s.try_get_ref() {
-                Ok(sr) => {
-                  match t.try_get_ref() {
-                    Ok(tr) => {
-                      if sr!=tr {
-                        return false;
-                      }
-                      /* continue below */
-                    },
-                    Err(_) => return false,
-                }
-                },
-                Err(_) => return false,
-            }
-          }
-          //  self.supersorts == other.supersorts
-          for (s, t) in self.supersorts.iter().zip(other.supersorts.iter()) {
-            match s.try_get_ref() {
-                Ok(sr) => {
-                  match t.try_get_ref() {
-                    Ok(tr) => {
-                      /* continue below */
-                      if sr!=tr {
-                        return false;
-                      }
-                    },
-                    Err(_) => return false,
-                }
-                },
-                Err(_) => return false,
-            }
-          }
-          true
-        } else {
-          false
-        }
-        */
     }
 }
 

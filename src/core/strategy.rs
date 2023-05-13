@@ -6,14 +6,14 @@ The execution strategy.
 
 use crate::abstractions::NatSet;
 
-#[derive(Default)]
+#[derive(Default, Eq, PartialEq)]
 pub struct Strategy {
-  pub is_standard: bool,
+  pub is_standard          : bool,
   pub unevaluated_arguments: bool,
-  pub strategy: Vec<i32>,
-  pub eager: NatSet,
-  pub evaluated: NatSet,
-  pub frozen: NatSet,
+  pub strategy             : Vec<i32>,
+  pub eager                : NatSet,
+  pub evaluated            : NatSet,
+  pub frozen               : NatSet,
 }
 
 impl Strategy {
@@ -33,11 +33,11 @@ impl Strategy {
     self.unevaluated_arguments
   }
 
-  pub fn eager_argument(&self, arg_nr: u32) -> bool {
-    self.is_standard || self.eager.contains(arg_nr as usize)
+  pub fn eager_argument(&self, arg_count: usize) -> bool {
+    self.is_standard || self.eager.contains(arg_count as usize)
   }
 
-  pub fn evaluated_argument(&self, arg_nr: i32) -> bool {
-    self.is_standard || self.evaluated.contains(arg_nr as usize)
+  pub fn evaluated_argument(&self, arg_count: usize) -> bool {
+    self.is_standard || self.evaluated.contains(arg_count as usize)
   }
 }

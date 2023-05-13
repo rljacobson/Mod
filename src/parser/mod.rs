@@ -131,7 +131,6 @@ fn name_to_symbol(name: IString, arity: u32) -> (bool, RcSymbol) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use pratt::set_verbosity;
 
   #[test]
   fn parse_symbol_expr_test() {

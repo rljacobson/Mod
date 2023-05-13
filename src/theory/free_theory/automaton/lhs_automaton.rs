@@ -87,6 +87,7 @@ impl FreeLHSAutomaton {
 
     top_term.slot_index = 0;
 
+    // Free symbol skeleton //
     // Start with 1, because 0th term is `top_term`, which we set above.
     let free_subterms = (1..nr_free_symbols)
         .map(|i| {
@@ -113,6 +114,8 @@ impl FreeLHSAutomaton {
 
     let stack = vec![NodeList::new(); slot_nr];
 
+    // Variables that may be bound //
+
     let uncertain_variables = uncertain_vars
         .iter()
         .map(|oc| {
@@ -127,6 +130,8 @@ impl FreeLHSAutomaton {
         })
         .collect::<Vec<_>>();
 
+    // Variables that will be bound //
+
     let bound_variables = bound_vars
         .iter()
         .map(|oc| {
@@ -140,6 +145,8 @@ impl FreeLHSAutomaton {
         })
         .collect::<Vec<_>>();
 
+    // Ground alien subterms //
+
     let ground_aliens = gnd_aliens
         .iter()
         .map(|oc| {
@@ -151,6 +158,8 @@ impl FreeLHSAutomaton {
           }
         })
         .collect::<Vec<_>>();
+
+    // Non-ground alien subterms //
 
     let non_ground_aliens = best_sequence
         .iter()

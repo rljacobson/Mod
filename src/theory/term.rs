@@ -14,39 +14,54 @@ Types Implementing `Term`:
 */
 
 use std::{
+  any::Any,
   cmp::Ordering,
+  collections::{
+    hash_map::Entry,
+    HashMap
+  },
+  fmt::{Display, Formatter},
+  hash::{Hash, Hasher},
+  net::Shutdown::Write,
+  ptr::addr_of,
   rc::Rc,
-  any::Any
 };
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::hash::{Hash, Hasher};
-use std::net::Shutdown::Write;
-use std::ptr::addr_of;
 
 use crate::{
   core::{
     Substitution,
     OrderingValue,
-    RcConnectedComponent
+    RcConnectedComponent,
+    SpecialSort,
+    VariableInfo
   },
-  abstractions::{RcCell, Set, FastHasher, FastHasherBuilder, NatSet},
+  abstractions::{
+    RcCell,
+    Set,
+    FastHasher,
+    FastHasherBuilder,
+    NatSet
+  },
   theory::{
     RcSymbol,
     DagNode,
     NodeList,
     Symbol,
-    symbol::SymbolSet
+    symbol::SymbolSet,
+    DagNodeFlag,
+    dag_node_flags,
+    RcDagNode,
+    LHSAutomaton,
+    RcLHSAutomaton
   }
 };
-use crate::core::{SpecialSort, VariableInfo};
-use crate::theory::{DagNodeFlag, dag_node_flags, RcDagNode, LHSAutomaton, RcLHSAutomaton};
+use crate::core::TermBag;
+use crate::theory::variable::VariableTerm;
 
 
-pub type RcTerm = RcCell<dyn Term>;
-pub type TermSet = Set<dyn Term>;
-pub type NodeCache<'s> = HashMap<u32, RcDagNode, FastHasherBuilder>;
+pub type RcTerm    = RcCell<dyn Term>;
+pub type TermSet   = Set<dyn Term>;
+pub type NodeCache = HashMap<u32, RcDagNode, FastHasherBuilder>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum TermKind {
@@ -83,6 +98,7 @@ We choose the second option.
 */
 pub struct TermMembers {
   pub(crate) top_symbol         : RcSymbol,
+  /// The handles (indices) for the variable terms that occur in this term or its descendants
   pub(crate) occurs_set         : NatSet,
   pub(crate) context_set        : NatSet,
   pub(crate) collapse_set       : SymbolSet,
@@ -167,6 +183,16 @@ pub trait Term {
   }
 
   #[inline(always)]
+  fn set_honors_ground_out_match(&mut self, value: bool) {
+    let mut members = self.term_members_mut();
+    if value {
+      members.flags = members.flags | TermFlags::HonorsGroundOutMatch as u8;
+    } else {
+      members.flags = members.flags & !(TermFlags::HonorsGroundOutMatch as u8);
+    }
+  }
+
+  #[inline(always)]
   fn is_eager_context(&self) -> bool {
     self.term_members().flags & TermFlags::EagerContext as u8 != 0
   }
@@ -176,9 +202,15 @@ pub trait Term {
     self.term_members().occurs_set.is_empty()
   }
 
+  /// The handles (indices) for the variable terms that occur in this term or its descendants
   #[inline(always)]
   fn occurs_below(&self) -> &NatSet {
     &self.term_members().occurs_set
+  }
+
+  #[inline(always)]
+  fn occurs_below_mut(&mut self) -> &mut NatSet {
+    &mut self.term_members_mut().occurs_set
   }
 
   #[inline(always)]
@@ -187,9 +219,17 @@ pub trait Term {
   }
 
   #[inline(always)]
+  fn occurs_in_context_mut(&mut self) -> &mut NatSet {
+    &mut self.term_members_mut().context_set
+  }
+
+  #[inline(always)]
   fn collapse_symbols(&self) -> &SymbolSet {
     &self.term_members().collapse_set
   }
+
+  /// Returns an iterator over the arguments of the term.
+  fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_>;
   // endregion
 
   // region Comparison Functions
@@ -305,6 +345,47 @@ pub trait Term {
 
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet);
 
+  /// This is the theory-specific part of `find_available_terms`
+  fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool);
+
+  fn determine_context_variables(&mut self) {
+    // Used to defer mutation of self while immutable borrow of self is held by `iter_args`.
+    let mut context_set = NatSet::default();
+
+    for t in self.iter_args() {
+      // Insert parent's context set
+      context_set.union_with(t.borrow().occurs_in_context());
+      // self.occurs_in_context_mut().union_with(t.borrow().occurs_in_context());
+
+      for u in self.iter_args() {
+        if *u.borrow() != *t.borrow() {
+          // Insert sibling's occurs set
+          context_set.union_with(u.borrow().occurs_below());
+          // self.occurs_in_context_mut().union_with(u.borrow().occurs_below());
+        }
+      }
+
+      t.borrow_mut().determine_context_variables();
+    }
+    self.occurs_in_context_mut().union_with(&context_set);
+  }
+
+  fn insert_abstraction_variables(&mut self, variable_info: &mut VariableInfo) {
+    self.set_honors_ground_out_match(true);
+    let mut hgom = true;
+
+    for t in self.iter_args() {
+      hgom &= {
+        let mut term = t.borrow_mut();
+        term.insert_abstraction_variables(variable_info);
+        term.honors_ground_out_match()
+      };
+    }
+    if !hgom {
+      self.set_honors_ground_out_match(false);
+    }
+  }
+
   // endregion
 }
 
@@ -332,4 +413,53 @@ impl PartialEq for dyn Term {
 impl Eq for dyn Term{}
 // endregion
 
+/// Recursively collects the indices and occurs sets of this term and its descendants.
+///
+/// This is a free function, because we want it wrapped in the Rc so that when we call `variable_to_index()`
+/// it's possible to add the Rc to the indices vector.
+pub fn index_variables(term: RcTerm, indices: &mut VariableInfo) {
+  // This condition needs to check an RcTerm for a VariableTerm
+  if term.borrow().as_any().downcast_ref::<VariableTerm>().is_some() {
+    // This call needs an RcTerm
+    let index = indices.variable_to_index(term.clone());
+    {
+      let mut term = term.borrow_mut();
+      let variable_term = term.as_any_mut().downcast_mut::<VariableTerm>().unwrap();
 
+      // This call needs a mutable VariableTerm
+      variable_term.index = index;
+      variable_term.occurs_below_mut().insert(index as usize);
+    }
+  } else {
+    let mut term_mut = term.borrow_mut();
+    // Accumulate in a local variable, because the iterator holds a mutable borrow.
+    let mut occurs_below = NatSet::new();
+    for arg in term_mut.iter_args() {
+      index_variables(arg.clone(), indices);
+      // Accumulate the set of variables that occur under this symbol.
+      occurs_below.union_with(
+                &arg.borrow()
+                    .occurs_below()
+              );
+    }
+    term_mut.occurs_below_mut().union_with(&occurs_below);
+  }
+}
+
+
+/// Recursively collects the terms in a set for structural sharing.
+///
+/// This is a free function, because we want it wrapped in the Rc so that when we call `find_available_terms()`
+/// it's possible to add the Rc to the term set.
+pub fn find_available_terms(term: RcTerm, available_terms: &mut TermBag, eager_context: bool, at_top: bool) {
+  if term.borrow().ground() {
+    return;
+  }
+
+  if !at_top {
+    available_terms.insert_matched_term(term.clone(), eager_context);
+  }
+
+  // Now do theory-specific stuff
+  term.borrow().find_available_terms_aux(available_terms, eager_context, at_top);
+}

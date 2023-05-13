@@ -1,6 +1,6 @@
 /*!
 
-A collection of structs used in LHSAutomaton/RhsAutomaton.
+A collection of structs used in LHSAutomaton/RHSAutomaton.
 
 */
 pub(crate) mod lhs_automaton;

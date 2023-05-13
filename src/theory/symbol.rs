@@ -39,6 +39,7 @@ use crate::{
     RcTerm
   },
 };
+use crate::core::Strategy;
 
 
 pub type RcSymbol = Rc<dyn Symbol>;
@@ -74,6 +75,9 @@ pub struct SymbolMembers {
   // `ModuleItem`
   pub(crate) index_within_parent : u32,
   pub(crate) parent_module       : WeakModule,
+
+  // `Strategy`
+  strategy: Strategy,
 }
 
 impl SymbolMembers {
@@ -81,15 +85,16 @@ impl SymbolMembers {
     let mut new_symbol =
       SymbolMembers{
         name,
-        hash_value: 0,
+        hash_value       : 0,
         unique_sort_index: 0,
-        match_index: 0,
+        match_index      : 0,
         arity,
         memo_flag,
         sort_constraint_table: Default::default(),
-        sort_table: Default::default(),
-        index_within_parent: 0,
-        parent_module: Default::default(),
+        sort_table           : Default::default(),
+        index_within_parent  : 0,
+        parent_module        : Default::default(),
+        strategy             : Strategy::default(),
       };
     // The only time the hash is computed.
     new_symbol.hash_value = new_symbol.compute_hash();
@@ -151,6 +156,16 @@ pub trait Symbol {
   #[inline(always)]
   fn sort_table(&self) -> &SortTable {
     &self.symbol_members().sort_table
+  }
+
+  #[inline(always)]
+  fn strategy(&self) -> &Strategy {
+    &self.symbol_members().strategy
+  }
+
+  #[inline(always)]
+  fn strategy_mut(&mut self) -> &mut Strategy {
+    &mut self.symbol_members_mut().strategy
   }
 
   #[inline(always)]

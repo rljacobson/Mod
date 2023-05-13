@@ -31,6 +31,8 @@ use crate::{
     variable::VariableTerm
   },
 };
+use crate::core::TermBag;
+use crate::theory::find_available_terms;
 
 use super::super::{FreeTerm, FreeLHSAutomaton};
 
@@ -242,7 +244,7 @@ impl FreeTerm {
   }
 
 
-  fn compile_lhs(
+  pub fn compile_lhs(
     &self,
     _match_at_top     : bool,
     variable_info    : &VariableInfo,
@@ -267,11 +269,14 @@ impl FreeTerm {
     for occurrence in other_symbols {
 
       if let Some(v) = occurrence.try_dereference_term::<VariableTerm>()  {
-        let index = v.index as usize;
-        if bound_uniquely.contains(index) {
+        let index: i32 = v.index;
+
+        assert!(index > 100, "index too big");
+        assert!(index <0, "index negative");
+        if bound_uniquely.contains(index as usize) {
           bound_variables.push(occurrence);
         } else {
-          bound_uniquely.insert(index);
+          bound_uniquely.insert(index as usize);
           uncertain_variables.push(occurrence);
         }
       } else {
@@ -327,7 +332,7 @@ impl FreeTerm {
   }
 
 
-  fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
+  pub fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
     // First gather all symbols lying in or directly under free skeleton.
     let mut free_symbols = Vec::new();
     let mut other_symbols = Vec::new();
@@ -368,5 +373,34 @@ impl FreeTerm {
     }
   }
 
+  /// The theory-specific part of find_available_terms
+  pub fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool) {
+    if self.ground() {
+      return;
+    }
+
+    let arg_count = self.args.len();
+    let symbol = self.symbol();
+
+    if at_top {
+      for i in 0..arg_count {
+        find_available_terms(
+          self.args[i].clone(),
+          available_terms,
+          eager_context && symbol.strategy().eager_argument(i),
+          false
+        );
+      }
+    } else {
+      for i in 0..arg_count {
+        find_available_terms(
+          self.args[i].clone(),
+          available_terms,
+          eager_context && symbol.strategy().evaluated_argument(i),
+          false
+        );
+      }
+    }
+  }
 
 }

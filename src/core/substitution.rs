@@ -25,10 +25,12 @@ pub struct Substitution {
 }
 
 impl Substitution {
+  #[inline(always)]
   pub fn new() -> Self {
     Self::default()
   }
 
+  #[inline(always)]
   pub fn with_capacity(n: u32) -> Self {
     let mut bindings = Vec::with_capacity(n as usize);
     bindings.resize(n as usize, None);
@@ -39,32 +41,37 @@ impl Substitution {
     }
   }
 
+  #[inline(always)]
   pub fn resize(&mut self, size: usize) {
     self.bindings.resize(size, None);
   }
 
+  #[inline(always)]
   pub fn value(&self, index: i32)  -> MaybeDagNode {
     self.get(index)
   }
 
 
   // Todo: Is this the best way to implement a getter? I think we did it this way so it returned a value.
+  #[inline(always)]
   pub fn get(&self, index: i32) -> MaybeDagNode {
-    if (index as usize) < self.bindings.len() {
-      unsafe{
-        (*self.bindings.get_unchecked(index as usize)).clone()
-      }
-    } else {
-      None
+    assert!(index >= 0, "-ve index {}", index);
+    assert!(index < self.bindings.len() as i32, "index too big {} vs {}", index, self.bindings.len());
+
+    // self.bindings[index as usize].clone()
+
+    // The asserts give confidence but do not guarantee safety here.
+    unsafe{
+      self.bindings.get_unchecked(index as usize).clone()
     }
   }
 
-
+  #[inline(always)]
   pub fn iter(&self) -> std::slice::Iter<Option<RcDagNode>> {
     self.bindings.iter()
   }
 
-
+  #[inline(always)]
   pub fn fragile_binding_count(&self) -> u32 {
     self.copy_size
   }
@@ -99,6 +106,7 @@ impl Substitution {
   }
  */
 
+  #[inline(always)]
   pub fn bind(&mut self, index: i32, maybe_value: Option<RcDagNode>) {
     assert!(index >= 0, "Negative index {}", index);
     assert!((index as usize) < self.bindings.len(), "Index too big {} vs {}", index, self.bindings.len());
@@ -106,6 +114,7 @@ impl Substitution {
     self.bindings[index as usize] = maybe_value;
   }
 
+  #[inline(always)]
   pub fn copy_from_substitution(&mut self, original: &Substitution) {
     assert_eq!(self.copy_size, original.copy_size);
 

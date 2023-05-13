@@ -19,7 +19,7 @@ use crate::{
   core::{RcSort, Sort, SpecialSort},
   theory::{MaybeSubproblem, Outcome, Symbol}
 };
-use crate::core::Substitution;
+use crate::core::{RedexPosition, Substitution};
 use crate::theory::free_theory::RcFreeSymbol;
 use crate::theory::{DagNodeFlags, ExtensionInfo, RcTerm, Subproblem};
 
@@ -214,6 +214,13 @@ pub trait DagNode {
   fn termify(&self) -> RcTerm;
 
   fn shallow_copy(&self) -> RcDagNode;
+
+  /// Build a copy of our dag node, replacing those arguments that were stacked with those on the stack between first
+  /// and last.
+  fn copy_with_replacements(&self, stack: &[RedexPosition], first_idx: usize, last_idx: usize) -> RcDagNode;
+
+  /// Same as above, but just a single replacement node.
+  fn copy_with_replacement(&self, replacement: RcDagNode, arg_index: usize) -> RcDagNode;
 
   // In Maude this is a method on DagNode, but it makes more sense as a method on `LHSAutomaton`.
   // fn match_variable(…)

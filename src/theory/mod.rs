@@ -43,11 +43,14 @@ pub(crate) use associative_symbol::{
 
 };
 pub(crate) use term::{
+  find_available_terms,
+  index_variables,
   NodeCache,
   RcTerm,
   Term,
   TermFlags,
   TermMembers,
+  TermSet
 };
 pub(crate) use dag_node_flags::{
   DagNodeFlag,
