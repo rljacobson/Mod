@@ -9,20 +9,19 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::{
-  core::{
-    Module,
-    ModuleItem,
-    SortConstraintTable,
-    WeakModule,
-    Strategy,
+  abstractions::{IString, RcCell},
+  core::Strategy,
+  theory::{
+    DagNode,
+    NodeList,
+    RcDagNode,
+    RcTerm,
+    Symbol,
+    SymbolMembers,
   },
-  theory::{Symbol, symbol::SymbolMembers},
 };
-use crate::abstractions::{IString, RcCell};
-use crate::theory::free_theory::{FreeDagNode, FreeTerm};
-use crate::theory::{DagNode, NodeList, RcDagNode, RcTerm};
 
-use super::{FreeNet, RcFreeNet};
+use super::{FreeNet, RcFreeNet, FreeDagNode, FreeTerm};
 
 pub type RcFreeSymbol = Rc<FreeSymbol>;
 

@@ -13,14 +13,8 @@ use std::{
 };
 
 use crate::{
-  core::{
-    Sort,
-    SortConstraintTable,
-    ModuleItem,
-    RcSort,
-    WeakModule
-  },
-  theory::Symbol
+  theory::Symbol,
+  core::sort::{RcSort, SortConstraintTable}
 };
 
 use super::symbol::SymbolMembers;

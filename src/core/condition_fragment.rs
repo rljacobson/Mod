@@ -10,32 +10,127 @@ ToDo: Should this and PreEquation be unified or refactored.
 
 
 use std::cell::RefCell;
+use std::fmt::{Display, Formatter};
 use std::rc::Rc;
+
+
 use crate::{
-  core::{
-    pre_equation::ConditionState,
-    RewritingContext,
-    VariableInfo,
-    TermBag
+  abstractions::{
+    NatSet,
+    RcCell
   },
-  abstractions::NatSet,
+  core::{
+    RHSBuilder,
+    TermBag,
+    VariableInfo,
+    format::{FormatStyle, Formattable},
+    pre_equation::ConditionState,
+    rewrite_context::RewritingContext,
+    sort::RcSort
+  },
+  theory::{
+    LHSAutomaton,
+    RcLHSAutomaton,
+    RcTerm
+  }
 };
-use crate::abstractions::RcCell;
+use crate::abstractions::join_iter;
 
 /// A `Condition` is a set of `ConditionFragments`.
 pub type Condition = Vec<RcConditionFragment>;
-pub type RcConditionFragment = RcCell<dyn ConditionFragment>;
+pub type RcConditionFragment = RcCell<ConditionFragment>;
 
+pub enum ConditionFragment {
+  Equality{
+    lhs_term: RcTerm,
+    rhs_term: RcTerm,
+    builder: RHSBuilder,
+    lhs_index: i32,
+    rhs_index: i32,
+  },
 
-pub trait ConditionFragment {
-  fn check(&self, var_info: &mut VariableInfo, bound_variables: &mut NatSet);
-  fn preprocess(&mut self);
-  fn compile_build(&mut self, variable_info: &mut VariableInfo, available_terms: &mut TermBag);
-  fn compile_match(&mut self, variable_info: &mut VariableInfo, bound_uniquely: &mut NatSet);
-  fn solve(
+  SortTest{
+    lhs_term: RcTerm,
+    sort: RcSort,
+    builder: RHSBuilder,
+    lhs_index: i32,
+  },
+
+  Assignment{
+    lhs_term: RcTerm,
+    rhs_term: RcTerm,
+    builder: RHSBuilder,
+    lhs_matcher: RcLHSAutomaton,
+    rhs_index: i32,
+  },
+
+  Rewrite{
+    lhs_term: RcTerm,
+    rhs_term: RcTerm,
+    builder: RHSBuilder,
+    rhs_matcher: RcLHSAutomaton,
+    lhs_index: i32,
+  },
+}
+
+impl ConditionFragment {
+  pub fn check(&self, var_info: &mut VariableInfo, bound_variables: &mut NatSet) {
+
+  }
+
+  pub fn preprocess(&mut self) {
+
+  }
+
+  pub fn compile_build(&mut self, variable_info: &mut VariableInfo, available_terms: &mut TermBag) {
+
+  }
+
+  pub fn compile_match(&mut self, variable_info: &mut VariableInfo, bound_uniquely: &mut NatSet) {
+
+  }
+
+  pub fn solve(
     &mut self,
     find_first: bool,
-    solution: &mut dyn RewritingContext,
+    solution: &mut RewritingContext,
     state: &mut Vec<ConditionState>,
-  ) -> bool;
+  ) -> bool
+  {
+    false
+  }
+}
+
+impl Formattable for ConditionFragment {
+  fn repr(&self, style: FormatStyle) -> String {
+    match self {
+
+      ConditionFragment::Equality{lhs_term, rhs_term, ..} => {
+        format!("{} = {}", lhs_term.borrow().repr(style), rhs_term.borrow().repr(style))
+      },
+
+      ConditionFragment::SortTest{ lhs_term, sort, ..} => {
+        format!("{} : {}", lhs_term.borrow().repr(style), sort.borrow().repr(style))
+      },
+
+      ConditionFragment::Assignment{lhs_term, rhs_term, ..} => {
+        format!("{} := {}", lhs_term.borrow().repr(style), rhs_term.borrow().repr(style))
+      },
+
+      ConditionFragment::Rewrite{lhs_term, rhs_term, ..} => {
+        format!("{} => {}", lhs_term.borrow().repr(style), rhs_term.borrow().repr(style))
+      }
+
+    }
+  }
+}
+
+
+pub fn repr_condition(condition: &Condition, style: FormatStyle) -> String {
+  let mut accumulator = "if ".to_string();
+  accumulator.push_str(
+    join_iter(condition.iter().map(|cf| cf.borrow().repr(style)), |_| " ∧ ").as_str()
+  );
+
+  accumulator
 }

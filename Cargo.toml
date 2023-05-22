@@ -22,6 +22,8 @@ pratt          = {path = "../pratt"}
 unicode-blocks = "0.1.6" # Greek Unicode characters
 simple-error   = "0.3.0" # Minimal error handling
 
+yansi = "0.5.1" # Colored terminal output
+
 #once_cell = "1.17.1" # Initialize static members
 #lazy_static = "1.4.0" # Initialize static members
 

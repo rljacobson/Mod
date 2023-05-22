@@ -3,17 +3,17 @@
 A `Module` serves as a kind of symbol table and holds information local to a module. It's the equivalent of a
 translation unit in C++ or a module in Python or Rust.
 
+`ModuleItem`s are objects that are numbered within a module. This provides us with:
+  (1) a way of getting back to the module containing an object; and
+  (2) a number that is useful for indexing.
+
 */
 
-use std::default;
-use std::fmt::format;
-use pratt::Channel::Debug;
-use pratt::log;
+mod profile;
 
-use super::{
-  RcSort,
-  RcSortConstraint,
-  SortSet
+use pratt::{
+  Channel::Debug,
+  log
 };
 
 use crate::{
@@ -21,16 +21,39 @@ use crate::{
     WeakCell,
     IString
   },
-  theory::RcSymbol
+  core::{
+    sort::{
+      RcSort,
+      RcSortConstraint,
+      SortSet
+    },
+    RcEquation,
+  },
+  theory::RcSymbol,
 };
+
+pub use profile::{
+  SymbolProfile,
+  FragmentProfile,
+  StatementProfile,
+};
+
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ItemType {
+  MembershipAxiom    = 0x10000000,
+  Equation           = 0x20000000,
+  Rule               = 0x30000000,
+  // StratDecl          = 0x40000000, // Unimplemented
+  // StrategyDefinition = 0x50000000, // Unimplemented
+}
 
 // We need this trait so that we can have `ModuleItem` trait objects.
 pub trait ModuleItem {
   /// From `ModuleTable::ModuleItem`. Gives `self.index_within_parent`.
-  fn get_index_within_module(&self) -> u32;
-  fn set_module_information(&mut self, module: WeakModule, index_within_module: u32);
+  fn get_index_within_module(&self) -> i32;
+  fn set_module_information(&mut self, module: WeakModule, index_within_module: i32);
   fn get_module(&self) -> WeakModule;
-  // fn get_mut_module(&mut self) -> &mut Module;
 }
 
 /*
@@ -80,11 +103,11 @@ pub struct Module {
   pub status: ModuleStatus,
 
   // TODO: Does a module own its `Sorts`?
-  pub sorts: SortSet,
+  pub sorts           : SortSet,
   // connectedComponents: Vec<RcConnectedComponent> ,
-  pub symbols: Vec<RcSymbol>,
+  pub symbols         : Vec<RcSymbol>,
   pub sort_constraints: Vec<RcSortConstraint>,
-  // equations: Vec<RcEquation> ,
+  equations           : Vec<RcEquation>,
   // rules: Vec<RcRule> ,
   // strategies: Vec<RcRewriteStrategy> ,
   // strategyDefinitions: Vec<RcStrategyDefinition> ,
@@ -97,6 +120,14 @@ pub struct Module {
   // NamedEntity members
   /// An ID, a name given by the user.
   pub name: IString,
+
+
+  // ProfileModule members
+  symbol_info: Vec<SymbolProfile>,
+  mb_info    : Vec<StatementProfile>, // Membership
+  pub(crate) eq_info    : Vec<StatementProfile>, // Equation
+  rl_info    : Vec<StatementProfile>, // Rule
+  sd_info    : Vec<StatementProfile>, // Strategy Definition
 }
 
 impl Module {
@@ -128,6 +159,5 @@ impl Module {
       self.minimum_substitution_size = minimum_size;
     }
   }
-
 
 }

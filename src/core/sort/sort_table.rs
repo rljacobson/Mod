@@ -1,9 +1,13 @@
 use std::ops::{BitOr, BitOrAssign};
-use crate::abstractions::{WeakCell, NatSet};
-use crate::core::{Sort, WeakSort};
-use crate::core::sort::OpDeclaration;
 
-use super::{RcSort, RcConnectedComponent};
+use crate::abstractions::{NatSet, WeakCell};
+
+use super::{
+  RcSort,
+  RcConnectedComponent,
+  OpDeclaration,
+  WeakSort
+};
 
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
@@ -36,7 +40,7 @@ impl BitOrAssign for ConstructorStatus {
   }
 }
 
-
+// ToDo: Most of these vectors are likely to be small. Benchmark with tiny_vec.
 #[derive(PartialEq, Eq, Default)]
 pub struct SortTable {
   nr_args                  : usize,
@@ -103,6 +107,14 @@ impl SortTable {
   #[inline(always)]
   pub fn domain_component(&self, arg_nr: usize) -> RcConnectedComponent {
     (&self.op_declarations[0])[arg_nr].borrow().sort_component.clone()
+  }
+
+  #[inline(always)]
+  pub fn domain_components_iter(&self) -> Box<dyn Iterator<Item=RcConnectedComponent>> {
+    // (&self.op_declarations[0])[arg_nr].borrow().sort_component.clone()
+    Box::new(
+      (&self.op_declarations[0]).iter().map(|v| v.borrow().sort_component.clone())
+    )
   }
 
   #[inline(always)]

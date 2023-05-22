@@ -14,35 +14,39 @@ mod compiler;
 use std::{
   cmp::Ordering,
   any::Any,
-  rc::Rc
+  rc::Rc,
+  cell::RefCell,
+  fmt::Display,
 };
-use std::cell::RefCell;
 
 use crate::{
-  core::VariableInfo,
-  abstractions::NatSet,
-  core::{OrderingValue, Substitution},
   abstractions::{
-    RcCell,
     hash2 as term_hash,
+    NatSet,
+    RcCell,
+  },
+  core::{
+    format::{FormatStyle, Formattable},
+    OrderingValue,
+    substitution::Substitution,
+    TermBag,
+    VariableInfo,
   },
   rc_cell,
   theory::{
-    free_theory::FreeOccurrence,
-    TermMembers,
-    Term,
-    RcTerm,
-    TermFlags,
     DagNode,
-    free_theory::FreeSymbol,
-    RcDagNode,
-    RcSymbol,
     NodeCache,
-    RcLHSAutomaton
-  }
+    RcDagNode,
+    RcLHSAutomaton,
+    RcSymbol,
+    RcTerm,
+    Term,
+    TermFlags,
+    TermMembers,
+  },
 };
-use crate::core::TermBag;
-use super::FreeDagNode;
+
+use super::{FreeSymbol, FreeOccurrence, FreeDagNode};
 
 pub type RcFreeTerm = RcCell<FreeTerm>;
 
@@ -89,31 +93,6 @@ impl Term for FreeTerm {
 
   fn as_ptr(&self) -> *const dyn Term {
     self
-  }
-
-  fn repr(&self) -> String {
-    let mut accumulator = String::new();
-
-    accumulator.push_str(
-      format!(
-        "free<{}>",
-        self.term_members.top_symbol.to_string().as_str()
-      ).as_str()
-    );
-    if !self.args.is_empty() {
-      accumulator.push('(');
-      accumulator.push_str(
-        self.args
-            .iter()
-            .map(|arg| arg.borrow().repr())
-            .collect::<Vec<String>>()
-            .join(", ")
-            .as_str()
-      );
-      accumulator.push(')');
-    }
-
-    accumulator
   }
 
   /// In sync with `normalize`.
@@ -257,4 +236,51 @@ impl Term for FreeTerm {
     FreeTerm::find_available_terms_aux(&self, available_terms, eager_context, at_top);
   }
 
+}
+
+
+impl Formattable for FreeTerm {
+  fn repr(&self, style: FormatStyle) -> String {
+
+    let mut accumulator = String::new();
+    match style {
+
+      FormatStyle::Simple => {
+        accumulator.push_str(
+          self.term_members.top_symbol.repr(style).as_str()
+        );
+      }
+
+      | FormatStyle::Debug
+      | _ => {
+        accumulator.push_str(
+          format!(
+            "free<{}>",
+            self.term_members.top_symbol.repr(style).as_str()
+          ).as_str()
+        );
+      }
+    }
+
+    accumulator.push_str(
+      format!(
+        "free<{}>",
+        self.term_members.top_symbol.repr(style).as_str()
+      ).as_str()
+    );
+    if !self.args.is_empty() {
+      accumulator.push('(');
+      accumulator.push_str(
+        self.args
+            .iter()
+            .map(|arg| arg.borrow().repr(style))
+            .collect::<Vec<String>>()
+            .join(", ")
+            .as_str()
+      );
+      accumulator.push(')');
+    }
+
+    accumulator
+  }
 }

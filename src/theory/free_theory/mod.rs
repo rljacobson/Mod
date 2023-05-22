@@ -16,15 +16,21 @@ use std::cell::RefCell;
 pub use automaton::FreeLHSAutomaton;
 pub use dag_node::{FreeDagNode, RcFreeDagNode};
 pub use free_net::{FreeNet, PatternSet, RcFreeNet};
-pub use term::{FreeTerm, RcFreeTerm};
 pub use remainder::{FreeRemainder, RcFreeRemainder, FreeRemainderList};
 pub use symbol::{FreeSymbol, RcFreeSymbol};
+pub use term::{FreeTerm, RcFreeTerm};
 
+use crate::{
+  core::sort::RcSort,
+  theory::variable::RcVariableTerm,
+};
 
-use crate::core::RcSort;
-use crate::theory::{RcLHSAutomaton, RcTerm};
-use crate::theory::variable::RcVariableTerm;
-use super::{LHSAutomaton, Term};
+use super::{
+  LHSAutomaton,
+  RcLHSAutomaton,
+  RcTerm,
+  Term,
+};
 
 
 pub type FreeOccurrences = Vec<FreeOccurrence>;

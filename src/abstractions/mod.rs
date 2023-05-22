@@ -10,9 +10,13 @@ module redirects to whatever chosen implementation we want.
 mod rccell;
 mod hash;
 mod graph;
+mod nat_set;
 
 use std::collections::HashSet;
+use std::iter::once;
+
 use bit_set::BitSet;
+pub use yansi::{Paint, Color, Style};
 
 pub use pratt::{log, set_verbosity, Channel};
 
@@ -22,6 +26,8 @@ pub use string_cache::DefaultAtom as IString;
 pub use rccell::{RcCell, WeakCell, rc_cell};
 // Fast and simple hash functions
 pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
+// A set of natural numbers
+pub use nat_set::NatSet;
 
 pub use graph::Graph;
 
@@ -30,6 +36,27 @@ pub type BigInteger = isize;
 /// A `ThingSet` is a hash set of `*const dyn Things`. They are useful if you need to test membership but never need
 /// to access the original `Thing`.
 pub type Set<T> = HashSet<*const T>; // This replaces Maude's `PointerSet` in most situations.
-/// A set of natural numbers
-pub type NatSet = BitSet<u32>;
 
+/**
+
+Join an iterator of strings, which doesn't exist in the stdlib. (C.f. `Vec::join(…)`)
+From: https://stackoverflow.com/a/66951473
+Usage:
+
+    let iter = [1, 3, 5, 7, 9].iter().cloned();
+    println!("{:?}", join_iter(iter, |v| v - 1).collect::<Vec<_>>());
+    // [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+    let iter = ["Hello", "World"].iter().cloned();
+    let sep = ", ";
+    println!("{:?}", join_iter(iter, |_| sep).collect::<String>());
+    // "Hello, World"
+*/
+pub fn join_iter<T>(
+  mut iter: impl Iterator<Item = T>,
+  sep: impl Fn(&T) -> T,
+) -> impl Iterator<Item = T> {
+  iter.next()
+      .into_iter()
+      .chain(iter.flat_map(move |s| once(sep(&s)).chain(once(s))))
+}

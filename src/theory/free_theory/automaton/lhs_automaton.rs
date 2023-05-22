@@ -9,41 +9,44 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 
 use crate::{
-  core::{
-    SpecialSort,
-    Substitution,
-    Sort
-  },
+  abstractions::RcCell,
   theory::{
-    automaton::LHSAutomaton,
+    BxLHSAutomaton,
     DagNode,
     ExtensionInfo,
+    LHSAutomaton,
     MaybeSubproblem,
-    RcDagNode,
-    RcSymbol,
-    Symbol,
     NodeList,
+    RcDagNode,
     RcLHSAutomaton,
+    RcSymbol,
+    RcTerm,
     SubproblemSequence,
+    Symbol,
     Term,
-    RcTerm
   },
-  abstractions::RcCell,
+  core::{
+    sort::SpecialSort,
+  },
 };
-use crate::theory::BxLHSAutomaton;
+use crate::core::substitution::Substitution;
+
+// Variable "Theory"
 use crate::theory::variable::VariableTerm;
+
+// Free Theory
 use super::super::{
-  RcFreeTerm,
   BoundVariable,
-  FreeOccurrence,
   FreeDagNode,
+  FreeOccurrence,
   FreeSymbol,
-  RcFreeDagNode,
-  RcFreeSymbol,
+  FreeTerm,
   FreeVariable,
   GroundAlien,
   NonGroundAlien,
-  FreeTerm
+  RcFreeDagNode,
+  RcFreeSymbol,
+  RcFreeTerm,
 };
 
 
@@ -233,7 +236,7 @@ impl LHSAutomaton for FreeLHSAutomaton {
       for i in &self.uncertain_variables {
         let d = self.stack[i.position as usize][i.arg_index as usize].clone();
         let v = i.var_index;
-        let b = solution.value(v);
+        let b = solution.get(v);
         if b.is_none() {
           assert_ne!(
             d.borrow().get_sort_index(),
@@ -254,7 +257,7 @@ impl LHSAutomaton for FreeLHSAutomaton {
       }
 
       for i in &self.bound_variables {
-        if !self.stack[i.position as usize][i.arg_index as usize].eq(solution.value(i.var_index).as_ref().unwrap()) {
+        if !self.stack[i.position as usize][i.arg_index as usize].eq(solution.get(i.var_index).as_ref().unwrap()) {
           return (false, None);
         }
       }

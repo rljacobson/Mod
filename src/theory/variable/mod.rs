@@ -15,3 +15,4 @@ pub use symbol::{
   VariableSymbol,
   RcVariableSymbol
 };
+pub use automaton::VariableLHSAutomaton;

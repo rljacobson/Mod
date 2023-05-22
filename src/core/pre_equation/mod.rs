@@ -7,21 +7,50 @@ ToDo: This needs a better name than `PreEquation`. Comparator? MatchClient?
 
 */
 
-
 use std::cell::RefCell;
-use crate::abstractions::{IString, NatSet};
-use crate::core::{RewritingContext, ConditionFragment, RcConditionFragment, Condition, VariableInfo, Substitution, StateTransitionGraph, TermBag};
-pub use crate::core::pre_equation_attributes::{PreEquationAttributes, PreEquationAttribute};
-use crate::core::rewrite_context::trace_status;
-use crate::theory::{DagNode, LHSAutomaton, RcDagNode, RcLHSAutomaton, RcTerm, Subproblem, index_variables, find_available_terms};
-use crate::UNDEFINED;
 
+use crate::{
+  abstractions::{
+    IString,
+    NatSet
+  },
+  core::{
+    condition_fragment::Condition,
+    format::Formattable,
+    module::{ModuleItem, WeakModule},
+    rewrite_context::{
+      trace::trace_status,
+      RewritingContext
+    },
+    StateTransitionGraph,
+    substitution::Substitution,
+    TermBag,
+    VariableInfo,
+  },
+  theory::{
+    DagNode,
+    find_available_terms
+    index_variables,
+    LHSAutomaton,
+    RcDagNode,
+    RcLHSAutomaton,
+    RcTerm,
+    Subproblem,
+  },
+  UNDEFINED,
+};
+
+
+pub use attributes::{
+  PreEquationAttribute,
+  PreEquationAttributes
+};
 
 /// Holds state information used in solving condition fragments.
 pub enum ConditionState {
   Assignment{
     saved      : Substitution,
-    rhs_context: Box<dyn RewritingContext>,
+    rhs_context: Box<RewritingContext>,
     subproblem : Box<dyn Subproblem>,
     succeeded  : bool
   },
@@ -38,36 +67,40 @@ pub enum ConditionState {
 
 
 pub(crate) struct PreEquationMembers {
-  name         : IString,
-  attributes   : PreEquationAttributes,
-  lhs_term     : RcTerm,
-  lhs_automaton: RcLHSAutomaton,
-  lhs_dag      : RcDagNode, // ToDo: Why not just fetch it from the `lhs_term`? (Maude: "for unification")
-  condition    : Condition,
-  variable_info: VariableInfo,
+  pub name         : Option<IString>,  // Names are optional for `PreEquations`
+  pub attributes   : PreEquationAttributes,
+  pub lhs_term     : RcTerm,
+  pub lhs_automaton: Option<RcLHSAutomaton>,
+  pub lhs_dag      : Option<RcDagNode>, // ToDo: Why not just fetch it from the `lhs_term`? (Maude: "for unification")
+  pub condition    : Condition,
+  pub variable_info: VariableInfo,
+
+  // `ModuleItem`
+  pub(crate) index_within_parent_module: i32,
+  pub(crate) parent_module             : WeakModule,
 }
 
-pub(crate) trait PreEquation {
+pub(crate) trait PreEquation: Formattable {
   // Common implementation
   fn members_mut(&mut self) -> &mut PreEquationMembers;
   fn members(&self) -> &PreEquationMembers;
   /// This one is a bit odd. The idea is that a `RewritingContext` supports multiple kinds of `trace_begin_trial`-like
   /// calls, and only the implementor of `PreEquation` knows which to call.
   // ToDo: This is just a bad design. The "different" receivers are virtually identical. Refactor this.
-  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut dyn RewritingContext) -> Option<i32>;
+  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut RewritingContext) -> Option<i32>;
 
   // region Accessors
   #[inline(always)]
-  fn lhs_term(&self)      -> RcTerm{
+  fn lhs_term(&self) -> RcTerm{
     self.members().lhs_term.clone()
   }
   #[inline(always)]
   fn lhs_automaton(&self) -> RcLHSAutomaton{
-    self.members().lhs_automaton.clone()
+    self.members().lhs_automaton.as_ref().unwrap().clone()
   }
   #[inline(always)]
-  fn lhs_dag(&self)   -> RcDagNode{
-    self.members().lhs_dag.clone()
+  fn lhs_dag(&self) -> RcDagNode{
+    self.members().lhs_dag.as_ref().unwrap().clone()
   }
   #[inline(always)]
   fn condition_mut(&mut self) -> &mut Condition {
@@ -90,12 +123,29 @@ pub(crate) trait PreEquation {
   fn variable_info_mut(&mut self) -> &mut VariableInfo{
     &mut self.members_mut().variable_info
   }
+  #[inline(always)]
+  fn name(&self) -> Option<IString> {
+    self.members().name.clone()
+  }
   // endregion
 
-  // Attributes
-  fn is_nonexec(&self) -> bool;
-  fn is_compiled(&self) -> bool;
-  fn set_nonexec(&mut self);
+  // region  Attributes
+  fn is_nonexec(&self) -> bool {
+    self.members().attributes.has_attribute(PreEquationAttribute::NonExecute)
+  }
+  fn is_compiled(&self) -> bool{
+    self.members().attributes.has_attribute(PreEquationAttribute::Compiled)
+  }
+  fn is_variant(&self) -> bool{
+    self.members().attributes.has_attribute(PreEquationAttribute::Variant)
+  }
+  fn set_nonexec(&mut self) {
+    self.members_mut().attributes |= PreEquationAttribute::NonExecute;
+  }
+  fn set_variant(&mut self) {
+    self.members_mut().attributes |= PreEquationAttribute::Variant;
+  }
+  // endregion
 
   // region Check* functions
 
@@ -121,7 +171,7 @@ pub(crate) trait PreEquation {
     &mut self,
     mut find_first: bool,
     subject: RcDagNode,
-    context: &mut dyn RewritingContext,
+    context: &mut RewritingContext,
     mut subproblem: Option<&mut dyn Subproblem>,
     trial_ref: &mut Option<i32>,
     state: &mut Vec<ConditionState>,
@@ -184,7 +234,7 @@ pub(crate) trait PreEquation {
   fn check_condition_simple(
     &mut self,
     subject: RcDagNode,
-    context: &mut dyn RewritingContext,
+    context: &mut RewritingContext,
     subproblem: Option<&mut dyn Subproblem>,
   ) -> bool
   {
@@ -249,13 +299,14 @@ pub(crate) trait PreEquation {
       let mut bound_uniquely = NatSet::new();
 
       let variable_info = self.variable_info_mut();
-      self.members_mut().lhs_automaton =
+      let lhs_automaton =
           lhs_term.compile_lhs(
                 with_extension,
                 variable_info,
                 &mut bound_uniquely,
               )
               .0; // Disregard `subproblem_likely` component of returned tuple.
+      self.members_mut().lhs_automaton = Some(lhs_automaton);
     }
 
     { // Scope of variable_info
@@ -274,7 +325,7 @@ pub(crate) trait PreEquation {
     &mut self,
     mut find_first: bool,
     trial_ref: &mut Option<i32>,
-    solution: &mut dyn RewritingContext,
+    solution: &mut RewritingContext,
     state: &mut Vec<ConditionState>,
   ) -> bool
   {
@@ -329,7 +380,82 @@ pub(crate) trait PreEquation {
   }
 
 
+  fn reset(&mut self) {
+    self.members_mut().lhs_dag = None;
+  }
 
-  fn reset(&mut self);
-  fn repr(&self, s: &mut dyn std::io::Write) -> std::io::Result<()>;
 }
+
+impl ModuleItem for dyn PreEquation {
+  fn get_index_within_module(&self) -> i32 {
+    self.members().index_within_parent_module
+  }
+
+  fn set_module_information(&mut self, module: WeakModule, index_within_module: i32) {
+    let mut members = self.members_mut();
+    members.parent_module = module;
+    members.index_within_parent_module = index_within_module;
+  }
+
+  fn get_module(&self) -> WeakModule {
+    self.members().parent_module.clone()
+  }
+}
+
+
+
+
+macro_rules! impl_pre_equation_formattable {
+  (
+    $pre_equation:ident,    // Rule
+    $type_name_str:literal, // "rl "
+    $lhs:expr,              // self.lhs_term().borrow()
+    $rhs:expr,              // self.rhs_term.borrow()
+    $operator_str:literal   // "{} => {}"
+  ) => {
+    impl Formattable for $pre_equation {
+      fn repr(&self, style: FormatStyle) -> String {
+        let mut accumulator = String::new();
+
+        if style != FormatStyle::Simple {
+          if self.has_condition() {
+            accumulator.push('c');
+          }
+          accumulator.push_str($type_name_str);
+        }
+
+        accumulator.push_str(
+          format!(
+            $operator_str,
+            $lhs.repr(style),
+            $rhs.repr(style)
+          ).as_str()
+        );
+
+        if self.has_condition() {
+          accumulator.push(' ');
+          repr_condition(self.condition(), style);
+        }
+
+        { // Scope of attributes
+          let attributes = self.members.attributes;
+          if !attributes.is_empty() {
+            accumulator.push_str(attributes.repr(style).as_str());
+          }
+        }
+
+        if style != FormatStyle::Simple {
+          accumulator.push_str(" .");
+        }
+
+        accumulator
+      }
+    }
+  }
+}
+
+pub(crate) use impl_pre_equation_formattable;
+
+pub mod attributes;
+pub mod rule;
+pub mod equation;

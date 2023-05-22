@@ -15,27 +15,24 @@ use simple_error::simple_error;
 
 use crate::{
   abstractions::{
-    rc_cell,
-    IString,
-    RcCell,
     hash2 as term_hash,
-    NatSet
+    IString,
+    NatSet,
+    rc_cell,
+    RcCell,
   },
   core::{
+    BindingLHSAutomaton,
+    format::{FormatStyle, Formattable},
     OrderingValue,
-    RcSort,
-    Substitution,
+    sort::RcSort,
+    substitution::Substitution,
+    TermBag,
     VariableInfo,
-    BindingLHSAutomaton
   },
   theory::{
-    variable::{
-      VariableDagNode,
-      symbol::VariableSymbol,
-      automaton::VariableLHSAutomaton
-    },
-    term::NodeCache,
     DagNode,
+    NodeCache,
     RcDagNode,
     RcLHSAutomaton,
     RcSymbol,
@@ -43,9 +40,13 @@ use crate::{
     Term,
     TermMembers,
   },
-
 };
-use crate::core::TermBag;
+
+pub use super::{
+  VariableDagNode,
+  VariableLHSAutomaton,
+  VariableSymbol,
+};
 
 pub type RcVariableTerm = Rc<VariableTerm>;
 
@@ -90,11 +91,6 @@ impl Term for VariableTerm {
   fn as_ptr(&self) -> *const dyn Term {
     self
   }
-
-  fn repr(&self) -> String {
-    format!("var<{}>", (self.name.to_string()))
-  }
-
   fn compute_hash(&self) -> u32 {
     // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
     // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
@@ -206,4 +202,22 @@ impl Term for VariableTerm {
   }
 
   // endregion
+}
+
+
+impl Formattable for VariableTerm {
+  fn repr(&self, style: FormatStyle) -> String {
+    match style {
+
+      FormatStyle::Simple => {
+        self.name.to_string()
+      }
+
+
+      | FormatStyle::Debug
+      | _ => {
+        format!("var<{}>", (self.name.to_string()))
+      }
+    }
+  }
 }

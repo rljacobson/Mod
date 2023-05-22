@@ -5,8 +5,8 @@ real work.
 
 */
 
+use crate::core::substitution::Substitution;
 use crate::theory::{LHSAutomaton, RcLHSAutomaton};
-use crate::core::Substitution;
 use crate::theory::{MaybeSubproblem, RcDagNode};
 
 

@@ -10,8 +10,8 @@ other validation is performed.
 
 use crate::{
   theory::RcDagNode,
-  core::Substitution
 };
+use crate::core::substitution::Substitution;
 
 pub struct Binding {
   active        : bool,
@@ -45,7 +45,7 @@ impl LocalBindings {
 
   pub fn assert(&mut self, substitution: &mut Substitution) -> bool {
     for i in self.bindings.iter() {
-      if let Some(d) = substitution.value(i.variable_index){
+      if let Some(d) = substitution.get(i.variable_index){
         if d.as_ref() != i.value.as_ref() {
           return false;
         }
@@ -54,7 +54,7 @@ impl LocalBindings {
 
     for i in self.bindings.iter_mut() {
       let index = i.variable_index;
-      if substitution.value(index).is_none() {
+      if substitution.get(index).is_none() {
         substitution.bind(index, Some(i.value.clone()));
         i.active = true;
       }

@@ -1,27 +1,33 @@
 use std::{
   any::Any,
-  rc::Rc, cmp::Ordering
+  rc::Rc,
+  cmp::Ordering,
+  cell::RefCell
 };
-use std::cell::RefCell;
 
-use crate::{theory::{
-  dag_node_flags,
-  DagNode,
-  RcDagNode,
-  DagPair,
-  RcSymbol,
-  Symbol,
-}, core::{
-  RcSort,
-  OrderingValue,
-  numeric_ordering
-}, abstractions::RcCell, rc_cell};
-use crate::core::{RedexPosition, Sort, SpecialSort};
-use crate::theory::dag_node::DagNodeMembers;
-use crate::theory::free_theory::FreeTerm;
-use crate::theory::{DagNodeFlag, DagNodeFlags, NodeList, RcTerm};
+use crate::{
+  abstractions::RcCell,
+  rc_cell,
+  theory::{
+    DagNodeMembers,
+    DagNode,
+    RcDagNode,
+    DagPair,
+    RcSymbol,
+    Symbol,
+    DagNodeFlag,
+    DagNodeFlags,
+    NodeList,
+    RcTerm
+  },
+  core::{
+    RedexPosition,
+    sort::SpecialSort
+  }
+};
 
-use super::RcFreeSymbol;
+use super::{FreeTerm, RcFreeSymbol};
+
 
 pub type RcFreeDagNode = Rc<FreeDagNode>;
 

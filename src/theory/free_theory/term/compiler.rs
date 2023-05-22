@@ -137,8 +137,7 @@ impl FreeTerm {
         t.analyse_constraint_propagation(&mut new_bounds[i]);
 
         // We now check if t has the potential to benefit from delayed matching.
-        let mut unbound = t.occurs_below().clone();
-        unbound.difference_with(&new_bounds[i]);
+        let mut unbound = t.occurs_below().difference(&new_bounds[i]);
         if !Self::remaining_aliens_contain(
           &aliens,
           &current_sequence,
@@ -176,11 +175,8 @@ impl FreeTerm {
       let mut expanded_at_least_one_branch = false;
 
       for i in step..nr_aliens {
-        //
         // We expand this branch if it binds something that could help another NGA.
-        //
-        let mut newly_bound_uniquely: NatSet = new_bounds[i].clone();
-        newly_bound_uniquely.difference_with(bound_uniquely);
+        let mut newly_bound_uniquely: NatSet = new_bounds[i].difference(bound_uniquely);
         if Self::remaining_aliens_contain(
           &aliens,
           &current_sequence,
@@ -221,7 +217,7 @@ impl FreeTerm {
       // ));
       let mut new_bound_union = NatSet::new();
       for i in step..nr_aliens {
-        new_bound_union.union_with(&new_bounds[i]);
+        new_bound_union.union_in_place(&new_bounds[i]);
       }
 
       Self::find_constraint_propagation_sequence_helper(
@@ -237,8 +233,8 @@ impl FreeTerm {
     // Leaf of search tree.
     let n = bound_uniquely.len() as i32;
     if n > best_sequence.cardinality {
-      best_sequence.sequence = current_sequence.clone(); // deep copy
-      best_sequence.bound = bound_uniquely.clone(); // deep copy
+      best_sequence.sequence    = current_sequence.clone(); // deep copy
+      best_sequence.bound       = bound_uniquely.clone();   // deep copy
       best_sequence.cardinality = n;
     }
   }
@@ -369,7 +365,7 @@ impl FreeTerm {
         &mut best_sequence,
       );
 
-      bound_uniquely.union_with(&best_sequence.bound);
+      bound_uniquely.union_in_place(&best_sequence.bound);
     }
   }
 

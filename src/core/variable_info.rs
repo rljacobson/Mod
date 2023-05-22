@@ -33,7 +33,7 @@ pub struct VariableInfo {
   fragment_number         : u32,
   construction_indices    : Vec<ConstructionIndex>,
   condition_variables     : NatSet,
-  unbound_variables       : NatSet,
+  pub(crate) unbound_variables       : NatSet,
 }
 
 impl VariableInfo {
@@ -44,15 +44,15 @@ impl VariableInfo {
 
   // region Accessors
 
-  pub fn get_nr_real_variables(&self) -> usize {
+  pub fn real_variable_count(&self) -> usize {
     self.variables.len()
   }
 
-  pub fn get_nr_protected_variables(&self) -> u32 {
-    self.protected_variable_count
+  pub fn protected_variable_count(&self) -> i32 {
+    self.protected_variable_count as i32
   }
 
-  fn index2variable(&self, index: usize) -> RcTerm {
+  pub(crate) fn index2variable(&self, index: usize) -> RcTerm {
     self.variables[index].clone()
   }
 
@@ -108,11 +108,11 @@ impl VariableInfo {
   }
 
   pub fn add_condition_variables(&mut self, vars: &NatSet) {
-    self.condition_variables.union_with(vars);
+    self.condition_variables.union_in_place(vars);
   }
 
   pub fn add_unbound_variables(&mut self, vars: &NatSet) {
-    self.unbound_variables.union_with(vars);
+    self.unbound_variables.union_in_place(vars);
   }
 
   // endregion Accessors

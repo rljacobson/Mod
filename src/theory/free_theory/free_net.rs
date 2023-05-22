@@ -10,13 +10,13 @@ use std::{collections::HashSet, default};
 
 use crate::{
     abstractions::WeakCell,
+    core::module::ModuleItem,
     theory::{
         DagNode,
         RcDagNode,
         RcSymbol,
         NodeList
     },
-    core::ModuleItem,
 };
 
 use super::{FreeRemainder, RcFreeRemainder, FreeRemainderList};

@@ -28,35 +28,36 @@ use std::{
 };
 
 use crate::{
-  core::{
-    Substitution,
-    OrderingValue,
-    RcConnectedComponent,
-    SpecialSort,
-    VariableInfo
-  },
   abstractions::{
-    RcCell,
-    Set,
     FastHasher,
     FastHasherBuilder,
-    NatSet
+    NatSet,
+    RcCell,
+    Set,
   },
-  theory::{
-    RcSymbol,
-    DagNode,
-    NodeList,
-    Symbol,
-    symbol::SymbolSet,
-    DagNodeFlag,
-    dag_node_flags,
-    RcDagNode,
-    LHSAutomaton,
-    RcLHSAutomaton
-  }
+  core::{
+    format::{FormatStyle, Formattable},
+    OrderingValue,
+    sort::{RcConnectedComponent, SpecialSort},
+    substitution::Substitution,
+    TermBag,
+    VariableInfo,
+  },
+  theory::variable::VariableTerm,
 };
-use crate::core::TermBag;
-use crate::theory::variable::VariableTerm;
+
+use super::{
+  dag_node_flags,
+  DagNode,
+  DagNodeFlag,
+  LHSAutomaton,
+  NodeList,
+  RcDagNode,
+  RcLHSAutomaton,
+  RcSymbol,
+  Symbol,
+  SymbolSet,
+};
 
 
 pub type RcTerm    = RcCell<dyn Term>;
@@ -143,14 +144,12 @@ impl TermMembers {
 }
 
 
-pub trait Term {
+pub trait Term: Formattable {
 
-  fn as_any(&self) -> &dyn Any;
+  fn as_any(&self)         -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn as_ptr(&self) -> *const dyn Term;
-  /// A human-readable string representation of the term
-  fn repr(&self) -> String;
-  fn compute_hash(&self) -> u32;
+  fn as_ptr(&self)         -> *const dyn Term;
+  fn compute_hash(&self)   -> u32;
   /// Normalizes the term, returning the computed hash and `true` if the normalization changed
   /// the term or `false` otherwise.
   fn normalize(&mut self, full: bool) -> (u32, bool);
@@ -354,20 +353,20 @@ pub trait Term {
 
     for t in self.iter_args() {
       // Insert parent's context set
-      context_set.union_with(t.borrow().occurs_in_context());
-      // self.occurs_in_context_mut().union_with(t.borrow().occurs_in_context());
+      context_set.union_in_place(t.borrow().occurs_in_context());
+      // self.occurs_in_context_mut().union_in_place(t.borrow().occurs_in_context());
 
       for u in self.iter_args() {
         if *u.borrow() != *t.borrow() {
           // Insert sibling's occurs set
-          context_set.union_with(u.borrow().occurs_below());
-          // self.occurs_in_context_mut().union_with(u.borrow().occurs_below());
+          context_set.union_in_place(u.borrow().occurs_below());
+          // self.occurs_in_context_mut().union_in_place(u.borrow().occurs_below());
         }
       }
 
       t.borrow_mut().determine_context_variables();
     }
-    self.occurs_in_context_mut().union_with(&context_set);
+    self.occurs_in_context_mut().union_in_place(&context_set);
   }
 
   fn insert_abstraction_variables(&mut self, variable_info: &mut VariableInfo) {
@@ -392,7 +391,7 @@ pub trait Term {
 // region trait impls for Term
 impl Display for dyn Term{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.repr())
+    write!(f, "{}", self.repr(FormatStyle::Default))
   }
 }
 
@@ -437,12 +436,12 @@ pub fn index_variables(term: RcTerm, indices: &mut VariableInfo) {
     for arg in term_mut.iter_args() {
       index_variables(arg.clone(), indices);
       // Accumulate the set of variables that occur under this symbol.
-      occurs_below.union_with(
+      occurs_below.union_in_place(
                 &arg.borrow()
                     .occurs_below()
               );
     }
-    term_mut.occurs_below_mut().union_with(&occurs_below);
+    term_mut.occurs_below_mut().union_in_place(&occurs_below);
   }
 }
 

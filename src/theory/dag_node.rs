@@ -16,19 +16,29 @@ use shared_vector::{AtomicSharedVector, SharedVector};
 
 use crate::{
   abstractions::{BigInteger, RcCell},
-  core::{RcSort, Sort, SpecialSort},
-  theory::{MaybeSubproblem, Outcome, Symbol}
+  core::{
+    RedexPosition,
+    sort::{RcSort, Sort, SpecialSort}
+  },
 };
-use crate::core::{RedexPosition, Substitution};
-use crate::theory::free_theory::RcFreeSymbol;
-use crate::theory::{DagNodeFlags, ExtensionInfo, RcTerm, Subproblem};
 
-use super::{RcSymbol, SymbolType};
+use super::{
+  DagNodeFlags,
+  ExtensionInfo,
+  free_theory::RcFreeSymbol,
+  MaybeSubproblem,
+  Outcome,
+  RcTerm,
+  Subproblem,
+  Symbol,
+  RcSymbol,
+  SymbolType,
+};
 
 // pub type BcDagNode = Box<Cell<DagNode>>;
-pub type BcDagNode = Box<dyn DagNode>;
-pub type RcDagNode = RcCell<dyn DagNode>;
-pub type NodeList = SharedVector<RcDagNode>;
+pub type BcDagNode      = Box<dyn DagNode>;
+pub type RcDagNode      = RcCell<dyn DagNode>;
+pub type NodeList       = SharedVector<RcDagNode>;
 pub type AtomicNodeList = AtomicSharedVector<RcDagNode>;
 
 /// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
@@ -347,8 +357,8 @@ impl Display for dyn DagNode {
 
 fn graph_count(
   dag_node: &dyn DagNode,
-  visited: &mut Vec<*const dyn DagNode>,
-  counts: &mut Vec<BigInteger>
+  visited : &mut Vec<*const dyn DagNode>,
+  counts  : &mut Vec<BigInteger>
 )
 {
   // Beware the semantics of Rust pointer comparison. See

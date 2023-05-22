@@ -1,5 +1,14 @@
-use crate::core::{RcSort, Substitution};
-use crate::theory::{LHSAutomaton, MaybeSubproblem, RcDagNode};
+use crate::{
+  core::{
+    sort::RcSort,
+    substitution::Substitution
+  },
+  theory::{
+    LHSAutomaton,
+    MaybeSubproblem,
+    RcDagNode
+  },
+};
 
 pub struct VariableLHSAutomaton {
   index: i32, // -1 = None

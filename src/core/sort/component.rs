@@ -7,7 +7,8 @@ set of `Sort`s that are related to each other.
 
 
 use crate::abstractions::{RcCell, WeakCell};
-use crate::core::{SortSet, WeakSort};
+use crate::core::sort::{SortSet, WeakSort};
+
 
 pub type RcConnectedComponent = RcCell<ConnectedComponent>;
 

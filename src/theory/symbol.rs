@@ -15,32 +15,24 @@ MemoTable
 */
 
 use std::{
+  any::Any,
   cmp::{Eq, Ord, Ordering, PartialEq, PartialOrd},
+  fmt::{Debug, Display, Formatter},
   rc::Rc,
 };
-use std::any::Any;
-use std::fmt::{Debug, Display, Formatter};
 
-use crate::{
-  abstractions::{
-    Set,
-    IString
-  },
-  core::{
-    ModuleItem,
-    RcSort,
-    Sort,
-    SortConstraintTable,
-    SortTable,
-    WeakModule
-  },
-  theory::{
-    RcDagNode,
-    RcTerm
-  },
-};
-use crate::core::Strategy;
-
+use crate::{abstractions::{
+  Set,
+  IString
+}, theory::{
+  RcDagNode,
+  RcTerm
+}, core::{
+  module::{ModuleItem, WeakModule},
+  format::{FormatStyle, Formattable},
+  sort::{SortConstraintTable, SortTable},
+  Strategy
+}, NONE, UNDEFINED};
 
 pub type RcSymbol = Rc<dyn Symbol>;
 pub type SymbolSet = Set<dyn Symbol>;
@@ -73,8 +65,8 @@ pub struct SymbolMembers {
   pub sort_table: SortTable,
 
   // `ModuleItem`
-  pub(crate) index_within_parent : u32,
-  pub(crate) parent_module       : WeakModule,
+  pub(crate) index_within_parent_module: i32,
+  pub(crate) parent_module             : WeakModule,
 
   // `Strategy`
   strategy: Strategy,
@@ -86,13 +78,13 @@ impl SymbolMembers {
       SymbolMembers{
         name,
         hash_value       : 0,
-        unique_sort_index: 0,
+        unique_sort_index: UNDEFINED,
         match_index      : 0,
         arity,
         memo_flag,
         sort_constraint_table: Default::default(),
         sort_table           : Default::default(),
-        index_within_parent  : 0,
+        index_within_parent_module: NONE,
         parent_module        : Default::default(),
         strategy             : Strategy::default(),
       };
@@ -209,14 +201,14 @@ impl PartialEq for dyn Symbol {
 // Every `Symbol` is a `ModuleItem`
 impl ModuleItem for dyn Symbol {
 #[inline(always)]
-fn get_index_within_module(&self) -> u32 {
-  self.symbol_members().index_within_parent
+fn get_index_within_module(&self) -> i32 {
+  self.symbol_members().index_within_parent_module
 }
 
   #[inline(always)]
-  fn set_module_information(&mut self, module: WeakModule, index_within_module: u32) {
+  fn set_module_information(&mut self, module: WeakModule, index_within_module: i32) {
     self.symbol_members_mut().parent_module       = module;
-    self.symbol_members_mut().index_within_parent = index_within_module;
+    self.symbol_members_mut().index_within_parent_module = index_within_module;
   }
 
   #[inline(always)]
@@ -225,12 +217,12 @@ fn get_index_within_module(&self) -> u32 {
   }
 }
 
-
-impl Display for dyn Symbol {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.symbol_members().name)
+impl Formattable for dyn Symbol {
+  fn repr(&self, _style: FormatStyle) -> String {
+    self.symbol_members().name.to_string()
   }
 }
+
 
 impl Debug for dyn Symbol {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

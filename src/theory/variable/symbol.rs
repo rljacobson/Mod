@@ -1,9 +1,14 @@
-use std::any::Any;
-use std::rc::Rc;
-use crate::abstractions::IString;
-use crate::core::{OpDeclaration, RcSort, SortConstraintTable, SortTable};
-use crate::theory::Symbol;
-use crate::theory::symbol::SymbolMembers;
+use std::{
+  any::Any,
+  rc::Rc
+};
+
+use crate::{
+  abstractions::IString,
+  core::sort::{OpDeclaration, RcSort},
+  theory::{Symbol, SymbolMembers},
+};
+
 
 pub type RcVariableSymbol = Rc<VariableSymbol>;
 

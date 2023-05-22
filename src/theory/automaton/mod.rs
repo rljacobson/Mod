@@ -6,13 +6,21 @@ The matcher automaton for the free theory.
 
 use std::rc::Rc;
 
-use crate::abstractions::RcCell;
-
 use crate::{
-  core::{RcSort, Substitution},
-  theory::{ExtensionInfo, MaybeSubproblem, RcDagNode, RcTerm},
+  abstractions::RcCell,
+  core::{
+    sort::RcSort,
+    substitution::Substitution
+  },
+  theory::{
+    ExtensionInfo,
+    MaybeSubproblem,
+    RcDagNode,
+    RcTerm,
+    Outcome,
+    Term
+  },
 };
-use crate::theory::{Outcome, Term};
 
 pub type RcLHSAutomaton = RcCell<dyn LHSAutomaton>;
 pub type BxLHSAutomaton = Box<dyn LHSAutomaton>;
@@ -41,7 +49,7 @@ pub trait LHSAutomaton {
     // if let Some(ext_info) = extension_info {
     //   return self.match_variable_with_extension(index, sort, solution, returned_subproblem, ext_info);
     // }
-    let d = solution.value(index);
+    let d = solution.get(index);
     match d {
       None => {
         if let (Outcome::Success, maybe_subproblem) = dag_node.borrow_mut().check_sort(sort) {

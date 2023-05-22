@@ -11,8 +11,9 @@ by placing a reference to the DagNode at the index of the number. Names are numb
 
 
 use std::rc::Rc;
+use crate::abstractions::NatSet;
 
-use crate::core::LocalBindings;
+use crate::core::{LocalBindings, NarrowingVariableInfo, VariableInfo};
 use crate::theory::{DagNode, RcDagNode};
 
 pub type MaybeDagNode = Option<RcDagNode>;
@@ -21,7 +22,15 @@ pub type MaybeDagNode = Option<RcDagNode>;
 pub struct Substitution {
   bindings: Vec<MaybeDagNode>,
   // Todo: What is the purpose of copy_size?
-  copy_size: u32,
+  /*
+  I think `copy_size` exists because the length of `bindings` might not reflect the "active" portion of the
+  `Substitution`. The issue is that the `bindings` vector can never be truncated, because its `None` slots might be
+  used elsewhere for construction purposes. So if some other `Substitution` with a smaller `bindings` vector is cloned
+  into this one, the `copy_size` can be made smaller, but the `bindings` vector isn't truncated.
+
+  The upshot is that we need a variable to track the size of `bindings` that is independent of its actual size.
+  */
+  copy_size: usize,
 }
 
 impl Substitution {
@@ -31,9 +40,9 @@ impl Substitution {
   }
 
   #[inline(always)]
-  pub fn with_capacity(n: u32) -> Self {
-    let mut bindings = Vec::with_capacity(n as usize);
-    bindings.resize(n as usize, None);
+  pub fn with_capacity(n: usize) -> Self {
+    let mut bindings = Vec::with_capacity(n);
+    bindings.resize(n, None);
 
     Self {
       bindings,
@@ -46,19 +55,20 @@ impl Substitution {
     self.bindings.resize(size, None);
   }
 
+  /// This getter takes a `usize` for the common case that we start with a `usize` index. Be careful that the `usize`
+  /// wasn't converted from an `i32` that was `NONE`.
   #[inline(always)]
-  pub fn value(&self, index: i32)  -> MaybeDagNode {
-    self.get(index)
+  pub fn value(&self, index: usize)  -> MaybeDagNode {
+    self.get(index as i32)
   }
 
 
   // Todo: Is this the best way to implement a getter? I think we did it this way so it returned a value.
+  /// This getter takes an `i32` so it can check for negative indices, i.e. `NONE`.
   #[inline(always)]
   pub fn get(&self, index: i32) -> MaybeDagNode {
     assert!(index >= 0, "-ve index {}", index);
     assert!(index < self.bindings.len() as i32, "index too big {} vs {}", index, self.bindings.len());
-
-    // self.bindings[index as usize].clone()
 
     // The asserts give confidence but do not guarantee safety here.
     unsafe{
@@ -72,7 +82,7 @@ impl Substitution {
   }
 
   #[inline(always)]
-  pub fn fragile_binding_count(&self) -> u32 {
+  pub fn fragile_binding_count(&self) -> usize {
     self.copy_size
   }
 
@@ -123,5 +133,46 @@ impl Substitution {
     }
   }
 
+}
 
+
+// More specialized print functions for substitutions. These are used in narrowing.rs, trace_variant_narrowing_step in
+// rewrite_context.rs.
+
+pub fn print_substitution_dag(substitution: &[RcDagNode], variable_info: &NarrowingVariableInfo) {
+  for (i, &var) in variable_info.index2variables().iter().enumerate() {
+    let binding = substitution[i];
+    println!("{} --> {}", var, binding);
+  }
+}
+
+pub fn print_substitution_narrowing(substitution: &Substitution, variable_info: &NarrowingVariableInfo) {
+  let variable_count = substitution.fragile_binding_count();
+
+  for i in 0..variable_count {
+    let var = variable_info.index2variable(i);
+    let binding = substitution.value(i);
+    assert!(binding.is_some(), "A variable is bound to None. This is a bug.");
+    let binding = binding.unwrap();
+    println!("{} --> {}", var, binding.borrow());
+  }
+}
+
+pub fn print_substitution(substitution: &Substitution, var_info: &VariableInfo, ignored_indices: &NatSet) {
+  let variable_count = var_info.real_variable_count();
+  let mut printed_variable = false;
+  for i in 0..variable_count {
+    if ignored_indices.contains(i) {
+      continue;
+    }
+    let var = var_info.index2variable(i);
+    let binding = substitution.value(i);
+    debug_assert!(var.is_some(), "null variable");
+    debug_assert!(var.is_some(), "(unbound)");
+    println!("{} --> {}", var.unwrap(), binding.unwrap().borrow());
+    printed_variable = true;
+  }
+  if !printed_variable {
+    println!("empty substitution");
+  }
 }
