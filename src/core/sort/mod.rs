@@ -5,7 +5,6 @@ Items related to sorts (types).
 */
 
 mod component;
-pub mod sort_constraint;
 mod sort_table;
 
 use std::fmt::Display;
@@ -14,7 +13,6 @@ use std::mem::size_of;
 use crate::abstractions::{IString, RcCell, WeakCell, NatSet};
 
 pub use component::{ConnectedComponent, RcConnectedComponent};
-pub use sort_constraint::{RcSortConstraint, SortConstraint, SortConstraintTable};
 pub use sort_table::SortTable;
 
 

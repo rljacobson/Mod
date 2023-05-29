@@ -9,18 +9,17 @@ use crate::{
     NatSet,
   },
   core::{
-    Equation,
     format::{FormatStyle, Formattable},
     interpreter::InterpreterAttribute,
     module::ModuleItem,
     NarrowingVariableInfo,
-    pre_equation::PreEquation,
-    rule::Rule,
-    sort::SortConstraint,
-    StrategyDefinition,
+    pre_equation::{
+      PreEquation,
+      PreEquationKind::*
+    },
     substitution::{
       MaybeDagNode,
-      print_substitution,
+      print_substitution_with_ignored,
       print_substitution_narrowing,
       Substitution
     },
@@ -29,13 +28,22 @@ use crate::{
   NONE,
   theory::{DagNode, RcDagNode},
 };
+use crate::core::interpreter::interpreter_state::RcInterpreter;
+use crate::core::module::Module;
 
 use super::{
   RewritingContext,
+  ContextAttribute,
   HEADER,
   RewriteType
 };
 
+#[derive(Copy, Clone)]
+pub struct VariantTraceInfo<'a >{
+  old_variant_substitution: &'a Substitution,
+  new_variant_substitution: &'a Substitution,
+  original_variables: &'a NarrowingVariableInfo,
+}
 
 /// Tracing status is global for all `RewritingContext`s.
 static TRACE_STATUS: AtomicBool = AtomicBool::new(false);
@@ -53,22 +61,28 @@ pub fn set_trace_status(status: bool) {
 
 impl RewritingContext {
 
-  pub fn do_not_trace(&self, redex: RcDagNode, pe: &dyn PreEquation) -> bool {
+  pub fn do_not_trace(&self, redex: RcDagNode, pe: Option<&PreEquation>) -> bool {
     let symbol = redex.borrow().symbol();
     let interpreter = self.interpreter.upgrade().unwrap();
-    (interpreter.attribute(InterpreterAttribute::TraceSelect)
-        && !(interpreter.trace_name(&symbol.name())
-        || (pe.name().is_some() && interpreter.trace_name(&pe.name().unwrap()))))
+    (
+      interpreter.attribute(InterpreterAttribute::TraceSelect)
+        && !(
+          interpreter.trace_name(&symbol.name())
+            || (
+              pe.is_some() && pe.unwrap().name.is_some()
+                && interpreter.trace_name(&pe.unwrap().name.unwrap())
+            )
+          )
+    )
+        || (pe.is_none() && !interpreter.attribute(InterpreterAttribute::TraceBuiltin))
         || interpreter.excluded_module(&symbol.get_module().upgrade().unwrap().borrow().name)
-    // ToDo: Determine where the following is used.
-        // || (pe.is_none() && !interpreter.attribute(InterpreterAttribute::TraceBuiltin))
   }
 
   /* Print attributes are unimplemented.
   pub fn check_for_print_attribute(
     &self,
     item_type: ItemType,
-    item: Option<&dyn PreEquation>,
+    item: Option<&PreEquation>,
   ) {
     if let Some(item) = item {
       let module = item.get_module();
@@ -82,7 +96,13 @@ impl RewritingContext {
   }
   */
 
-  pub fn trace_pre_eq_rewrite(&mut self, redex: RcDagNode, equation: Option<&Equation>, eq_type: RewriteType) {
+  pub fn trace_pre_eq_application(
+    &mut self,
+    redex: MaybeDagNode,
+    maybe_equation: Option<&PreEquation>,
+    eq_type: RewriteType
+  )
+  {
     // All unusual situations during an equational rewrite are funneled
     // through this function, by setting the traceFlag in class Module.
     // This is so that rewriting only has to test a single flag
@@ -98,13 +118,26 @@ impl RewritingContext {
     // (7) Info interrupt
     // (8) Tracing is enabled
 
-    let redex_ref: &dyn DagNode = redex.borrow().into();
+    if redex.is_none() {
+      // For the Rule case.
+      // Dummy rewrite; need to ignore the following trace_post_rule_rewrite() call.
+      self.attributes.reset(ContextAttribute::TracePost);
+      return;
+    }
+
+    // TODO: Handle the `equation==None` case
+    let equation = maybe_equation.unwrap();
+
+    let redex: RcDagNode = redex.unwrap();
+    let redex_ref: &dyn DagNode = &*redex.borrow();
     let interpreter = self.interpreter.upgrade().unwrap();
 
     if interpreter.attribute(InterpreterAttribute::Profile) {
-      let profile_module = self.root().symbol().get_module();
-      profile_module.profile_eq_rewrite(redex.clone(), equation, eq_type);
+      let mut profile_module = self.root.borrow().symbol().get_module().upgrade().unwrap().borrow_mut();
+      // TODO: Unify `profile_*_rewrite` code
+      profile_module.profile_eq_rewrite(redex.clone(), Some(equation), eq_type);
     }
+    // Print attributes are not implemented
     // if interpreter.attribute(InterpreterAttribute::PrintAttribute) {
     //   self.check_for_print_attribute(MetadataStore::EQUATION, equation);
     // }
@@ -112,60 +145,76 @@ impl RewritingContext {
     // handeDebug() takes care of abort, single stepping, breakpoints,
     // ^C interrupts and info interrupts. These are common to
     // all rewrite types.
-    if self.handle_debug(redex.clone(), equation)
-        || !self.local_trace_flag
+    if self.handle_debug(redex.clone(), Some(equation))
+        || !self.attribute(ContextAttribute::LocalTrace)
         || !interpreter.attribute(InterpreterAttribute::TraceEq)
-        || self.do_not_trace(redex, equation)
+        || self.do_not_trace(redex.clone(), Some(equation))
     {
-      self.trace_post_flag = false;
+      self.attributes.reset(ContextAttribute::TracePost);
       return;
     }
-    self.trace_post_flag = true;
+    self.attributes.set(ContextAttribute::TracePost);
 
     if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{}", HEADER);
-      println!("equation");
+      println!("{} {}", HEADER,  equation.kind.noun());
     }
 
-    if let Some(equation) = equation {
+    // TODO: Fix whenever we figure out the `equation==None` case
+    if let Some(equation) = maybe_equation {
       if interpreter.attribute(InterpreterAttribute::TraceBody) {
-        println!("{}", equation.repr());
+        println!("{}", equation.repr(FormatStyle::Default));
 
         if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-          print_substitution(&self.substitution, equation.variable_info(), &NatSet::default());
+          print_substitution_with_ignored(&self.substitution, &equation.variable_info, &NatSet::default());
         }
       } else {
-        if let Some(label) = equation.name(){
+        if let Some(label) = &equation.name{
           println!("{}", label);
         } else {
-          println!("(unlabeled equation)");
+          println!("(unlabeled {})", equation.kind.noun());
         }
       }
 
-    } else {
-
-      if eq_type == RewriteType::Builtin {
-        println!("(built-in equation for symbol {})", redex_ref.symbol().repr(FormatStyle::Simple));
+    }
+    else {
+      // equation == None case
+      // TODO: We still need the noun!
+      if eq_type != RewriteType::Normal {
+        println!("({} {} for symbol {})", eq_type, equation.kind.noun(), redex_ref.symbol().repr(FormatStyle::Simple));
       }
-      else if eq_type == RewriteType::Memoized {
-        println!("(memo table lookup for symbol {})", redex_ref.symbol().repr(FormatStyle::Simple));
+    }
+
+    match &equation.kind {
+      StrategyDefinition{..} => {
+        unimplemented!("Strategy language is not implemented.")
+      }
+
+      SortConstraint{sort, ..} => {
+        if interpreter.attribute(InterpreterAttribute::TraceWhole) {
+          println!("Whole: {}", self.root.borrow());
+        }
+        if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
+          // TODO: We are assuming the redex does have a sort. Check that this is guaranteed for sort constraints.
+          println!("{}: {} becomes {}", redex_ref.get_sort().unwrap().borrow(), redex_ref, sort.borrow());
+        }
+      }
+
+      _ => {
+        if interpreter.attribute(InterpreterAttribute::TraceWhole) {
+          println!("Old: {}", self.root.borrow());
+        }
+        if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
+          println!("{} \n--->", redex_ref);
+        }
       }
     }
 
-    if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("Old: {}", self.root());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
-      println!("{} \n--->", redex_ref);
-    }
-
-    log(Channel::Debug, 1, redex_ref);
+    log(Channel::Debug, 1, redex_ref.to_string().as_str());
   }
 
-  pub fn trace_post_eq_rewrite(&self, replacement: RcDagNode) {
-    if self.trace_post_flag {
-      assert!(!self.abort_flag, "abort flag set");
+  pub fn trace_post_eq_application(&self, replacement: RcDagNode) {
+    if self.attribute(ContextAttribute::TracePost) {
+      assert!(!self.attribute(ContextAttribute::Abort), "abort flag set");
       let interpreter = self.interpreter.upgrade().unwrap();
 
       if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
@@ -175,124 +224,63 @@ impl RewritingContext {
       log(Channel::Debug, 1, replacement.borrow().to_string().as_str());
 
       if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-        println!("New: {}", self.root());
-      }
-    }
-  }
-
-
-  pub fn trace_pre_rule_rewrite(&mut self, redex: MaybeDagNode, rule: Option<&Rule>) {
-    if redex.is_none() {
-      // Dummy rewrite; need to ignore the following trace_post_rule_rewrite() call.
-      self.trace_post_flag = false;
-      return;
-    }
-
-    let interpreter = self.interpreter.upgrade().unwrap();
-    let redex = redex.unwrap();
-
-    if interpreter.attribute(InterpreterAttribute::Profile) {
-      let mut profile_module = self.root.borrow().symbol().get_module().upgrade().unwrap().borrow();
-      profile_module.profile_rl_rewrite(redex.clone(), rule);
-    }
-
-    // if interpreter.attribute(InterpreterAttribute::PrintAttribute) {
-    //   self.check_for_print_attribute(MetadataStore::RULE, rule);
-    // }
-
-    if self.handle_debug(redex.clone(), rule)
-        || !self.local_trace_flag
-        || !interpreter.attribute(InterpreterAttribute::TraceRl)
-        || self.do_not_trace(redex.clone(), rule)
-    {
-      self.trace_post_flag = false;
-      return;
-    }
-    self.trace_post_flag = true;
-
-    if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{} rule", HEADER);
-    }
-
-    if let Some(rule) = rule {
-      if interpreter.attribute(InterpreterAttribute::TraceBody) {
-        println!("{}", rule.repr(FormatStyle::Default));
-        if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-          print_substitution_narrowing(&self.substitution, rule.variable_info);
-        }
-      } else {
-        if let Some(label) = rule.name(){
-          println!("{}", label);
-        } else {
-          println!("(unlabeled rule)");
-        }
-      }
-    } else {
-      println!("(built-in rule for symbol {})", redex.symbol());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("Old: {}", self.root());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
-      println!("{} \n--->", redex.borrow());
-    }
-  }
-
-  pub fn trace_post_rule_rewrite(&self, replacement: RcDagNode) {
-    if self.trace_post_flag {
-      let interpreter = self.interpreter.upgrade().unwrap();
-
-      if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
-        println!("{}", replacement.borrow());
-      }
-
-      if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-        println!("New: {}", self.root());
+        println!("New: {}", self.root.borrow());
       }
     }
   }
 
 
   pub fn trace_narrowing_step(
-    &self,
-    rule: &Rule,
+    &mut self,
+    pre_equation: &PreEquation,
     redex: RcDagNode,
     replacement: RcDagNode,
     variable_info: &NarrowingVariableInfo,
     substitution: &Substitution,
     new_state: RcDagNode,
-  ) {
+    variant: Option<VariantTraceInfo<'_>> // None for Rule, Some for Equation
+  )
+  {
     let interpreter = self.interpreter.upgrade().unwrap();
-    if self.handle_debug(redex.clone(), rule)
-        || !self.local_trace_flag
+    if self.handle_debug(redex.clone(), Some(pre_equation))
+        || !self.attribute(ContextAttribute::LocalTrace)
         || !interpreter.attribute(InterpreterAttribute::TraceRl)
-        || self.do_not_trace(redex.clone(), Some(rule))
+        || self.do_not_trace(redex.clone(), Some(pre_equation))
     {
       return;
     }
 
     if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{}", Paint::magenta("narrowing step"));
-      println!("{}", rule.repr(FormatStyle::Simple));
+      if variant.is_some() {
+        println!(" {}", Paint::cyan("variant narrowing step"));
+      } else {
+        println!("{}", Paint::magenta("narrowing step"));
+      }
+      println!("{}", pre_equation.repr(FormatStyle::Simple));
 
       if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-        println!("Rule variable bindings:");
-        print_substitution(substitution, &rule.variable_info, &NatSet::default());
-        println!("Subject variable bindings:");
+        if variant.is_some() {
+          println!("Equation variable bindings:");
+          print_substitution_with_ignored(substitution, &pre_equation.variable_info, &NatSet::default());
+          println!("Old variant variable bindings:");
+        } else {
+          println!("Rule variable bindings:");
+          print_substitution_with_ignored(substitution, &pre_equation.variable_info, &NatSet::default());
+          println!("Subject variable bindings:");
+        }
 
         let subject_variable_count = variable_info.variable_count();
         if subject_variable_count == 0 {
           println!("empty substitution");
         } else {
-          let variable_base = rule.get_module().get_minimum_substitution_size();
-          for i in 0..subject_variable_count {
+          // TODO: Is it guaranteed that pre_equation has a module?
+          let variable_base = pre_equation.get_module().upgrade().unwrap().borrow().minimum_substitution_size;
+          for i in 0..subject_variable_count{
             let v = variable_info.index2variable(i);
-            let d = substitution.value(variable_base + i);
+            let d = substitution.value(variable_base as usize + i);
 
-            assert!(v != 0, "null variable");
-            print!("{} --> ", v);
+            assert!(v.is_some(), "null variable");
+            print!("{} --> ", v.unwrap().borrow());
 
             if let Some(d) = d {
               println!("{}", d.borrow());
@@ -305,88 +293,38 @@ impl RewritingContext {
     }
 
     if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("Old: {}", self.root());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
-      println!("{} \n--->\n{}", redex.borrow(), replacement.borrow());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("New: {}", new_state.borrow());
-    }
-  }
-
-  pub fn trace_variant_narrowing_step(
-    &self,
-    equation: &Equation,
-    old_variant_substitution: &[RcDagNode],
-    redex: RcDagNode,
-    replacement: RcDagNode,
-    variable_info: &NarrowingVariableInfo,
-    substitution: &Substitution,
-    new_state: RcDagNode,
-    new_variant_substitution: &[RcDagNode],
-    original_variables: &NarrowingVariableInfo,
-  ) {
-    let interpreter = self.interpreter.upgrade().unwrap();
-    if self.handle_debug(redex.clone(), equation)
-        || !self.local_trace_flag
-        || !interpreter.attribute(InterpreterAttribute::TraceEq)
-        || self.do_not_trace(redex.clone(), Some(equation))
-    {
-      return;
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!(" {}", Paint::cyan("variant narrowing step"));
-      println!("{}", equation.repr(FormatStyle::Simple));
-
-      if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-        println!("Equation variable bindings:");
-        print_substitution(substitution, equation.variable_info(), &NatSet::default());
-        println!("Old variant variable bindings:");
-
-        let subject_variable_count = variable_info.variable_count();
-        if subject_variable_count == 0 {
-          println!("empty substitution");
-        } else {
-          let variable_base = equation.get_module().get_minimum_substitution_size();
-          for i in 0..subject_variable_count {
-            let v = variable_info.index2variable(i);
-            let d = substitution.value(variable_base + i);
-
-            assert!(v != 0, "null variable");
-            print!("{} --> ", v);
-
-            if let Some(d) = d {
-              println!("{}", d.borrow());
-            } else {
-              println!("(unbound)");
-            }
-          }
-        }
+      if let Some(VariantTraceInfo{old_variant_substitution, original_variables, ..})
+          = variant
+      {
+        println!("\nOld variant: {}", self.root.borrow());
+        print_substitution_narrowing(&old_variant_substitution, original_variables);
+        println!();
+      }
+      else {
+        println!("Old: {}", self.root.borrow());
       }
     }
 
-    if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("\nOld variant: {}", self.root());
-      print_substitution_narrowing(old_variant_substitution, original_variables);
-      println!();
-    }
-
     if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
       println!("{} \n--->\n{}", redex.borrow(), replacement.borrow());
     }
 
     if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("\nNew variant: {}", new_state.borrow());
-      print_substitution_narrowing(new_variant_substitution, original_variables);
-      println!();
+      if let Some(VariantTraceInfo{new_variant_substitution, original_variables, ..})
+          = variant
+      {
+        println!("\nNew variant: {}", new_state.borrow());
+        print_substitution_narrowing(&new_variant_substitution, original_variables);
+        println!();
+      }
+      else {
+        println!("New: {}", new_state.borrow());
+      }
     }
   }
 
 
+  /* Strategy language not implemented
   pub fn trace_strategy_call(
     &self,
     sdef: &StrategyDefinition,
@@ -449,66 +387,48 @@ impl RewritingContext {
       }
     }
   }
+*/
 
-  pub fn trace_pre_sc_application(&self, subject: RcDagNode, sc: Option<&SortConstraint>) {
-    let interpreter = self.interpreter.upgrade().unwrap();
+
+  pub(crate) fn trace_begin_trial(
+    &mut self,
+    subject: RcDagNode,
+    pre_equation: &PreEquation,
+  ) -> Option<i32>
+  {
+    // assert!(equation != 0, "null equation in trial");
+
+    let interpreter: RcInterpreter = self.interpreter.upgrade().unwrap();
+
     if interpreter.attribute(InterpreterAttribute::Profile) {
-      self.root
+      let module: &mut Module = &mut *self.root
           .borrow()
           .symbol()
           .get_module()
           .upgrade()
           .unwrap()
-          .borrow()
-          .profile_mb_rewrite(subject.clone(), sc);
-    }
-    // if interpreter.attribute(InterpreterAttribute::PrintAttribute) {
-    //   check_for_print_attribute(MetadataStore::MEMB_AX, sc);
-    // }
+          .borrow_mut();
+      module.profile_condition_start(pre_equation);
 
-    if self.handle_debug(subject.clone(), sc)
-        || !self.local_trace_flag
-        || !interpreter.attribute(InterpreterAttribute::TraceMb)
-        || self.do_not_trace(subject.clone(), sc)
+    }
+
+    if self.handle_debug(subject.clone(), Some(pre_equation)) {
+      return None;
+    }
+
+    if !self.attribute(ContextAttribute::LocalTrace)
+        || !interpreter.attribute(pre_equation.kind.interpreter_trace_attribute())
+        || self.do_not_trace(subject.clone(), Some(pre_equation))
     {
-      return;
+      return None;
     }
 
-    if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{} membership axiom", HEADER);
+    println!("{}trial #{}\n{}", HEADER, self.trial_count + 1, pre_equation.repr(FormatStyle::Default));
+    if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
+      print_substitution_with_ignored(&self.substitution, &pre_equation.variable_info, &NatSet::new());
     }
 
-    if let Some(constraint) = sc {
-      if interpreter.attribute(InterpreterAttribute::TraceBody) {
-        println!("{}", constraint);
-        if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-          print_substitution(&self.substitution, &constraint.variable_info, &NatSet::default());
-        }
-      } else {
-        if let Some(label) = constraint.name(){
-          println!("{}", label);
-        } else {
-          println!("(unlabeled membership axiom)");
-        }
-      }
-    } else {
-      println!("(built-in membership axiom for symbol {})", subject.symbol());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      println!("Whole: {}", self.root());
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
-      if let Some(constraint) = sc {
-        println!(
-          "{}: {} becomes {}",
-          subject.get_sort(),
-          subject.borrow(),
-          constraint.get_sort()
-        );
-      }
-    }
+    Some((self.trial_count + 1) as i32)
   }
 
 }

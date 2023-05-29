@@ -21,18 +21,24 @@ use std::{
   rc::Rc,
 };
 
-use crate::{abstractions::{
-  Set,
-  IString
-}, theory::{
-  RcDagNode,
-  RcTerm
-}, core::{
-  module::{ModuleItem, WeakModule},
-  format::{FormatStyle, Formattable},
-  sort::{SortConstraintTable, SortTable},
-  Strategy
-}, NONE, UNDEFINED};
+use crate::{
+  abstractions::{
+    Set,
+    IString,
+  },
+  theory::{
+    RcDagNode,
+    RcTerm,
+  },
+  core::{
+    module::{ModuleItem, WeakModule},
+    format::{FormatStyle, Formattable},
+    sort::{SortConstraintTable, SortTable},
+    Strategy,
+  },
+  NONE,
+  UNDEFINED,
+};
 
 pub type RcSymbol = Rc<dyn Symbol>;
 pub type SymbolSet = Set<dyn Symbol>;

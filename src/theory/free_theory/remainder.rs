@@ -1,6 +1,5 @@
 use std::rc::Rc;
-
-use crate::core::Equation;
+use crate::core::pre_equation::PreEquation;
 
 use super::{
   FreeVariable,
@@ -30,7 +29,7 @@ pub struct FreeRemainder {
   foreign           : bool ,
   free_variables    : Vec<FreeVariable> ,
   /// equation we are a remainder of
-  equation          : Box<Equation>,
+  equation          : Box<PreEquation>,
   bound_variables   : Vec<BoundVariable> ,
   ground_aliens     : Vec<GroundAlien> ,
   non_ground_aliens : Vec<NonGroundAlien> ,

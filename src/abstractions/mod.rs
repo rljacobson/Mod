@@ -15,9 +15,7 @@ mod nat_set;
 use std::collections::HashSet;
 use std::iter::once;
 
-use bit_set::BitSet;
 pub use yansi::{Paint, Color, Style};
-
 pub use pratt::{log, set_verbosity, Channel};
 
 // Interned string.

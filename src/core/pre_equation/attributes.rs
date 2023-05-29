@@ -11,6 +11,7 @@ pub enum PreEquationAttribute {
   Variant,      // Equation
   Print,        // StatementAttributeInfo--not a `PreEquation`
   Narrowing,    // Rule
+  Bad,          // A malformed pre-equation
 }
 
 impl Display for PreEquationAttribute {
@@ -41,6 +42,9 @@ impl Display for PreEquationAttribute {
         write!(f, "Narrowing")
       },
 
+      PreEquationAttribute::Bad => {
+        write!(f, "Bad")
+      },
 
     }
   }
@@ -59,7 +63,7 @@ impl BitOr for PreEquationAttribute {
   type Output = PreEquationAttributes;
 
   fn bitor(self, rhs: Self) -> Self::Output {
-    PreEquationAttributes(self as u8 | rhs as u8)
+    PreEquationAttributes(1 << self as u8 | 1 << rhs as u8)
   }
 }
 
@@ -117,5 +121,6 @@ impl Formattable for PreEquationAttributes {
       }
     }
     accumulator.push_str("]");
+    accumulator
   }
 }

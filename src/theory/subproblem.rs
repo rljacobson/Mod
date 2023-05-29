@@ -95,9 +95,9 @@ impl VariableAbstractionSubproblem {
 impl Subproblem for VariableAbstractionSubproblem {
   fn solve(&mut self, find_first: bool, context: &mut RewritingContext) -> bool {
     if find_first {
-      self.local.copy_from_substitution(&context.members().substitution);
+      self.local.copy_from_substitution(&context.substitution);
 
-      let v = context.members().substitution.value(self.abstraction_variable);
+      let v = context.substitution.get(self.abstraction_variable);
       assert!(v.is_some(), "Unbound abstraction variable");
       let v = v.unwrap();
 
@@ -109,9 +109,9 @@ impl Subproblem for VariableAbstractionSubproblem {
         return false;
       }
 
-      self.difference = self.local.subtract(&context.members().substitution);
+      self.difference = self.local.subtract(&context.substitution);
       if let Some(difference) = self.difference.as_mut() {
-        difference.assert(&mut context.members_mut().substitution);
+        difference.assert(&mut context.substitution);
       }
 
       if let Some(subproblem) = &mut self.subproblem {
@@ -132,7 +132,7 @@ impl Subproblem for VariableAbstractionSubproblem {
     }
 
     if let Some(difference) = self.difference.as_mut() {
-      difference.retract(&mut context.members_mut().substitution);
+      difference.retract(&mut context.substitution);
       self.difference = None;
     }
 

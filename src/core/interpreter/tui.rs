@@ -8,6 +8,8 @@ versa.
 
 use std::io::{Stderr, Stdin, Stdout};
 
+use super::rewrite_context::debugger::ParseResult;
+
 pub(crate) static DEFAULT_PROMPT: &'static str = "Maude> ";
 
 #[derive(Debug)]
@@ -23,6 +25,10 @@ pub struct TUI {
 impl TUI {
   pub fn set_prompt(&mut self, prompt: String) {
     self.prompt_format = prompt;
+  }
+
+  pub fn command_loop(&mut self) -> ParseResult{
+    ParseResult::Resume
   }
 }
 

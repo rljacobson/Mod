@@ -1,13 +1,28 @@
 /*!
 
 There are multiple widgets that use the algorithmic machinery: equations, rules, patterns, sort constraints... This
-trait abstracts over these different widgets and provides shared implementation.
+enum abstracts over these different widgets and provides shared implementation. Widget-specific implementation can be
+found in the respective modules `equation`, `rule`, etc. For functions common to all widgets but for which
+implementations differ, the method on the enum does dynamic dispatch to the implementation in the appropriate module.
+
+  Equation
+  Rule
+  Membership Axiom == SortConstraint - Not yet implemented
+  StrategyDefinition (Strategy Language) - Unimplemented
 
 ToDo: This needs a better name than `PreEquation`. Comparator? MatchClient?
 
 */
 
-use std::cell::RefCell;
+mod equation;
+mod rule;
+mod attributes;
+mod sort_constraint;
+
+use std::{
+  cell::RefCell,
+  rc::Rc
+};
 
 use crate::{
   abstractions::{
@@ -15,13 +30,21 @@ use crate::{
     NatSet
   },
   core::{
-    condition_fragment::Condition,
-    format::Formattable,
+    condition_fragment::{
+      Condition,
+      repr_condition
+    },
+    format::{
+      FormatStyle,
+      Formattable
+    },
     module::{ModuleItem, WeakModule},
     rewrite_context::{
       trace::trace_status,
       RewritingContext
     },
+    RHSBuilder,
+    sort::RcSort,
     StateTransitionGraph,
     substitution::Substitution,
     TermBag,
@@ -29,7 +52,7 @@ use crate::{
   },
   theory::{
     DagNode,
-    find_available_terms
+    find_available_terms,
     index_variables,
     LHSAutomaton,
     RcDagNode,
@@ -40,11 +63,12 @@ use crate::{
   UNDEFINED,
 };
 
-
 pub use attributes::{
   PreEquationAttribute,
   PreEquationAttributes
 };
+
+pub type RcPreEquation = Rc<PreEquation>;
 
 /// Holds state information used in solving condition fragments.
 pub enum ConditionState {
@@ -65,103 +89,176 @@ pub enum ConditionState {
   }
 }
 
+/// Representation of Rule, Equation, Sort Constraint/Membership Axiom.
+pub enum PreEquationKind {
+  Equation{
+    rhs_term           : RcTerm,
+    rhs_builder        : RHSBuilder,
+    fast_variable_count: i32,
+  },
 
-pub(crate) struct PreEquationMembers {
-  pub name         : Option<IString>,  // Names are optional for `PreEquations`
-  pub attributes   : PreEquationAttributes,
-  pub lhs_term     : RcTerm,
-  pub lhs_automaton: Option<RcLHSAutomaton>,
-  pub lhs_dag      : Option<RcDagNode>, // ToDo: Why not just fetch it from the `lhs_term`? (Maude: "for unification")
-  pub condition    : Condition,
-  pub variable_info: VariableInfo,
+  Rule {
+    rhs_term                   : RcTerm,
+    rhs_builder                : RHSBuilder,
+    non_extension_lhs_automaton: Option<RcLHSAutomaton>,
+    extension_lhs_automaton    : Option<RcLHSAutomaton>,
+  },
 
-  // `ModuleItem`
-  pub(crate) index_within_parent_module: i32,
-  pub(crate) parent_module             : WeakModule,
+  SortConstraint {
+    sort: RcSort
+  },
+
+  StrategyDefinition {
+    // Unimplemented
+  }
 }
 
-pub(crate) trait PreEquation: Formattable {
+pub use PreEquationKind::*;
+use crate::core::interpreter::InterpreterAttribute;
+
+impl PreEquationKind {
+  pub fn noun(&self) -> &'static str {
+    match self {
+      Equation { .. }           => "equation",
+      Rule { .. }               => "rule",
+      SortConstraint { .. }     => "sort constraint",
+      StrategyDefinition { .. } => "strategy definition",
+    }
+  }
+
+  pub fn interpreter_trace_attribute(&self) -> InterpreterAttribute {
+    match &self {
+      Equation { .. }           => InterpreterAttribute::TraceEq,
+      Rule { .. }               => InterpreterAttribute::TraceRl,
+      SortConstraint { .. }     => InterpreterAttribute::TraceMb,
+      StrategyDefinition { .. } => InterpreterAttribute::TraceSd,
+    }
+  }
+}
+
+pub struct PreEquation {
+  pub(crate) name         : Option<IString>,
+  attributes   : PreEquationAttributes,
+  lhs_term     : RcTerm,
+  lhs_automaton: Option<RcLHSAutomaton>,
+  lhs_dag      : Option<RcDagNode>,
+  condition    : Condition,
+  pub(crate) variable_info: VariableInfo,
+
+  // `ModuleItem`
+  index_within_parent_module: i32,
+  parent_module             : WeakModule,
+
+  pub(crate) kind: PreEquationKind
+}
+
+impl PreEquation {
   // Common implementation
-  fn members_mut(&mut self) -> &mut PreEquationMembers;
-  fn members(&self) -> &PreEquationMembers;
-  /// This one is a bit odd. The idea is that a `RewritingContext` supports multiple kinds of `trace_begin_trial`-like
-  /// calls, and only the implementor of `PreEquation` knows which to call.
-  // ToDo: This is just a bad design. The "different" receivers are virtually identical. Refactor this.
-  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut RewritingContext) -> Option<i32>;
+  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut RewritingContext) -> Option<i32>{
+    context.trace_begin_trial(subject, self)
+  }
 
   // region Accessors
   #[inline(always)]
+  fn condition(&self) -> &Condition {
+    &self.condition
+  }
+  /*
+  #[inline(always)]
   fn lhs_term(&self) -> RcTerm{
-    self.members().lhs_term.clone()
+    self.lhs_term.clone()
   }
   #[inline(always)]
   fn lhs_automaton(&self) -> RcLHSAutomaton{
-    self.members().lhs_automaton.as_ref().unwrap().clone()
+    self.lhs_automaton.as_ref().unwrap().clone()
   }
   #[inline(always)]
   fn lhs_dag(&self) -> RcDagNode{
-    self.members().lhs_dag.as_ref().unwrap().clone()
+    self.lhs_dag.as_ref().unwrap().clone()
   }
   #[inline(always)]
   fn condition_mut(&mut self) -> &mut Condition {
-    &mut self.members_mut().condition
+    &mut self.condition
   }
   #[inline(always)]
-  fn condition(&self) -> &Condition {
-    &self.members().condition
-  }
-  #[inline(always)]
-  fn has_condition(&self) -> bool{
-    // ToDo: Can we not just check for empty?
-    self.members().condition.is_empty()
-  }
-  #[inline(always)]
-  fn variable_info(&self) -> &VariableInfo{
-    &self.members().variable_info
+  pub(crate) fn variable_info(&self) -> &VariableInfo{
+    &self.variable_info
   }
   #[inline(always)]
   fn variable_info_mut(&mut self) -> &mut VariableInfo{
-    &mut self.members_mut().variable_info
+    &mut self.variable_info
   }
   #[inline(always)]
   fn name(&self) -> Option<IString> {
-    self.members().name.clone()
+    self.name.clone()
   }
-  // endregion
+  */ //endregion
 
   // region  Attributes
+  #[inline(always)]
+  fn has_condition(&self) -> bool{
+    // ToDo: Can we not just check for empty?
+    self.condition.is_empty()
+  }
+  #[inline(always)]
   fn is_nonexec(&self) -> bool {
-    self.members().attributes.has_attribute(PreEquationAttribute::NonExecute)
+    self.attribute(PreEquationAttribute::NonExecute)
   }
+  #[inline(always)]
   fn is_compiled(&self) -> bool{
-    self.members().attributes.has_attribute(PreEquationAttribute::Compiled)
+    self.attribute(PreEquationAttribute::Compiled)
   }
+  #[inline(always)]
   fn is_variant(&self) -> bool{
-    self.members().attributes.has_attribute(PreEquationAttribute::Variant)
+    self.attribute(PreEquationAttribute::Variant)
   }
+  #[inline(always)]
   fn set_nonexec(&mut self) {
-    self.members_mut().attributes |= PreEquationAttribute::NonExecute;
+    self.attributes |= PreEquationAttribute::NonExecute;
   }
+  #[inline(always)]
   fn set_variant(&mut self) {
-    self.members_mut().attributes |= PreEquationAttribute::Variant;
+    self.attributes |= PreEquationAttribute::Variant;
+  }
+  #[inline(always)]
+  pub fn is_narrowing(&self) -> bool {
+    self.attribute(PreEquationAttribute::Narrowing)
+  }
+  #[inline(always)]
+  fn attribute(&self, attribute: PreEquationAttribute) -> bool {
+    self.attributes.has_attribute(attribute)
   }
   // endregion
 
   // region Check* functions
 
   /// Normalize lhs and recursively collect the indices and occurs sets of this term and its descendants
-  fn check(&mut self) -> NatSet{
-    self.lhs_term().borrow_mut().normalize(true);
-    index_variables(self.lhs_term().clone(), self.variable_info_mut());
+  fn check(&mut self) {
+    self.lhs_term.borrow_mut().normalize(true);
+    index_variables(self.lhs_term.clone(), &mut self.variable_info);
 
-    let mut bound_variables: NatSet = self.lhs_term().borrow().occurs_below().clone(); // Deep copy
+    let mut bound_variables: NatSet = self.lhs_term.borrow().occurs_below().clone(); // Deep copy
 
-    for i in 0..self.condition().len() {
-      let condition_fragment = self.condition()[i].clone();
-      condition_fragment.borrow_mut().check(self.variable_info_mut(), &mut bound_variables);
+    for i in 0..self.condition.len() {
+      let condition_fragment = self.condition[i].clone();
+      condition_fragment.borrow_mut().check(&mut self.variable_info, &mut bound_variables);
     }
 
-    bound_variables
+    match &self.kind {
+      Equation { .. } => {
+        equation::check(self, bound_variables);
+      }
+      Rule { .. } => {
+        rule::check(self, bound_variables);
+      }
+      SortConstraint { .. } => {
+        // Doesn't use bound_variables.
+        sort_constraint::check(self);
+      }
+      StrategyDefinition { .. } => {
+        unimplemented!()
+      }
+    }
   }
 
 
@@ -170,13 +267,14 @@ pub(crate) trait PreEquation: Formattable {
   fn check_condition(
     &mut self,
     mut find_first: bool,
-    subject: RcDagNode,
-    context: &mut RewritingContext,
+    subject       : RcDagNode,
+    context       : &mut RewritingContext,
     mut subproblem: Option<&mut dyn Subproblem>,
-    trial_ref: &mut Option<i32>,
-    state: &mut Vec<ConditionState>,
-  ) -> bool {
-    assert_ne!(self.condition().len(), 0, "no condition");
+    trial_ref     : &mut Option<i32>,
+    state         : &mut Vec<ConditionState>,
+  ) -> bool
+  {
+    assert_ne!(self.condition.len(), 0, "no condition");
     assert!(!find_first || state.is_empty(), "non-empty condition state stack");
 
     if find_first {
@@ -256,33 +354,25 @@ pub(crate) trait PreEquation: Formattable {
 
   fn compile_build(&mut self, available_terms: &mut TermBag, eager_context: bool) {
     // Fill the hash set of terms for structural sharing
-    find_available_terms(self.lhs_term().clone(), available_terms, eager_context, true);
-    {// Scope of `variable_info` and `lhs_term`
-      let lhs_term = self.lhs_term();
-      let mut lhs_term = lhs_term.borrow_mut();
+    find_available_terms(self.lhs_term.clone(), available_terms, eager_context, true);
+    {// Scope of `lhs_term`
+      let mut lhs_term = self.lhs_term.borrow_mut();
       lhs_term.determine_context_variables();
-
-      let variable_info = self.variable_info_mut();
-      lhs_term.insert_abstraction_variables(variable_info);
+      lhs_term.insert_abstraction_variables(&mut self.variable_info);
     }
 
-    let fragment_count = self.condition().len();
+    let fragment_count = self.condition.len();
     for i in 0..fragment_count {
-      let condition_fragment = self.condition()[i].clone();
+      let condition_fragment = &self.condition[i].clone();
       let mut condition_fragment = condition_fragment.borrow_mut();
-      condition_fragment.compile_build(self.variable_info_mut(), available_terms);
+      condition_fragment.compile_build(&mut self.variable_info, available_terms);
     }
   }
 
   fn compile_match(&mut self, compile_lhs: bool, with_extension: bool) {
-    let lhs_term = self.lhs_term();
-    let mut lhs_term = lhs_term.borrow_mut();
+    let mut lhs_term = self.lhs_term.borrow_mut();
 
-    let index_remapping =
-        { // Scope of variable_info
-          let variable_info = self.variable_info_mut();
-          variable_info.compute_index_remapping()
-        };
+    let index_remapping = self.variable_info.compute_index_remapping();
     // We don't assume that our module was set, so we look at the module of the lhs top symbol.
     // This is the craziest pointer chasing I have ever seen.
     lhs_term.symbol()
@@ -298,23 +388,21 @@ pub(crate) trait PreEquation: Formattable {
     if compile_lhs {
       let mut bound_uniquely = NatSet::new();
 
-      let variable_info = self.variable_info_mut();
       let lhs_automaton =
           lhs_term.compile_lhs(
                 with_extension,
-                variable_info,
+                &mut self.variable_info,
                 &mut bound_uniquely,
               )
               .0; // Disregard `subproblem_likely` component of returned tuple.
-      self.members_mut().lhs_automaton = Some(lhs_automaton);
+      self.lhs_automaton = Some(lhs_automaton);
     }
 
     { // Scope of variable_info
-      let fragment_count = self.condition().len();
+      let fragment_count = self.condition.len();
       for i in 0..fragment_count {
-        let fragment = self.condition()[i].clone();
-        let variable_info = self.variable_info_mut();
-        fragment.borrow_mut().compile_match(variable_info, lhs_term.occurs_below_mut());
+        let fragment = &self.condition[i].clone();
+        fragment.borrow_mut().compile_match(&mut self.variable_info, lhs_term.occurs_below_mut());
       }
     }
   }
@@ -329,8 +417,7 @@ pub(crate) trait PreEquation: Formattable {
     state: &mut Vec<ConditionState>,
   ) -> bool
   {
-    let condition = self.condition_mut();
-    let fragment_count = condition.len();
+    let fragment_count = self.condition.len();
     let mut i = if find_first {
           0
         } else {
@@ -344,13 +431,13 @@ pub(crate) trait PreEquation: Formattable {
         }
         solution.trace_begin_fragment(
           trial_ref,
-          condition[i].as_ref(),
+          self.condition[i].as_ref(),
           find_first
         );
       }
 
       // A cute way to do backtracking.
-      find_first = condition[i].borrow_mut().solve(find_first, solution, state);
+      find_first = self.condition[i].borrow_mut().solve(find_first, solution, state);
 
       if trace_status() {
         if solution.trace_abort() {
@@ -358,7 +445,7 @@ pub(crate) trait PreEquation: Formattable {
         }
         solution.trace_end_fragment(
           trial_ref,
-          condition[i].as_ref(),
+          self.condition[i].as_ref(),
           find_first
         );
       }
@@ -381,81 +468,101 @@ pub(crate) trait PreEquation: Formattable {
 
 
   fn reset(&mut self) {
-    self.members_mut().lhs_dag = None;
+    self.lhs_dag = None;
   }
 
 }
 
-impl ModuleItem for dyn PreEquation {
+impl ModuleItem for PreEquation {
   fn get_index_within_module(&self) -> i32 {
-    self.members().index_within_parent_module
+    self.index_within_parent_module
   }
 
   fn set_module_information(&mut self, module: WeakModule, index_within_module: i32) {
-    let mut members = self.members_mut();
-    members.parent_module = module;
-    members.index_within_parent_module = index_within_module;
+    self.parent_module = module;
+    self.index_within_parent_module = index_within_module;
   }
 
   fn get_module(&self) -> WeakModule {
-    self.members().parent_module.clone()
+    self.parent_module.clone()
   }
 }
 
+impl Formattable for PreEquation {
+  fn repr(&self, style: FormatStyle) -> String {
+    let mut accumulator = String::new();
 
-
-
-macro_rules! impl_pre_equation_formattable {
-  (
-    $pre_equation:ident,    // Rule
-    $type_name_str:literal, // "rl "
-    $lhs:expr,              // self.lhs_term().borrow()
-    $rhs:expr,              // self.rhs_term.borrow()
-    $operator_str:literal   // "{} => {}"
-  ) => {
-    impl Formattable for $pre_equation {
-      fn repr(&self, style: FormatStyle) -> String {
-        let mut accumulator = String::new();
-
-        if style != FormatStyle::Simple {
-          if self.has_condition() {
-            accumulator.push('c');
-          }
-          accumulator.push_str($type_name_str);
+    if style != FormatStyle::Simple {
+      if self.has_condition() {
+        accumulator.push('c');
+      }
+      match self.kind {
+        Equation { .. } => {
+          accumulator.push_str("eq ");
         }
-
-        accumulator.push_str(
-          format!(
-            $operator_str,
-            $lhs.repr(style),
-            $rhs.repr(style)
-          ).as_str()
-        );
-
-        if self.has_condition() {
-          accumulator.push(' ');
-          repr_condition(self.condition(), style);
+        Rule { .. } => {
+          accumulator.push_str("rl ");
         }
-
-        { // Scope of attributes
-          let attributes = self.members.attributes;
-          if !attributes.is_empty() {
-            accumulator.push_str(attributes.repr(style).as_str());
-          }
+        SortConstraint { .. } => {
+          accumulator.push_str("mb ");
         }
-
-        if style != FormatStyle::Simple {
-          accumulator.push_str(" .");
+        StrategyDefinition { .. } => {
+          accumulator.push_str("sd ");
         }
-
-        accumulator
       }
     }
+
+
+    match &self.kind {
+      Equation {rhs_term, .. } => {
+        accumulator.push_str(
+          format!(
+            "{} = {}",
+            self.lhs_term.borrow().repr(style),
+            rhs_term.borrow().repr(style)
+          ).as_str()
+        );
+      }
+      Rule {rhs_term, .. } => {
+        accumulator.push_str(
+          format!(
+            "{} => {}",
+            self.lhs_term.borrow(),
+            rhs_term.borrow()
+          ).as_str()
+        );
+      }
+      SortConstraint {sort, .. } => {
+        accumulator.push_str(
+          format!(
+            "{} : {}",
+            self.lhs_term.borrow(),
+            sort.borrow()
+          ).as_str()
+        );
+      }
+      StrategyDefinition { .. } => {
+        unimplemented!("Strategy definitions not supported")
+      }
+    }
+
+    if self.has_condition() {
+      accumulator.push(' ');
+      repr_condition(&self.condition, style);
+    }
+
+    { // Scope of attributes
+      if !self.attributes.is_empty() {
+        accumulator.push_str(self.attributes.repr(style).as_str());
+      }
+    }
+
+    if style != FormatStyle::Simple {
+      accumulator.push_str(" .");
+    }
+
+    accumulator
   }
+
 }
 
-pub(crate) use impl_pre_equation_formattable;
-
-pub mod attributes;
-pub mod rule;
-pub mod equation;

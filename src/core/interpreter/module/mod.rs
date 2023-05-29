@@ -24,10 +24,8 @@ use crate::{
   core::{
     sort::{
       RcSort,
-      RcSortConstraint,
       SortSet
     },
-    RcEquation,
   },
   theory::RcSymbol,
 };
@@ -37,6 +35,8 @@ pub use profile::{
   FragmentProfile,
   StatementProfile,
 };
+use crate::core::pre_equation::RcPreEquation;
+use crate::core::sort::RcConnectedComponent;
 
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -103,17 +103,17 @@ pub struct Module {
   pub status: ModuleStatus,
 
   // TODO: Does a module own its `Sorts`?
-  pub sorts           : SortSet,
-  // connectedComponents: Vec<RcConnectedComponent> ,
-  pub symbols         : Vec<RcSymbol>,
-  pub sort_constraints: Vec<RcSortConstraint>,
-  equations           : Vec<RcEquation>,
-  // rules: Vec<RcRule> ,
+  pub sorts              : SortSet,
+  pub connectedComponents: Vec<RcConnectedComponent>,
+  pub symbols            : Vec<RcSymbol>,
+  pub sort_constraints   : Vec<RcPreEquation>,
+  pub equations          : Vec<RcPreEquation>,
+  pub rules              : Vec<RcPreEquation>,
   // strategies: Vec<RcRewriteStrategy> ,
   // strategyDefinitions: Vec<RcStrategyDefinition> ,
   // sortBdds: RcSortBdds ,
 
-  minimum_substitution_size: i32,
+  pub(crate) minimum_substitution_size: i32,
 
   // memoMap: RcMemoMap ,  // global memo map for all symbols in module
 
@@ -125,7 +125,7 @@ pub struct Module {
   // ProfileModule members
   symbol_info: Vec<SymbolProfile>,
   mb_info    : Vec<StatementProfile>, // Membership
-  pub(crate) eq_info    : Vec<StatementProfile>, // Equation
+  eq_info    : Vec<StatementProfile>, // Equation
   rl_info    : Vec<StatementProfile>, // Rule
   sd_info    : Vec<StatementProfile>, // Strategy Definition
 }

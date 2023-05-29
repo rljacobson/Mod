@@ -14,6 +14,8 @@ use crate::abstractions::{NatSet, Graph};
 use crate::theory::{RcTerm};
 
 
+type MaybeTerm = Option<RcTerm>;
+
 /// This is the boundary between real and virtual variables. An `index` represents a real variable
 /// iff `index < MAX_NR_PROTECTED_VARIABLES`.
 const MAX_NR_PROTECTED_VARIABLES: usize = 10_000_000;
@@ -28,12 +30,12 @@ struct ConstructionIndex {
 
 #[derive(Default)]
 pub struct VariableInfo {
-  variables               : Vec<RcTerm>,
+  variables               : Vec<MaybeTerm>,
   protected_variable_count: u32,
   fragment_number         : u32,
   construction_indices    : Vec<ConstructionIndex>,
   condition_variables     : NatSet,
-  pub(crate) unbound_variables       : NatSet,
+  pub(crate) unbound_variables: NatSet,
 }
 
 impl VariableInfo {
@@ -52,19 +54,32 @@ impl VariableInfo {
     self.protected_variable_count as i32
   }
 
-  pub(crate) fn index2variable(&self, index: usize) -> RcTerm {
-    self.variables[index].clone()
+  pub(crate) fn index2variable(&self, index: usize) -> Option<RcTerm> {
+    if index < self.variables.len() {
+      self.variables[index].clone()
+    } else {
+      None
+    }
   }
 
   pub(crate) fn variable_to_index(&mut self, variable: RcTerm) -> i32 {
     // assert!(variable != &VariableTerm::default(), "null term");
     assert!(self.variables.len() == self.protected_variable_count as usize, "can't add new real variables at this stage");
 
-    let idx = self.variables.iter().position(|v| v.borrow().compare(&*variable.borrow()).is_eq());
+    let idx = self.variables
+                  .iter()
+                  .position(
+                    |v| {
+                      v.is_some()
+                          && v.unwrap()
+                          .borrow()
+                          .compare(&*variable.borrow()).is_eq()
+                    }
+                  );
     match idx {
       Some(i) => i as i32,
       None => {
-        self.variables.push(variable.clone());
+        self.variables.push(Some(variable.clone()));
         self.protected_variable_count += 1;
         (self.variables.len() - 1) as i32
       }
@@ -183,7 +198,7 @@ impl VariableInfo {
 
 
 impl Index<usize> for VariableInfo {
-  type Output = RcTerm;
+  type Output = MaybeTerm;
 
   fn index(&self, index: usize) -> &Self::Output {
     &self.variables[index]

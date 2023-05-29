@@ -1,11 +1,25 @@
-use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+/*!
+
+Methods that are specific to equations can be called like this:
+
+```rust
+equation::fast_variable_count(&this);
+```
+
+*/
+
+
+use std::{
+  fmt::{Display, Formatter},
+  rc::Rc
+};
+
+use pratt::{Channel, log};
+use yansi::Paint;
 
 use crate::{
-  abstractions::IString,
+  abstractions::{IString, NatSet},
   core::{
-    RHSBuilder,
-    rewrite_context::RewritingContext,
     condition_fragment::{
       Condition,
       repr_condition,
@@ -14,126 +28,93 @@ use crate::{
       FormatStyle,
       Formattable
     },
+    interpreter::InterpreterAttribute,
     pre_equation::{
+      Equation,
       PreEquation,
-      PreEquationMembers
-    },
-    pre_equation_attributes::{
       PreEquationAttribute,
-      PreEquationAttributes
+      PreEquationAttributes,
+      PreEquationKind,
+      sort_constraint,
     },
-    VariableInfo
+    rewrite_context::RewritingContext,
+    RHSBuilder,
+    VariableInfo,
   },
   NONE,
   theory::{
     RcDagNode,
     RcLHSAutomaton,
     RcTerm
-  }
+  },
 };
-use crate::core::interpreter::InterpreterAttribute;
+use crate::theory::index_variables;
 
 
-pub type RcEquation = Rc<Equation>;
+pub fn new(
+  name     : Option<IString>,
+  lhs_term : RcTerm,
+  rhs_term : RcTerm,
+  otherwise: bool,     // an "owise" term?
+  condition: Condition
+) -> PreEquation
+{
+  let attributes: PreEquationAttributes = if otherwise {
+    PreEquationAttribute::Otherwise.into()
+  } else {
+    PreEquationAttributes::default()
+  };
 
-pub struct Equation {
-  members            : PreEquationMembers,
-  rhs_term           : RcTerm,
-  rhs_builder        : RHSBuilder,
-  fast_variable_count: i32,
-}
+  PreEquation{
+    name,
+    attributes,
+    lhs_term,
+    lhs_automaton: None,
+    lhs_dag      : None,
+    condition,
+    variable_info: VariableInfo::default(),
+    parent_module: Default::default(),
+    index_within_parent_module: NONE,
 
-impl Equation {
-  pub fn new(
-    name     : Option<IString>,
-    lhs_term : RcTerm,
-    rhs_term : RcTerm,
-    otherwise: bool,     // an "owise" term?
-    condition: Condition
-  ) -> Self
-  {
-    let attributes: PreEquationAttributes = if otherwise {
-      PreEquationAttribute::Otherwise.into()
-    } else {
-      PreEquationAttributes::default()
-    };
-
-    Equation{
-      members: PreEquationMembers{
-        name,
-        attributes,
-        lhs_term,
-        lhs_automaton: None,
-        lhs_dag      : None,
-        condition,
-        variable_info: VariableInfo::default(),
-        index_within_parent_module: NONE,
-        parent_module: Default::default(),
-      },
+    kind: Equation {
       rhs_term,
       rhs_builder        : RHSBuilder::default(),
       fast_variable_count: 0,
     }
   }
-
-
-  pub fn fast_variable_count(&self) -> i32 {
-    self.fast_variable_count
-  }
 }
 
-
-impl PreEquation for Equation {
-  fn members_mut(&mut self) -> &mut PreEquationMembers {
-    &mut self.members
-  }
-
-  fn members(&self) -> &PreEquationMembers {
-    &self.members
-  }
-
-  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut RewritingContext) -> Option<i32> {
-    context.trace_begin_trial(subject, self, InterpreterAttribute::TraceEq)
-    // context.trace_begin_eq_trial(subject, self)
-  }
-}
-
-
-impl Formattable for Equation {
-  fn repr(&self, style: FormatStyle) -> String {
-    let mut accumulator = String::new();
-
-    if style != FormatStyle::Simple {
-      if self.has_condition() {
-        accumulator.push('c');
-      }
-      accumulator.push_str("eq ");
+pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
+  if let Equation {rhs_term, .. } = &this.kind {
+    {
+      let mut rhs_term = rhs_term.borrow_mut();
+      rhs_term.normalize(false);
     }
+    index_variables(rhs_term.clone(), &mut this.variable_info);
 
-    accumulator.push_str(
-      format!(
-        "{} = {}",
-        self.lhs_term().borrow().repr(style),
-        self.rhs_term.borrow().repr(style)
-      ).as_str()
-    );
+    let mut unbound_variables = rhs_term.borrow_mut().occurs_below_mut();
+    unbound_variables.difference_in_place(&bound_variables);
+    this.variable_info.add_unbound_variables(unbound_variables);
 
-    if self.has_condition() {
-      accumulator.push(' ');
-      repr_condition(self.condition(), style);
-    }
+    // The remainder just happens to be identical to the check for sort constraints.
+    sort_constraint::check(this);
 
-    { // Scope of attributes
-      let attributes = self.members.attributes;
-      if !attributes.is_empty() {
-        accumulator.push_str(attributes.repr(style).as_str());
-      }
-    }
+    /*if !this.is_nonexec() && !this.variable_info.unbound_variables.is_empty() {
+      let mindex = this.variable_info.unbound_variables.min_value().unwrap();
+      let min_variable = this.variable_info.index2variable(mindex);
 
-    if style != FormatStyle::Simple {
-      accumulator.push_str(" .");
-    }
+      let warning = format!(
+        "{}: variable {} is used before it is bound in {}:\n{}",
+        Paint::magenta(this.repr(FormatStyle::Simple)),
+        min_variable.borrow(),
+        this.kind.noun(),
+        this.repr(FormatStyle::Default)
+      );
+      log(Channel::Warning, 1, warning.as_str());
 
-    accumulator
+      // No legitimate use for such equations, so mark it as bad.
+      this.attributes |= PreEquationAttribute::Bad;
+    }*/
+
   }
 }

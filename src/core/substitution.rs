@@ -140,9 +140,9 @@ impl Substitution {
 // rewrite_context.rs.
 
 pub fn print_substitution_dag(substitution: &[RcDagNode], variable_info: &NarrowingVariableInfo) {
-  for (i, &var) in variable_info.index2variables().iter().enumerate() {
-    let binding = substitution[i];
-    println!("{} --> {}", var, binding);
+  for (i, var) in variable_info.iter() {
+    let binding = &substitution[i];
+    println!("{} --> {}", var.borrow(), binding.borrow());
   }
 }
 
@@ -154,11 +154,15 @@ pub fn print_substitution_narrowing(substitution: &Substitution, variable_info: 
     let binding = substitution.value(i);
     assert!(binding.is_some(), "A variable is bound to None. This is a bug.");
     let binding = binding.unwrap();
-    println!("{} --> {}", var, binding.borrow());
+    println!("{} --> {}", var.unwrap().borrow(), binding.borrow());
   }
 }
 
 pub fn print_substitution(substitution: &Substitution, var_info: &VariableInfo, ignored_indices: &NatSet) {
+  print_substitution_with_ignored(substitution, var_info, &NatSet::default())
+}
+
+pub fn print_substitution_with_ignored(substitution: &Substitution, var_info: &VariableInfo, ignored_indices: &NatSet) {
   let variable_count = var_info.real_variable_count();
   let mut printed_variable = false;
   for i in 0..variable_count {
@@ -168,8 +172,8 @@ pub fn print_substitution(substitution: &Substitution, var_info: &VariableInfo, 
     let var = var_info.index2variable(i);
     let binding = substitution.value(i);
     debug_assert!(var.is_some(), "null variable");
-    debug_assert!(var.is_some(), "(unbound)");
-    println!("{} --> {}", var.unwrap(), binding.unwrap().borrow());
+    debug_assert!(binding.is_some(), "(unbound)");
+    println!("{} --> {}", var.unwrap().borrow(), binding.unwrap().borrow());
     printed_variable = true;
   }
   if !printed_variable {

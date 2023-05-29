@@ -110,7 +110,7 @@ impl Formattable for ConditionFragment {
       },
 
       ConditionFragment::SortTest{ lhs_term, sort, ..} => {
-        format!("{} : {}", lhs_term.borrow().repr(style), sort.borrow().repr(style))
+        format!("{} : {}", lhs_term.borrow().repr(style), sort.borrow())
       },
 
       ConditionFragment::Assignment{lhs_term, rhs_term, ..} => {
@@ -129,7 +129,7 @@ impl Formattable for ConditionFragment {
 pub fn repr_condition(condition: &Condition, style: FormatStyle) -> String {
   let mut accumulator = "if ".to_string();
   accumulator.push_str(
-    join_iter(condition.iter().map(|cf| cf.borrow().repr(style)), |_| " ∧ ").as_str()
+    join_iter(condition.iter().map(|cf| cf.borrow().repr(style)), |_| " ∧ ".to_string()).collect::<String>().as_str()
   );
 
   accumulator

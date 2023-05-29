@@ -36,6 +36,7 @@ use super::{
 };
 
 // pub type BcDagNode = Box<Cell<DagNode>>;
+pub type MaybeDagNode   = Option<RcDagNode>;
 pub type BcDagNode      = Box<dyn DagNode>;
 pub type RcDagNode      = RcCell<dyn DagNode>;
 pub type NodeList       = SharedVector<RcDagNode>;

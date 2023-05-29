@@ -18,10 +18,10 @@ ToDo: This implements way more of Maude than a pattern matching library should h
 */
 
 pub mod trace;
-mod trial;
 mod context_attributes;
-mod debugger;
+pub(crate) mod debugger;
 
+use std::fmt::{Display, Formatter};
 use std::rc::Weak;
 
 use crate::{
@@ -31,7 +31,6 @@ use crate::{
   },
   core::{
     condition_fragment::ConditionFragment,
-    Equation,
     interpreter::{
       Interpreter,
       InterpreterAttribute,
@@ -40,8 +39,6 @@ use crate::{
     },
     NarrowingVariableInfo,
     RedexPosition,
-    sort::SortConstraint,
-    StrategyDefinition,
     substitution::Substitution,
   },
   ROOT_OK,
@@ -58,6 +55,7 @@ pub type WeakRewritingContext = WeakCell<RewritingContext>;
 
 const HEADER: &str = "*********** ";
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Purpose {
   ConditionEval,
   SortEval,
@@ -66,10 +64,27 @@ pub enum Purpose {
   Other
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum RewriteType {
   Normal,
   Builtin,
   Memoized,
+}
+
+impl Display for RewriteType {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      RewriteType::Normal => {
+        write!(f, "normal")
+      }
+      RewriteType::Builtin => {
+        write!(f, "built-in")
+      }
+      RewriteType::Memoized => {
+        write!(f, "memoized")
+      }
+    }
+  }
 }
 
 
@@ -103,7 +118,7 @@ pub(crate) struct RewritingContext {
 
   parent          : Option<WeakRewritingContext>,
   interpreter     : WeakInterpreter,
-  substitution    : Substitution,
+  pub(crate) substitution    : Substitution,
   purpose         : Purpose,
   trial_count     : usize,
   attributes      : ContextAttributes,
