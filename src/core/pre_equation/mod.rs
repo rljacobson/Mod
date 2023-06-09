@@ -1,14 +1,16 @@
 /*!
 
-There are multiple widgets that use the algorithmic machinery: equations, rules, patterns, sort constraints... This
-enum abstracts over these different widgets and provides shared implementation. Widget-specific implementation can be
-found in the respective modules `equation`, `rule`, etc. For functions common to all widgets but for which
-implementations differ, the method on the enum does dynamic dispatch to the implementation in the appropriate module.
 
-  Equation
-  Rule
-  Membership Axiom == SortConstraint - Not yet implemented
-  StrategyDefinition (Strategy Language) - Unimplemented
+There are multiple widgets that use the algorithmic machinery: equations, rules, patterns, sort constraints... The
+`PreEquation` enum abstracts over these different widgets and provides shared implementation. Widget-specific
+implementation can be found in the respective modules `equation`, `rule`, etc. For functions common to all widgets
+but for which implementations differ, the method on the enum does dynamic dispatch to the implementation in the
+appropriate module.
+
+  * Equation
+  * Rule
+  * Membership Axiom == SortConstraint - Not yet implemented
+  * StrategyDefinition (Strategy Language) - Unimplemented
 
 ToDo: This needs a better name than `PreEquation`. Comparator? MatchClient?
 
@@ -18,10 +20,11 @@ mod equation;
 mod rule;
 mod attributes;
 mod sort_constraint;
+pub mod sort_constraint_table;
 
 use std::{
-  cell::RefCell,
-  rc::Rc
+  rc::Rc,
+  fmt::{Debug, Formatter}
 };
 
 use crate::{
@@ -43,7 +46,6 @@ use crate::{
       trace::trace_status,
       RewritingContext
     },
-    RHSBuilder,
     sort::RcSort,
     StateTransitionGraph,
     substitution::Substitution,
@@ -68,7 +70,7 @@ pub use attributes::{
   PreEquationAttributes
 };
 
-pub type RcPreEquation = Rc<PreEquation>;
+pub type RcPreEquation = RcCell<PreEquation>;
 
 /// Holds state information used in solving condition fragments.
 pub enum ConditionState {
@@ -95,6 +97,7 @@ pub enum PreEquationKind {
     rhs_term           : RcTerm,
     rhs_builder        : RHSBuilder,
     fast_variable_count: i32,
+    // instruction_seq    : Option<InstructionSequence>
   },
 
   Rule {
@@ -112,8 +115,21 @@ pub enum PreEquationKind {
     // Unimplemented
   }
 }
+impl Debug for PreEquationKind {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Equation { .. } => {write!(f, "Equation{{…}}")}
+      Rule { .. } => {write!(f, "Rule{{…}}")}
+      SortConstraint { .. } => {write!(f, "SortConstraint{{…}}")}
+      StrategyDefinition { .. } => {write!(f, "StrategyDefinition{{…}}")}
+    }
+  }
+}
+
 
 pub use PreEquationKind::*;
+use crate::abstractions::RcCell;
+use crate::core::automata::RHSBuilder;
 use crate::core::interpreter::InterpreterAttribute;
 
 impl PreEquationKind {
@@ -351,6 +367,28 @@ impl PreEquation {
   // endregion
 
   // region Compile Functions
+
+  fn compile(&mut self, compile_lhs: bool) {
+    match self.kind {
+
+      Equation { .. }           => {
+        equation::compile(self, compile_lhs);
+      }
+
+      Rule { .. }               => {
+        rule::compile(self, compile_lhs);
+      }
+
+      SortConstraint { .. }     => {
+        sort_constraint::compile(self, compile_lhs);
+      }
+
+      StrategyDefinition { .. } => {
+        unimplemented!()
+      }
+
+    }
+  }
 
   fn compile_build(&mut self, available_terms: &mut TermBag, eager_context: bool) {
     // Fill the hash set of terms for structural sharing

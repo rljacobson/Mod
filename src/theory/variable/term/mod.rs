@@ -41,6 +41,7 @@ use crate::{
     TermMembers,
   },
 };
+use crate::core::automata::RHSBuilder;
 
 pub use super::{
   VariableDagNode,
@@ -191,6 +192,10 @@ impl Term for VariableTerm {
 
     // subproblem is never likely for `VariableTerm`
     (automaton, false)
+  }
+
+  fn compile_rhs_aux(&mut self, builder: &mut RHSBuilder, variable_info: &VariableInfo, available_terms: &mut TermBag, eager_context: bool) -> i32 {
+    unreachable!("The compile_rhs_aux method should never be called for a Rule.");
   }
 
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {

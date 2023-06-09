@@ -3,12 +3,12 @@
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u32)]
 pub enum DagNodeFlag {
-  Reduced = 1,      // Reduced up to strategy by equations
-  Copied = 2,       // Copied in current copy operation; copyPointer valid
-  Unrewritable = 4, // Reduced and not rewritable by rules
-  Unstackable = 8,  // Unrewritable and all subterms unstackable or frozen
-  Ground = 16,      // No variables occur below this node
-  HashValid = 32,   // Node has a valid hash value (storage is theory dependent)
+  Reduced      = 1,  // Reduced up to strategy by equations
+  Copied       = 2,  // Copied in current copy operation; copyPointer valid
+  Unrewritable = 4,  // Reduced and not rewritable by rules
+  Unstackable  = 8,  // Unrewritable and all subterms unstackable or frozen
+  Ground       = 16, // No variables occur below this node
+  HashValid    = 32, // Node has a valid hash value (storage is theory dependent)
 }
 
 impl DagNodeFlag {

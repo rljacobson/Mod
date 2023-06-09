@@ -8,6 +8,7 @@ equation::fast_variable_count(&this);
 
 */
 
+use std::assert_matches::assert_matches;
 use pratt::{Channel, log};
 use yansi::Paint;
 
@@ -20,15 +21,18 @@ use crate::{
       Formattable
     },
     pre_equation::{
-      PreEquation,
       PreEquationAttribute,
-      SortConstraint
+      SortConstraint,
+      PreEquation,
+      PreEquationKind,
+      RcPreEquation,
     },
-    sort::RcSort
+    sort::RcSort,
   },
   theory::RcTerm,
-  UNDEFINED
+  UNDEFINED,
 };
+use crate::core::TermBag;
 
 pub fn new(
   name     : Option<IString>,
@@ -36,7 +40,6 @@ pub fn new(
   sort     : RcSort,
   condition: Condition
 ) -> PreEquation {
-
   PreEquation {
     name,
     attributes: Default::default(),
@@ -70,4 +73,14 @@ pub(crate) fn check(this: &mut PreEquation) {
     // No legitimate use for such sort constraints so mark it as bad.
     this.attributes |= PreEquationAttribute::Bad;
   }
+}
+
+pub fn compile(this: &mut PreEquation, compile_lhs: bool) {
+  if this.attribute(PreEquationAttribute::Compiled) {
+    return;
+  }
+  this.attributes.set(PreEquationAttribute::Compiled);
+  let mut available_terms = TermBag::default();  // terms available for reuse
+  this.compile_build(&mut available_terms, false);
+  this.compile_match(compile_lhs, false);
 }

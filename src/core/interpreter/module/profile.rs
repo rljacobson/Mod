@@ -38,6 +38,7 @@ use crate::{
     RcSymbol
   }
 };
+use crate::abstractions::RcCell;
 use crate::core::pre_equation::PreEquationKind;
 
 #[derive(Default)]
@@ -232,15 +233,17 @@ impl Module {
     let index = index as usize;
 
     fn update_fragment_info(pre_equations: &Vec<RcPreEquation>, item_info: &mut Vec<StatementProfile>, pre_equation: &PreEquation, index: usize, fragment_index: usize, success: bool) {
-      if index < pre_equations.len() && Rc::as_ptr(&pre_equations[index as usize]) == pre_equation {
+      if index < pre_equations.len()
+          && pre_equations[index as usize].as_ptr().cast_const() == std::ptr::addr_of!(*pre_equation)
+      {
         item_info[index].update_fragment_info(fragment_index, success);
         return;
       }
     }
 
-    update_fragment_info(&self.sort_constraints    , &mut self.mb_info, pre_equation, index, fragment_index, success);
-    update_fragment_info(&self.equations           , &mut self.eq_info, pre_equation, index, fragment_index, success);
-    update_fragment_info(&self.rules               , &mut self.rl_info, pre_equation, index, fragment_index, success);
+    update_fragment_info(&self.sort_constraints, &mut self.mb_info, pre_equation, index, fragment_index, success);
+    update_fragment_info(&self.equations       , &mut self.eq_info, pre_equation, index, fragment_index, success);
+    update_fragment_info(&self.rules           , &mut self.rl_info, pre_equation, index, fragment_index, success);
     // update_fragment_info(&self.strategy_definitions, &mut self.sd_info, pre_equation, index, fragment_index, success);
 
     // Must be a top-level pattern fragment
@@ -312,7 +315,7 @@ impl Module {
     fn process_pre_equations(pre_equations: &Vec<RcPreEquation>, info: &Vec<StatementProfile>, s: &mut dyn std::io::Write, float_total: f64) {
       for (i, p) in info.iter().enumerate() {
         if p.condition_start_count > 0 {
-          writeln!(s, "{}", pre_equations[i].repr(FormatStyle::Simple)).unwrap();
+          writeln!(s, "{}", pre_equations[i].borrow().repr(FormatStyle::Simple)).unwrap();
         //(p.nrRewrites) << " (" << ((100 * p.nrRewrites) / floatTotal) << "%)"
           writeln!(
             s,
@@ -324,7 +327,7 @@ impl Module {
           Module::show_fragment_profile(s, &p.fragment_info, p.condition_start_count);
           writeln!(s, "").unwrap();
         } else if p.rewrite_count > 0 {
-          writeln!(s, "{}", pre_equations[i].repr(FormatStyle::Simple)).unwrap();
+          writeln!(s, "{}", pre_equations[i].borrow().repr(FormatStyle::Simple)).unwrap();
           writeln!(
             s,
             "rewrites: {} ({:.2}%)",
@@ -344,7 +347,7 @@ impl Module {
 
   fn show_symbol(f: &mut dyn std::io::Write, op: RcSymbol) {
     write!(f, "op {} : ", op.repr(FormatStyle::Simple)).unwrap();
-    let nr_args = op.arity();
+    let arg_count = op.arity();
 
     for domain_component in op.sort_table().domain_components_iter(){
       write!(
@@ -372,7 +375,7 @@ impl Module {
   }
 
   fn show_fragment_profile(f: &mut dyn std::io::Write, fragment_info: &[FragmentProfile], mut first_count: u64) {
-    let nr_fragments = fragment_info.len();
+    let fragment_count = fragment_info.len();
     writeln!(f, "Fragment\tInitial tries\tResolve tries\tSuccesses\tFailures").unwrap();
 
     for (i, fragment) in fragment_info.iter().enumerate() {

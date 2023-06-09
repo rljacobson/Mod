@@ -17,24 +17,24 @@ use std::rc::Rc;
 use crate::{
   abstractions::{
     NatSet,
-    RcCell
+    RcCell,
+    join_iter
   },
   core::{
-    RHSBuilder,
     TermBag,
     VariableInfo,
     format::{FormatStyle, Formattable},
     pre_equation::ConditionState,
     rewrite_context::RewritingContext,
-    sort::RcSort
+    sort::RcSort,
+    automata::RHSBuilder
   },
   theory::{
     LHSAutomaton,
     RcLHSAutomaton,
     RcTerm
-  }
+  },
 };
-use crate::abstractions::join_iter;
 
 /// A `Condition` is a set of `ConditionFragments`.
 pub type Condition = Vec<RcConditionFragment>;

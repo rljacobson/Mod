@@ -18,21 +18,21 @@ type MaybeTerm = Option<RcTerm>;
 
 /// This is the boundary between real and virtual variables. An `index` represents a real variable
 /// iff `index < MAX_NR_PROTECTED_VARIABLES`.
-const MAX_NR_PROTECTED_VARIABLES: usize = 10_000_000;
+const MAX_PROTECTED_VARIABLE_COUNT: i32 = 10_000_000;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Default)]
 struct ConstructionIndex {
   last_use_time    : u32,
   assigned_fragment: i16,
   last_use_fragment: i16,
-  new_index        : u32,
+  new_index        : i32,
 }
 
 #[derive(Default)]
 pub struct VariableInfo {
   variables               : Vec<MaybeTerm>,
-  protected_variable_count: u32,
-  fragment_number         : u32,
+  protected_variable_count: i32,
+  fragment_number         : i16,
   construction_indices    : Vec<ConstructionIndex>,
   condition_variables     : NatSet,
   pub(crate) unbound_variables: NatSet,
@@ -51,7 +51,7 @@ impl VariableInfo {
   }
 
   pub fn protected_variable_count(&self) -> i32 {
-    self.protected_variable_count as i32
+    self.protected_variable_count
   }
 
   pub(crate) fn index2variable(&self, index: usize) -> Option<RcTerm> {
@@ -88,15 +88,27 @@ impl VariableInfo {
 
   /// The phrase "remap index" is a noun. This method is a const getter and does not actually compute the remapping. Use
   /// `compute_index_remapping` to compute the remap index.
-  pub fn remap_index(&self, original: usize) -> u32 {
-    if original >= MAX_NR_PROTECTED_VARIABLES {
-      self.construction_indices[(original - MAX_NR_PROTECTED_VARIABLES) as usize].new_index
+  pub fn remap_index(&self, original: i32) -> i32 {
+    if original >= MAX_PROTECTED_VARIABLE_COUNT {
+      self.construction_indices[(original - MAX_PROTECTED_VARIABLE_COUNT) as usize].new_index
     } else {
-      original as u32
+      original as i32
     }
   }
 
-  pub fn make_protected_variable(&mut self) -> u32 {
+  pub(crate) fn make_construction_index(&mut self) -> i32 {
+    let construction_index_count = self.construction_indices.len();
+
+    self.construction_indices.push(ConstructionIndex {
+      assigned_fragment: self.fragment_number,
+      last_use_fragment: self.fragment_number,
+      ..ConstructionIndex::default()
+    });
+
+    MAX_PROTECTED_VARIABLE_COUNT as i32 + construction_index_count as i32
+  }
+
+  pub fn make_protected_variable(&mut self) -> i32 {
     self.protected_variable_count += 1;
     self.protected_variable_count - 1
   }
@@ -105,9 +117,10 @@ impl VariableInfo {
     self.fragment_number += 1;
   }
 
-  pub fn use_index(&mut self, index: usize) {
-    if index >= MAX_NR_PROTECTED_VARIABLES {
-      let index = (index - MAX_NR_PROTECTED_VARIABLES) as usize;
+  pub fn use_index(&mut self, index: i32) {
+    // ToDo: What if `index < 0`? Added condition that `index>=0` to avoid negative index.
+    if index >= 0 && index >= MAX_PROTECTED_VARIABLE_COUNT {
+      let index = (index - MAX_PROTECTED_VARIABLE_COUNT) as usize;
 
       self.construction_indices[index].last_use_time = self.construction_indices.len() as u32;
       self.construction_indices[index].last_use_fragment = self.fragment_number as i16;
@@ -181,12 +194,12 @@ impl VariableInfo {
     let color_count = conflicts.color(&mut coloring);
     for i in 0..construction_indices_count {
       if self.construction_indices[i].assigned_fragment == self.construction_indices[i].last_use_fragment {
-        self.construction_indices[i].new_index = self.protected_variable_count + coloring[i] as u32;
+        self.construction_indices[i].new_index = self.protected_variable_count + coloring[i];
       }
     }
 
     // Finally, we need to return the minimum size of substitution needed.
-    self.protected_variable_count as i32 + color_count
+    self.protected_variable_count + color_count
     /*
     DebugAdvisory("nrProtectedVariables = " << nrProtectedVariables <<
                   "\tnrColors = " << nrColors);

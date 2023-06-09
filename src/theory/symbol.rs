@@ -33,8 +33,9 @@ use crate::{
   core::{
     module::{ModuleItem, WeakModule},
     format::{FormatStyle, Formattable},
-    sort::{SortConstraintTable, SortTable},
+    sort::{SortTable},
     Strategy,
+    pre_equation::sort_constraint_table::SortConstraintTable
   },
   NONE,
   UNDEFINED,
@@ -51,7 +52,7 @@ either
      shared-implementation at the trait level by using the getter in the `impl Trait`.
 We choose the second option.
 */
-#[derive(PartialEq, Eq)]
+
 pub struct SymbolMembers {
   /// `NamedEntity` members
   pub name: IString,
@@ -75,7 +76,7 @@ pub struct SymbolMembers {
   pub(crate) parent_module             : WeakModule,
 
   // `Strategy`
-  strategy: Strategy,
+  pub(crate) strategy: Strategy,
 }
 
 impl SymbolMembers {
@@ -146,9 +147,10 @@ pub trait Symbol {
   // Note: `compute_base_sort` is a method of *Symbol in Maude.
   // However, it takes its owning DagNode as a parameter, subject.
   // fn compute_base_sort(&self, subject: &mut dyn DagNode);
+
   #[inline(always)]
   fn sort_constraint_free(&self) -> bool {
-    self.sort_constraint_table().is_empty()
+    self.sort_constraint_table().sort_constraint_free()
   }
 
   #[inline(always)]

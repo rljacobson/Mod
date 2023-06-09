@@ -93,11 +93,10 @@ pub(crate) struct RewritingContext {
 
   // progress: bool, // Only used for object system
 
-  /// Intended for garbage collection
-  root: RcDagNode,
+  root: Option<RcDagNode>,
 
   /// Statistics, records how many rewrites were done.
-  mb_count: u64, // Membership
+  pub(crate) mb_count: u64, // Membership
   eq_count: u64, // Equation
   rl_count: u64, // Rule
 
@@ -129,7 +128,7 @@ pub(crate) struct RewritingContext {
 }
 
 impl RewritingContext {
-  pub fn new(root: RcDagNode, interpreter: WeakInterpreter) -> Self {
+  pub fn new(root: Option<RcDagNode>, interpreter: WeakInterpreter) -> Self {
     RewritingContext {
       root,
       mb_count               : 0,
@@ -153,10 +152,10 @@ impl RewritingContext {
   }
 
   pub fn with_parent(
-    root            : RcDagNode,
+    root            : Option<RcDagNode>,
     parent          : Option<WeakRewritingContext>,
     purpose         : Purpose,
-    local_trace_flag: bool, // ToDo: Change to `ContextAttributes`?
+    local_trace_flag: bool,
     interpreter     : WeakInterpreter,
   ) -> Self {
     RewritingContext {
@@ -190,6 +189,25 @@ impl RewritingContext {
     self.attributes.has_attribute(attribute)
   }
 
+  /// A limited RewritingContext:
+  ///  1. Does not have a rootNode.
+  ///  2. Need not have a substitution large enough to apply sort constraints.
+  ///  3. ~Does not protect its substitution from garbage collection.~
+  ///  4. ~Does not protect its redex stack from garbage collection.~
+  /// It exists so that certain functions that expect a RewritingContext,
+  /// ultimately to compute true sorts by applying sort constraints can be
+  /// called by unification code when a general purpose RewritingContext
+  /// not available. Sort constraints are not supported by unification and
+  /// are thus ignored if the supplied RewritingContext is limited.
+  #[inline(always)]
+  pub fn is_limited(&self) -> bool {
+    self.root.is_none()
+  }
+
+  #[inline(always)]
+  pub fn trace_abort(&self) -> bool {
+    self.attribute(ContextAttribute::Abort)
+  }
 
   // region Statistics
   #[inline(always)]
@@ -243,7 +261,7 @@ impl RewritingContext {
       i = self.redex_stack[i as usize].parent_index;
     }
 
-    self.root = self.redex_stack[0].dag_node.clone();
+    self.root = Some(self.redex_stack[0].dag_node.clone());
     self.stale_marker = ROOT_OK;
 
     // println!("root is {:?}", self.root_node);
@@ -273,10 +291,16 @@ impl RewritingContext {
 
   // endregion
 
+
+  #[inline(always)]
+  pub fn finished(&mut self) {
+    self.substitution.finished()
+  }
+
 }
 
 
-pub fn make_subcontext(parent: RcRewritingContext, root: RcDagNode, purpose: Purpose) -> RewritingContext {
+pub fn make_subcontext(parent: RcRewritingContext, root: Option<RcDagNode>, purpose: Purpose) -> RewritingContext {
   let parent_ref = parent.borrow();
 
   RewritingContext::with_parent(

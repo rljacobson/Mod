@@ -26,25 +26,29 @@ use std::{
   ptr::addr_of,
   rc::Rc,
 };
+use std::hash::BuildHasher;
 
-use crate::{
-  abstractions::{
-    FastHasher,
-    FastHasherBuilder,
-    NatSet,
-    RcCell,
-    Set,
+use crate::{abstractions::{
+  FastHasher,
+  FastHasherBuilder,
+  NatSet,
+  RcCell,
+  Set,
+}, core::{
+  format::{
+    FormatStyle,
+    Formattable
   },
-  core::{
-    format::{FormatStyle, Formattable},
-    OrderingValue,
-    sort::{RcConnectedComponent, SpecialSort},
-    substitution::Substitution,
-    TermBag,
-    VariableInfo,
+  OrderingValue,
+  sort::{
+    RcConnectedComponent,
+    SpecialSort
   },
-  theory::variable::VariableTerm,
-};
+  substitution::Substitution,
+  TermBag,
+  VariableInfo,
+}, NONE, theory::variable::VariableTerm, UNDEFINED};
+use crate::core::automata::RHSBuilder;
 
 use super::{
   dag_node_flags,
@@ -59,9 +63,10 @@ use super::{
   SymbolSet,
 };
 
-
+pub type MaybeTerm = Option<RcTerm>;
 pub type RcTerm    = RcCell<dyn Term>;
 pub type TermSet   = Set<dyn Term>;
+// ToDo: Replace with analog of `TermHashSet`.
 pub type NodeCache = HashMap<u32, RcDagNode, FastHasherBuilder>;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -138,7 +143,7 @@ impl TermMembers {
       connected_component: Default::default(),
       save_index         : 0,
       // hash_value         : 0,
-      cached_size        : 0,
+      cached_size        : UNDEFINED,
     }
   }
 }
@@ -229,6 +234,23 @@ pub trait Term: Formattable {
 
   /// Returns an iterator over the arguments of the term.
   fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_>;
+
+
+  /// Compute the number of nodes in the term tree.
+  fn compute_size(&mut self) -> i32 {
+    if self.term_members().cached_size != UNDEFINED {
+      self.term_members().cached_size
+    }
+    else {
+      let mut size = 1; // Count self.
+      for arg in self.iter_args() {
+        size += arg.borrow_mut().compute_size();
+      }
+      self.term_members_mut().cached_size = size;
+      size
+    }
+  }
+
   // endregion
 
   // region Comparison Functions
@@ -293,7 +315,7 @@ pub trait Term: Formattable {
   /// Create a directed acyclic graph from this term. This is a convenience method to be an entry point for `dagify(…)`.
   #[inline(always)]
   fn make_dag(&self) -> RcDagNode {
-    let mut node_cache = NodeCache::with_hasher(FastHasherBuilder);
+    let mut node_cache = NodeCache::with_hasher(FastHasherBuilder::new());
     self.dagify(&mut node_cache, false)
   }
 
@@ -335,6 +357,16 @@ pub trait Term: Formattable {
     variable_info : &VariableInfo,
     bound_uniquely: &mut NatSet,
   ) -> (RcLHSAutomaton, bool);
+
+  /// The theory-dependent part of `compile_rhs` called by `term_compiler::compile_rhs(…)`. Returns
+  /// the `save_index`.
+  fn compile_rhs_aux(
+    &mut self,
+    builder: &mut RHSBuilder,
+    variable_info: &VariableInfo,
+    available_terms: &mut TermBag,
+    eager_context: bool
+  ) -> i32;
 
   // A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
   // when all the terms variables are already bound.

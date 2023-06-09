@@ -45,6 +45,7 @@ use crate::{
     TermMembers,
   },
 };
+use crate::core::automata::RHSBuilder;
 
 use super::{FreeSymbol, FreeOccurrence, FreeDagNode};
 
@@ -215,6 +216,8 @@ impl Term for FreeTerm {
     node
   }
 
+
+  // region Compiler-related
   #[inline(always)]
   fn compile_lhs(
     &self,
@@ -226,6 +229,20 @@ impl Term for FreeTerm {
     FreeTerm::compile_lhs(self, match_at_top, variable_info, bound_uniquely)
   }
 
+  /// The theory-dependent part of `compile_rhs` called by `term_compiler::compile_rhs(…)`. Returns
+  /// the `save_index`.
+  #[inline(always)]
+  fn compile_rhs_aux(
+    &mut self,
+    rhs_builder: &mut RHSBuilder,
+    variable_info: &VariableInfo,
+    available_terms: &mut TermBag,
+    eager_context: bool
+  ) -> i32{
+    FreeTerm::compile_rhs_aux(&mut self, rhs_builder, variable_info, available_terms, eager_context)
+  }
+
+
   #[inline(always)]
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
     FreeTerm::analyse_constraint_propagation(self, bound_uniquely)
@@ -235,6 +252,7 @@ impl Term for FreeTerm {
   fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool) {
     FreeTerm::find_available_terms_aux(&self, available_terms, eager_context, at_top);
   }
+  // endregion
 
 }
 

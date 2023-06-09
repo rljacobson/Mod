@@ -13,7 +13,7 @@ mod symbol;
 
 use std::cell::RefCell;
 
-pub use automaton::FreeLHSAutomaton;
+pub use automaton::{FreeLHSAutomaton, FreeRHSAutomaton};
 pub use dag_node::{FreeDagNode, RcFreeDagNode};
 pub use free_net::{FreeNet, PatternSet, RcFreeNet};
 pub use remainder::{FreeRemainder, RcFreeRemainder, FreeRemainderList};

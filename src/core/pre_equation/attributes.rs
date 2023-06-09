@@ -54,20 +54,33 @@ impl Display for PreEquationAttribute {
 pub struct PreEquationAttributes(u8);
 
 impl PreEquationAttributes {
+  #[inline(always)]
   pub fn is_empty(&self) -> bool {
     self.0 == 0
+  }
+
+  #[inline(always)]
+  pub fn set(&mut self, attr: PreEquationAttribute) {
+    *self |= attr;
+  }
+
+  #[inline(always)]
+  pub fn reset(&mut self, attr: PreEquationAttribute) {
+    self.0 &= !(1 << attr as u8);
   }
 }
 
 impl BitOr for PreEquationAttribute {
   type Output = PreEquationAttributes;
 
+  #[inline(always)]
   fn bitor(self, rhs: Self) -> Self::Output {
     PreEquationAttributes(1 << self as u8 | 1 << rhs as u8)
   }
 }
 
 impl From<PreEquationAttribute> for PreEquationAttributes {
+  #[inline(always)]
   fn from(value: PreEquationAttribute) -> Self {
     PreEquationAttributes(1 << (value as u8))
   }
@@ -75,6 +88,7 @@ impl From<PreEquationAttribute> for PreEquationAttributes {
 
 impl BitOr for PreEquationAttributes {
   type Output = PreEquationAttributes;
+  #[inline(always)]
   fn bitor(self, rhs: Self) -> Self::Output {
     PreEquationAttributes(self.0 | rhs.0)
   }
@@ -82,22 +96,26 @@ impl BitOr for PreEquationAttributes {
 
 impl BitOr<PreEquationAttribute> for PreEquationAttributes {
   type Output = PreEquationAttributes;
+  #[inline(always)]
   fn bitor(self, rhs: PreEquationAttribute) -> Self::Output {
     PreEquationAttributes(self.0 | (1 << (rhs as u8)))
   }
 }
 
 impl BitOrAssign<PreEquationAttribute> for PreEquationAttributes {
+  #[inline(always)]
   fn bitor_assign(&mut self, rhs: PreEquationAttribute) {
     self.0 |= 1 << (rhs as u8);
   }
 }
 
 impl PreEquationAttributes {
+  #[inline(always)]
   pub fn has_attribute(&self, attribute: PreEquationAttribute) -> bool {
     (self.0 & attribute as u8) != 0
   }
 
+  #[inline(always)]
   pub fn has_attributes(&self, attributes: PreEquationAttributes) -> bool {
     (self.0 & attributes.0) == attributes.0
   }

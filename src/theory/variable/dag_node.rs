@@ -6,6 +6,7 @@ Variables have very minimal DAG nodes.
 use std::any::Any;
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::ops::Deref;
 use std::rc::Rc;
 use crate::{theory::{
   DagNode,
@@ -22,6 +23,7 @@ use crate::{theory::{
   dag_node::DagNodeMembers,
 }, abstractions::{IString, RcCell}, rc_cell};
 use crate::core::RedexPosition;
+use crate::theory::DagNodeFlag;
 
 
 pub struct VariableDagNode {
@@ -39,6 +41,7 @@ impl VariableDagNode {
       // sort      : None,
       flags     : DagNodeFlags::default(),
       sort_index: -1,
+      copied_rc: None,
     };
 
     VariableDagNode {
@@ -107,5 +110,32 @@ impl DagNode for VariableDagNode {
 
   fn copy_with_replacement(&self, _replacement: RcDagNode, _arg_index: usize) -> RcDagNode {
     unreachable!("This execution path should be unreachable. This is a bug.")
+  }
+
+  fn copy_eager_upto_reduced_aux(&mut self) -> RcDagNode {
+    rc_cell!(VariableDagNode::new(self.symbol(), self.name, self.index))
+  }
+
+  fn copy_all_aux(&mut self) -> RcDagNode {
+    rc_cell!(VariableDagNode::new(self.symbol(), self.name, self.index))
+  }
+
+
+  fn overwrite_with_clone(&mut self, mut old: RcDagNode) {
+    if let Some(old_dag_node) = old.borrow_mut().as_any_mut().downcast_mut::<VariableDagNode>(){
+      let mut fdg = VariableDagNode::new(self.symbol(), self.name.clone(), self.index);
+      fdg.set_flags(
+        self.flags()
+            | DagNodeFlag::Reduced
+            | DagNodeFlag::Unrewritable
+            | DagNodeFlag::Unstackable
+            | DagNodeFlag::Ground
+      );
+
+      let _ = std::mem::replace(old_dag_node, fdg);
+    }
+    else {
+      unreachable!("This execution path should be unreachable. This is a bug.")
+    }
   }
 }

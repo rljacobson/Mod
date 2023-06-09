@@ -8,33 +8,36 @@ The implementation of the compiler-related methods of the `Term` trait, which be
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::any::Any;
 
-use crate::{
-  abstractions::{
-    NatSet,
-    RcCell,
-    rc_cell,
+use crate::{abstractions::{
+  NatSet,
+  RcCell,
+  rc_cell,
+}, core::{
+  BindingLHSAutomaton,
+  VariableInfo,
+}, NONE, theory::{
+  free_theory::{
+    FreeOccurrence,
+    FreeOccurrences,
   },
-  core::{
-    BindingLHSAutomaton,
-    VariableInfo,
-  },
-  theory::{
-    free_theory::{
-      FreeOccurrence,
-      FreeOccurrences
-    },
-    LHSAutomaton,
-    RcLHSAutomaton,
-    RcSymbol,
-    Term,
-    variable::VariableTerm
-  },
-};
+  LHSAutomaton,
+  RcLHSAutomaton,
+  RcSymbol,
+  Term,
+  variable::VariableTerm
+}};
+use crate::core::automata::RHSBuilder;
 use crate::core::TermBag;
-use crate::theory::find_available_terms;
+use crate::theory::{find_available_terms, RcTerm, RHSAutomaton};
+use crate::theory::term_compiler::compile_rhs;
 
-use super::super::{FreeTerm, FreeLHSAutomaton};
+use super::super::{
+  FreeTerm,
+  FreeLHSAutomaton,
+  FreeRHSAutomaton,
+};
 
 // Only used locally. Other theories will have their own local version.
 #[derive(Default)]
@@ -111,27 +114,27 @@ impl FreeTerm {
     mut step        : usize,
     best_sequence   : &mut ConstraintPropagationSequence,
   ) {
-    let nr_aliens = aliens.len();
+    let alien_count = aliens.len();
 
     // Add any alien that will "ground out match" to current sequence.
     // By matching these early we maximize the chance of early match failure,
     // and avoid wasted work at match time.
-    for i in step..nr_aliens {
+    for i in step..alien_count {
       if aliens[current_sequence[i] as usize].term().will_ground_out_match(bound_uniquely) {
         current_sequence.swap(step, i);
         step += 1;
       }
     }
-    if step < nr_aliens {
+    if step < alien_count {
       // Now we search over possible ordering of remaining NGAs.
 
-      let mut new_bounds: Vec<NatSet> = Vec::with_capacity(nr_aliens);
+      let mut new_bounds: Vec<NatSet> = Vec::with_capacity(alien_count);
       // debug_advisory(&format!(
       //   "FreeTerm::findConstraintPropagationSequence(): phase 1 step = {}",
       //   step
       // ));
 
-      for i in step..nr_aliens {
+      for i in step..alien_count {
         new_bounds[i] = bound_uniquely.clone();
         let t = aliens[current_sequence[i] as usize].term();
         t.analyse_constraint_propagation(&mut new_bounds[i]);
@@ -174,7 +177,7 @@ impl FreeTerm {
       // ));
       let mut expanded_at_least_one_branch = false;
 
-      for i in step..nr_aliens {
+      for i in step..alien_count {
         // We expand this branch if it binds something that could help another NGA.
         let mut newly_bound_uniquely: NatSet = new_bounds[i].difference(bound_uniquely);
         if Self::remaining_aliens_contain(
@@ -216,7 +219,7 @@ impl FreeTerm {
       //   step
       // ));
       let mut new_bound_union = NatSet::new();
-      for i in step..nr_aliens {
+      for i in step..alien_count {
         new_bound_union.union_in_place(&new_bounds[i]);
       }
 
@@ -224,7 +227,7 @@ impl FreeTerm {
         aliens,
         current_sequence,
         &new_bound_union,
-        nr_aliens,
+        alien_count,
         best_sequence,
       );
       return;
@@ -242,9 +245,9 @@ impl FreeTerm {
 
   pub fn compile_lhs(
     &self,
-    _match_at_top     : bool,
-    variable_info    : &VariableInfo,
-    bound_uniquely   : &mut NatSet,
+    _match_at_top : bool,
+    variable_info : &VariableInfo,
+    bound_uniquely: &mut NatSet,
   ) -> (RcLHSAutomaton, bool)
   {
     // We bin the arg terms according to the following categories.
@@ -319,12 +322,113 @@ impl FreeTerm {
       )
     );
 
-    if self.term_members.save_index != -1 /* None */ {
+    if self.term_members.save_index != NONE {
       automaton = rc_cell!(BindingLHSAutomaton::new(self.term_members.save_index, automaton));
     }
 
 
     return (automaton, subproblem_likely);
+  }
+
+
+  /// The theory-dependent part of `compile_rhs` called by `term_compiler::compile_rhs(…)`. Returns
+  /// the `save_index`. Maude's `compileRhs2`
+  #[inline(always)]
+  fn compile_rhs_aux(
+    &mut self,
+    rhs_builder    : &mut RHSBuilder,
+    variable_info  : &mut VariableInfo,
+    available_terms: &mut TermBag,
+    eager_context  : bool
+  ) -> i32
+  {
+
+    let mut max_arity = 0;
+    let mut free_variable_count = 1;
+    self.compile_rhs_aliens(
+      rhs_builder,
+      variable_info,
+      available_terms,
+      eager_context,
+      &mut max_arity,
+      &mut free_variable_count
+    );
+
+    let mut automaton: Box<dyn RHSAutomaton>
+        = FreeRHSAutomaton::with_arity_and_free_variable_count(
+            max_arity,
+            free_variable_count
+          );
+
+    let index = self.compile_into_automaton(automaton.as_mut(), rhs_builder, variable_info, available_terms, eager_context);
+
+    rhs_builder.add_rhs_automaton(automaton);
+    index
+  }
+
+
+  /// Use the given automaton to compile this RHS. Maude's compileRhs3
+  pub fn compile_into_automaton(
+    &self,
+    automaton      : &mut dyn RHSAutomaton,
+    rhs_builder    : &mut RHSBuilder,
+    variable_info  : &mut VariableInfo,
+    available_terms: &mut TermBag,
+    eager_context  : bool
+  ) -> i32
+  {
+
+    let arg_count = self.args.len();
+
+    // We want to minimize conflict between slots to avoid quadratic number of
+    // conflict arcs on giant right hand sides. The heuristic we use is crude:
+    // we sort in order of arguments by number of symbol occurrences, and build
+    // largest first.
+    let mut order: Vec<(i32, usize)>
+        = (0..arg_count).map(|i| (-self.args[i].borrow().compute_size(), i))
+                      .collect();
+
+    order.sort_unstable();
+
+    // Consider each argument in largest first order.
+    let symbol = self.symbol();
+    let mut sources: Vec<i32> = vec![0; arg_count];
+
+    for (_, idx) in &order {
+      let idx = *idx;
+      let arg_is_eager = eager_context && symbol.strategy().eager_argument(idx);
+      let term: RcTerm = self.args[idx].clone();
+
+      // Argument is free - see if we need to compile it into current automaton.
+      if !available_terms.contains(term.as_ref(), arg_is_eager) {
+        let source = if let Some(free_term) = term.borrow_mut().as_any_mut().downcast_mut::<FreeTerm>() {
+          free_term.compile_into_automaton(automaton, rhs_builder, variable_info, available_terms, arg_is_eager)
+        } else {
+          unreachable!()
+        };
+        sources[idx] = source;
+        term.borrow_mut().term_members_mut().save_index = source;
+        available_terms.insert_built_term(term, arg_is_eager);
+
+        continue;
+      }
+
+      // Alien, variable or available term so use standard mechanism.
+      sources[idx] = compile_rhs(term, rhs_builder, variable_info, available_terms, arg_is_eager);
+    }
+
+    // Need to flag last use of each source.
+    for i in &sources {
+      variable_info.use_index(*i);
+    }
+
+    // Add to free step to automaton.
+    let index = variable_info.make_construction_index();
+    if let Some(automaton) = automaton.as_any_mut().downcast_mut::<FreeRHSAutomaton>() {
+      automaton.add_free(symbol.clone(), index, &sources);
+    }
+
+    index
   }
 
 
@@ -370,7 +474,12 @@ impl FreeTerm {
   }
 
   /// The theory-specific part of find_available_terms
-  pub fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool) {
+  pub fn find_available_terms_aux(
+    &self,
+    available_terms: &mut TermBag,
+    eager_context  : bool,
+    at_top         : bool
+  ) {
     if self.ground() {
       return;
     }
@@ -395,6 +504,37 @@ impl FreeTerm {
           eager_context && symbol.strategy().evaluated_argument(i),
           false
         );
+      }
+    }
+  }
+
+
+  /// Traverse the free skeleton, calling compile_rhs() on all non-free subterms.
+  pub fn compile_rhs_aliens(
+    &mut self,
+    rhs_builder: &mut RHSBuilder,
+    variable_info: &mut VariableInfo,
+    available_terms: &mut TermBag,
+    eager_context: bool,
+    max_arity: &mut u32,
+    free_variable_count: &mut u32
+  )
+  {
+    let arg_count = self.args.len() as u32;
+    if arg_count > *max_arity{
+      *max_arity = arg_count;
+    }
+    let symbol = self.symbol();
+    for i in 0..arg_count as usize {
+      let arg_eager = eager_context && symbol.strategy().eager_argument(i);
+      let term = &mut self.args[i];
+      if let Some(free_term) = term.borrow_mut().as_any_mut().downcast_mut::<FreeTerm>() {
+        *free_variable_count += 1;
+        if !available_terms.contains(free_term, arg_eager) {
+          free_term.compile_rhs_aliens(rhs_builder, variable_info, available_terms, arg_eager, max_arity, free_variable_count);
+        }
+      } else {
+        compile_rhs(term.clone(), rhs_builder, variable_info, available_terms, arg_eager);
       }
     }
   }

@@ -28,6 +28,7 @@ mod associative_symbol;
 // Theories
 pub mod free_theory;
 pub mod variable;
+pub mod term_compiler;
 // pub mod acu_theory;
 
 use std::rc::Rc;
@@ -36,6 +37,7 @@ use std::rc::Rc;
 pub(crate) use subproblem::{
   ExtensionInfo,
   Subproblem,
+  RcSubproblem,
   MaybeSubproblem,
   VariableAbstractionSubproblem,
   SubproblemSequence
@@ -52,7 +54,8 @@ pub(crate) use term::{
   Term,
   TermFlags,
   TermMembers,
-  TermSet
+  TermSet,
+  MaybeTerm,
 };
 pub(crate) use dag_node_flags::{
   DagNodeFlag,
@@ -78,9 +81,16 @@ pub(crate) use symbol_type::{
   BasicSymbolTypes
 };
 pub(crate) use automaton::{
-  LHSAutomaton,
-  BxLHSAutomaton,
-  RcLHSAutomaton
+  lhs_automaton::{
+    LHSAutomaton,
+    BxLHSAutomaton,
+    RcLHSAutomaton
+  },
+  rhs_automaton::{
+    RHSAutomaton,
+    RcRHSAutomaton,
+    BxRHSAutomaton
+  }
 };
 
 

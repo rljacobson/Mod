@@ -1,5 +1,6 @@
 #![feature(new_uninit)]
 #![feature(strict_provenance)]
+#![feature(assert_matches)]
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 pub mod core;

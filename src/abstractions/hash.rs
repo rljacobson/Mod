@@ -43,6 +43,7 @@ pub fn hash3<T>(v1: T, v2: T, v3: T) -> T
 
 
 /// An implementation of the Rust `Hasher` API for the fast hash algorithms.
+#[derive(Copy, Clone, Eq, PartialEq, Default, Hash, Debug)]
 pub struct FastHasher {
   value: u64,
 }
@@ -97,9 +98,9 @@ impl Hasher for FastHasher {
 
 }
 
-pub struct FastHasherBuilder;
+pub type FastHasherBuilder = FastHasher;
 
-impl BuildHasher for FastHasherBuilder {
+impl BuildHasher for FastHasher {
   type Hasher = FastHasher;
 
   #[inline(always)]

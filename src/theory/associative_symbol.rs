@@ -14,7 +14,10 @@ use std::{
 
 use crate::{
   theory::Symbol,
-  core::sort::{RcSort, SortConstraintTable}
+  core::{
+    sort::{RcSort},
+    pre_equation::sort_constraint_table::SortConstraintTable
+  }
 };
 
 use super::symbol::SymbolMembers;

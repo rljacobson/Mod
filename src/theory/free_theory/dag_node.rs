@@ -4,6 +4,7 @@ use std::{
   cmp::Ordering,
   cell::RefCell
 };
+use shared_vector::SharedVector;
 
 use crate::{
   abstractions::RcCell,
@@ -25,6 +26,7 @@ use crate::{
     sort::SpecialSort
   }
 };
+use crate::theory::dag_node::MaybeDagNode;
 
 use super::{FreeTerm, RcFreeSymbol};
 
@@ -44,6 +46,7 @@ impl FreeDagNode {
       // sort: Default::default(),
       flags: Default::default(),
       sort_index: 0,
+      copied_rc: None,
     };
 
     FreeDagNode{
@@ -82,9 +85,9 @@ impl DagNode for FreeDagNode {
     assert!(self.symbol() == other.symbol(), "symbols differ");
 
     let s = self.symbol();
-    let nr_args = s.arity() as usize;
+    let arg_count = s.arity() as usize;
 
-    if nr_args != 0 {
+    if arg_count != 0 {
       let mut pd = self;
       let mut qd = match other.as_any().downcast_ref::<FreeDagNode>() {
         Some(v) => v,
@@ -100,15 +103,15 @@ impl DagNode for FreeDagNode {
         let q = &qd.dag_node_members().args;
 
         // Compare all but the last (rightmost) node.
-        for i in (0..nr_args - 1).rev() {
+        for i in (0..arg_count - 1).rev() {
           let r = DagNode::compare(p[i].as_ref(), q[i].as_ref());
           if r.is_ne() {
             return r;
           }
         }
 
-        let pd2 = p[nr_args - 1].as_ref();
-        let qd2 = q[nr_args - 1].as_ref();
+        let pd2 = p[arg_count - 1].as_ref();
+        let qd2 = q[arg_count - 1].as_ref();
         // Fast bail on equal pointers.
         if std::ptr::addr_of!(pd2) == std::ptr::addr_of!(qd2) {
           return Ordering::Equal; // Points to same node
@@ -138,8 +141,8 @@ impl DagNode for FreeDagNode {
 
     let symbol = self.symbol();
     // assert_eq!(self as *const _, subject.symbol() as *const _, "bad symbol");
-    let nr_args = symbol.arity();
-    if nr_args == 0 {
+    let arg_count = symbol.arity();
+    if arg_count == 0 {
       let idx = symbol.sort_table().traverse(0, 0);
       self.set_sort_index(idx); // Maude: HACK
       return idx;
@@ -183,6 +186,7 @@ impl DagNode for FreeDagNode {
         args      : self.members.args.clone_buffer(), // Clones all elements of the `SharedVec`
         flags     : self.flags() & DagNodeFlags::RewritingFlags,
         sort_index: self.get_sort_index(),
+        copied_rc: self.members.copied_rc.clone(),
       }
     };
 
@@ -193,9 +197,9 @@ impl DagNode for FreeDagNode {
   fn copy_with_replacements(&self, redex_stack: &[RedexPosition], mut first_idx: usize, last_idx: usize) -> RcDagNode {
     assert!(first_idx <= last_idx && last_idx < redex_stack.len(), "bad replacement range");
     let symbol = self.symbol();
-    let nr_args = symbol.arity() as i32;
+    let arg_count = symbol.arity() as i32;
     assert!(
-      redex_stack[first_idx].arg_index < nr_args && redex_stack[last_idx].arg_index < nr_args,
+      redex_stack[first_idx].arg_index < arg_count && redex_stack[last_idx].arg_index < arg_count,
       "bad replacement arg index"
     );
 
@@ -204,7 +208,7 @@ impl DagNode for FreeDagNode {
     let new_args = &mut new_dag_node.members.args;
     let mut next_replacement_index = redex_stack[first_idx].arg_index;
 
-    for i in 0..nr_args {
+    for i in 0..arg_count {
       if i == next_replacement_index {
         new_args.push(redex_stack[first_idx].dag_node.clone());
         first_idx += 1;
@@ -222,8 +226,8 @@ impl DagNode for FreeDagNode {
 
   fn copy_with_replacement(&self, replacement: RcDagNode, arg_index: usize) -> RcDagNode{
     let symbol = self.symbol();
-    let nr_args = symbol.arity() as usize;
-    assert!(arg_index < nr_args, "bad argIndex");
+    let arg_count = symbol.arity() as usize;
+    assert!(arg_index < arg_count, "bad argIndex");
 
     let mut new_dag_node = FreeDagNode::new(symbol);
     let new_args = &mut new_dag_node.members.args;
@@ -233,5 +237,75 @@ impl DagNode for FreeDagNode {
     new_args[arg_index] = replacement;
 
     rc_cell!(new_dag_node)
+  }
+
+  fn copy_eager_upto_reduced_aux(&mut self) -> RcDagNode {
+    let symbol           = self.symbol();
+    let mut new_dag_node = FreeDagNode::new(symbol);
+    let arg_count        = symbol.arity() as usize;
+
+    if arg_count != 0 {
+
+      if symbol.strategy().standard_strategy() {
+        new_dag_node.members
+            .args
+            .extend(
+              self.members
+                    .args
+                    .iter()
+                    .map(|v| v.borrow().copy_eager_upto_reduced().unwrap())
+            );
+      }
+      else {
+        let p = &mut self.members.args;
+        let mut q = &mut new_dag_node.dag_node_members_mut().args;
+
+        for i in 0..arg_count {
+          q[i] = if symbol.strategy().eager_argument(i) {
+            p[i].borrow().copy_eager_upto_reduced().unwrap()
+          } else {
+            p[i].clone()
+          };
+        }
+      }
+    }
+    rc_cell!(new_dag_node)
+  }
+
+  fn copy_all_aux(&mut self) -> RcDagNode {
+    let symbol           = self.symbol();
+    let mut new_dag_node = FreeDagNode::new(symbol);
+    let arg_count        = symbol.arity() as usize;
+
+    if arg_count != 0 {
+      let p = &mut self.members.args;
+      let mut q = &mut new_dag_node.members.args;
+      for i in 0..arg_count {
+        // ToDo: Can we justify the unwrap?
+        q[i] = p[i].borrow().copy_all().unwrap();
+      }
+    }
+    rc_cell!(new_dag_node)
+  }
+
+  fn overwrite_with_clone(&mut self, old: RcDagNode) {
+    if let Some(old_dag_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>(){
+      let mut fdg = FreeDagNode::new(self.symbol());
+
+      fdg.set_sort_index(self.get_sort_index());
+      fdg.set_flags(
+        self.flags()
+            | DagNodeFlag::Reduced
+            | DagNodeFlag::Unrewritable
+            | DagNodeFlag::Unstackable
+            | DagNodeFlag::Ground
+      );
+      fdg.members.args = old_dag_node.members.args.clone();
+
+      let _ = std::mem::replace(old_dag_node, fdg);
+    }
+    else {
+      unreachable!("This execution path should be unreachable. This is a bug.")
+    }
   }
 }

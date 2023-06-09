@@ -2,6 +2,7 @@
 
 Conflict graph resolved using a naive graph coloring algorithm.
 
+ToDo: Review if there are better options.
 
 */
 
@@ -16,9 +17,9 @@ pub struct Graph {
 }
 
 impl Graph {
-  pub(crate) fn new(nr_nodes: usize) -> Self {
+  pub(crate) fn new(node_count: usize) -> Self {
     Self {
-      adj_sets: vec![NatSet::new(); nr_nodes],
+      adj_sets: vec![NatSet::new(); node_count],
     }
   }
 
@@ -28,10 +29,10 @@ impl Graph {
   }
 
   pub(crate) fn color(&self, coloring: &mut Vec<i32>) -> i32 {
-    let nr_nodes = self.adj_sets.len();
-    coloring.resize(nr_nodes, UNDEFINED);
+    let node_count = self.adj_sets.len();
+    coloring.resize(node_count, UNDEFINED);
     let mut max_color = UNDEFINED;
-    for i in 0..nr_nodes {
+    for i in 0..node_count {
       self.color_node(i, &mut max_color, coloring);
     }
     max_color + 1
@@ -64,12 +65,12 @@ impl Graph {
 
   fn find_components(&self, components: &mut Vec<Vec<i32>>) {
     let mut visited = NatSet::new();
-    let nr_nodes = self.adj_sets.len();
-    for i in 0..nr_nodes {
+    let node_count = self.adj_sets.len();
+    for i in 0..node_count {
       if !visited.contains(i) {
-        let nr_components = components.len();
+        let component_count = components.len();
         components.push(Vec::new());
-        self.visit(i, &mut components[nr_components], &mut visited);
+        self.visit(i, &mut components[component_count], &mut visited);
       }
     }
   }

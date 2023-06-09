@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-mod automata;
+pub(crate) mod automata;
 mod cached_dag;
 mod local_bindings;
 mod ordering_value;
@@ -37,8 +37,6 @@ pub(crate) use narrowing_variable_info::NarrowingVariableInfo;
 
 // NOT YET IMPLEMENTED
 pub struct CacheableState {}
-#[derive(Default)]
-pub struct RHSBuilder{}
 pub struct StateTransitionGraph{}
 pub struct Token {}
 

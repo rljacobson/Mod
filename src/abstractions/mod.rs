@@ -11,6 +11,7 @@ mod rccell;
 mod hash;
 mod graph;
 mod nat_set;
+mod hash_set;
 
 use std::collections::HashSet;
 use std::iter::once;
@@ -24,13 +25,16 @@ pub use string_cache::DefaultAtom as IString;
 pub use rccell::{RcCell, WeakCell, rc_cell};
 // Fast and simple hash functions
 pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
+// A hash set of terms for structural sharing
+pub use hash_set::TermHashSet;
 // A set of natural numbers
 pub use nat_set::NatSet;
 
 pub use graph::Graph;
 
 /// Arbitrary precision integers
-pub type BigInteger = isize;
+pub type BigInteger = isize; // ToDo: An `isize` is not "arbitrary precision."
+
 /// A `ThingSet` is a hash set of `*const dyn Things`. They are useful if you need to test membership but never need
 /// to access the original `Thing`.
 pub type Set<T> = HashSet<*const T>; // This replaces Maude's `PointerSet` in most situations.

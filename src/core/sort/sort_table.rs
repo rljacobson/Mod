@@ -43,7 +43,7 @@ impl BitOrAssign for ConstructorStatus {
 // ToDo: Most of these vectors are likely to be small. Benchmark with tiny_vec.
 #[derive(PartialEq, Eq, Default)]
 pub struct SortTable {
-  nr_args                  : usize,
+  arg_count                  : usize,
   op_declarations          : Vec<OpDeclaration>,
   component_vector         : Vec<RcConnectedComponent>,
   sort_diagram             : Vec<i32>,
@@ -56,7 +56,7 @@ pub struct SortTable {
 impl SortTable {
   #[inline(always)]
   pub fn arity(&self) -> usize {
-    self.nr_args
+    self.arg_count
   }
 
   #[inline(always)]
@@ -76,15 +76,15 @@ impl SortTable {
   pub fn add_op_declaration(&mut self, domain_and_range: Vec<RcSort>, constructor_flag: bool) {
     assert_eq!(
       domain_and_range.len() - 1,
-      self.nr_args,
+      self.arg_count,
       "bad domain length of {} instead of {}",
       domain_and_range.len() - 1,
-      self.nr_args
+      self.arg_count
     );
-    let nr_op_declarations = self.op_declarations.len();
+    let op_declaration_count = self.op_declarations.len();
 
-    self.op_declarations.resize(nr_op_declarations + 1, OpDeclaration::default());
-    self.op_declarations[nr_op_declarations] = domain_and_range.clone(); //.set_info(domain_and_range,
+    self.op_declarations.resize(op_declaration_count + 1, OpDeclaration::default());
+    self.op_declarations[op_declaration_count] = domain_and_range.clone(); //.set_info(domain_and_range,
     // constructor_flag);
     self.constructor_status |= if constructor_flag { ConstructorStatus::Constructor } else { ConstructorStatus::NonConstructor };
   }
@@ -96,12 +96,12 @@ impl SortTable {
 
   #[inline(always)]
   pub fn range_component(&self) -> RcConnectedComponent {
-    (&self.op_declarations[0])[self.nr_args].borrow().sort_component.clone()
+    (&self.op_declarations[0])[self.arg_count].borrow().sort_component.clone()
   }
 
   #[inline(always)]
   pub fn get_range_sort(&self) -> RcSort {
-    (&self.op_declarations[0])[self.nr_args].clone()
+    (&self.op_declarations[0])[self.arg_count].clone()
   }
 
   #[inline(always)]
@@ -143,7 +143,7 @@ impl SortTable {
     let s = &self.op_declarations[subsumer];
     let v = &self.op_declarations[victim];
 
-    for i in 0..self.nr_args {
+    for i in 0..self.arg_count {
       if !v[i].borrow().leq(s[i].as_ref()) {
         return false;
       }
@@ -153,19 +153,19 @@ impl SortTable {
 
   pub fn compute_maximal_op_decl_set_table(&mut self) {
     let range           = self.range_component();
-    let nr_sorts        = range.borrow().sort_count as usize;
-    let nr_declarations = self.op_declarations.len();
+    let sort_count        = range.borrow().sort_count as usize;
+    let declaration_count = self.op_declarations.len();
 
-    self.maximal_op_decl_set_table.resize(nr_sorts as usize, NatSet::new());
+    self.maximal_op_decl_set_table.resize(sort_count as usize, NatSet::new());
 
-    for i in 0..nr_sorts {
+    for i in 0..sort_count {
       let target = range.borrow().sort(i.try_into().unwrap());
 
-      for j in 0..nr_declarations {
+      for j in 0..declaration_count {
         let target_strong = target.upgrade().unwrap();
         let target_ref = &*target_strong.borrow();
 
-        if (&self.op_declarations[j])[self.nr_args].borrow().leq(target_ref) {
+        if (&self.op_declarations[j])[self.arg_count].borrow().leq(target_ref) {
           for k in 0..j {
 
             if self.maximal_op_decl_set_table[i].contains(k) {

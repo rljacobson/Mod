@@ -27,13 +27,15 @@ use crate::{
     interpreter::InterpreterAttribute,
     pre_equation::{
       PreEquation,
-      PreEquationAttribute
+      PreEquationAttribute,
+      PreEquationKind,
+      Rule
     },
     rewrite_context::{
       ContextAttribute,
       RewritingContext,
     },
-    RHSBuilder,
+    TermBag
   },
   theory::{
     index_variables,
@@ -41,30 +43,30 @@ use crate::{
     RcDagNode,
     RcLHSAutomaton,
     RcTerm,
+    term_compiler::compile_top_rhs
   },
   UNDEFINED,
 };
-use crate::core::pre_equation::{PreEquationKind, Rule};
 
 
 fn new(name: Option<IString>, lhs_term: RcTerm, rhs_term: RcTerm, condition: Condition) -> PreEquation {
   // assert!(rhs.is_some(), "null rhs");
   PreEquation {
     name,
-    attributes: Default::default(),
+    attributes                : Default::default(),
     lhs_term,
-    lhs_automaton: None,
-    lhs_dag: None,
+    lhs_automaton             : None,
+    lhs_dag                   : None,
     condition,
-    variable_info: Default::default(),
+    variable_info             : Default::default(),
     index_within_parent_module: UNDEFINED,
-    parent_module: Default::default(),
-    kind: Rule {
-      rhs_term,
-      rhs_builder: Default::default(),
-      non_extension_lhs_automaton: None,
-      extension_lhs_automaton: None,
-    }
+    parent_module             : Default::default(),
+    kind                      : Rule {
+        rhs_term,
+        rhs_builder                : Default::default(),
+        non_extension_lhs_automaton: None,
+        extension_lhs_automaton    : None,
+      }
   }
 }
 
@@ -103,4 +105,49 @@ pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
   } else {
     unreachable!()
   }
+}
+
+pub(crate) fn compile(this: &mut PreEquation, compile_lhs: bool) {
+  if this.is_compiled() {
+    return;
+  }
+  this.attributes.set(PreEquationAttribute::Compiled);
+  let mut available_terms = TermBag::new(); // terms available for reuse
+
+  // Since rules can be applied in non-eager subterms, if we have
+  // a condition we must consider all variables to be non-eager
+  // to avoid having a condition reduce a lazy subterm.
+  this.compile_build(&mut available_terms, !this.has_condition());
+
+  if let Rule {rhs_term, mut rhs_builder, ..} = &mut this.kind {
+
+
+    // HACK: we pessimize the compilation of unconditional rules to avoid
+    // left->right subterm sharing that would break narrowing.
+    if !this.has_condition() {
+      let mut dummy = TermBag::new();
+      compile_top_rhs(
+        rhs_term.clone(),
+        &mut rhs_builder,
+        &mut this.variable_info,
+        &mut dummy
+      );
+    } else {
+      compile_top_rhs(
+        rhs_term.clone(),
+        &mut rhs_builder,
+        &mut this.variable_info,
+        &mut available_terms
+      ); // original code
+    }
+
+    this.compile_match(compile_lhs, true);
+    rhs_builder.remap_indices(&mut this.variable_info);
+  }
+
+  // Make all variables in a rules lhs into condition variables so that
+  // if we compile lhs again in get_non_ext_lhs_automaton() or get_ext_lhs_automaton()
+  // it will be compiled to generate all matchers rather than just those
+  // that differ on variables in the condition.
+  this.variable_info.add_condition_variables(this.lhs_term.borrow().occurs_below());
 }

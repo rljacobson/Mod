@@ -83,7 +83,7 @@ impl FreeLHSAutomaton {
     best_sequence : Vec<u32>,
     sub_automata  : Vec<RcLHSAutomaton>,
   ) -> Self {
-    let nr_free_symbols = free_symbols.len();
+    let free_symbol_count = free_symbols.len();
     let top_term        = free_symbols[0].dereference_term::<FreeTerm>();
     let top_symbol      = top_term.symbol();
     let mut slot_nr     = 1usize;
@@ -92,7 +92,7 @@ impl FreeLHSAutomaton {
 
     // Free symbol skeleton //
     // Start with 1, because 0th term is `top_term`, which we set above.
-    let free_subterms = (1..nr_free_symbols)
+    let free_subterms = (1..free_symbol_count)
         .map(|i| {
           let oc    : &FreeOccurrence = &free_symbols[i];
           let parent: &mut FreeTerm   = free_symbols[oc.position as usize].dereference_term::<FreeTerm>();

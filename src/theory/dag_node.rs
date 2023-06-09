@@ -21,6 +21,7 @@ use crate::{
     sort::{RcSort, Sort, SpecialSort}
   },
 };
+use crate::theory::DagNodeFlag;
 
 use super::{
   DagNodeFlags,
@@ -55,6 +56,7 @@ pub struct DagNodeMembers {
   // pub(crate) sort      : Option<RcSort>,
   pub(crate) flags     : DagNodeFlags,
   pub(crate) sort_index: i32,
+  pub(crate) copied_rc : MaybeDagNode, // Maude's copyPointer
 }
 
 // Todo: Maude puts `copyPointer` and `top_symbol` in a union for optimization.
@@ -69,7 +71,7 @@ pub trait DagNode {
   /// Returns an iterator over `(RcDagNode, u32)` pairs for the arguments.
   #[inline(always)]
   fn iter_args(&self) -> Box<dyn Iterator<Item=RcDagNode> + '_> {
-    Box::new(self.dag_node_members().args.iter().cloned()) //.map(|pair| (pair.dag_node.clone(), pair.multiplicity)))
+    Box::new(self.dag_node_members().args.iter().cloned())
   }
 
   /// Gives the top symbol of this term.
@@ -236,6 +238,47 @@ pub trait DagNode {
   // In Maude this is a method on DagNode, but it makes more sense as a method on `LHSAutomaton`.
   // fn match_variable(…)
 
+  fn copy_eager_upto_reduced(&mut self) ->  MaybeDagNode {
+    if self.is_reduced() {
+      return None;
+    }
+
+    if !self.is_copied() {
+      self.dag_node_members_mut().copied_rc = Some(self.copy_eager_upto_reduced_aux());
+      self.set_flags(DagNodeFlag::Copied.into())
+    }
+
+    return self.dag_node_members_mut().copied_rc.clone()
+  }
+
+  /// The implementor-specific part of `copy_eager_upto_reduced()`
+  fn copy_eager_upto_reduced_aux(&mut self) -> RcDagNode;
+
+
+  fn copy_all(&mut self) ->  MaybeDagNode {
+    if self.is_reduced() {
+      return None;
+    }
+
+    if !self.is_copied() {
+      self.dag_node_members_mut().copied_rc = Some(self.copy_all_aux());
+      self.set_flags(DagNodeFlag::Copied.into())
+    }
+
+    return self.dag_node_members_mut().copied_rc.clone()
+  }
+
+  /// The implementor-specific part of `copy_all()`
+  fn copy_all_aux(&mut self) -> RcDagNode;
+
+
+  fn clear_copied_rc(&mut self) {
+    self.dag_node_members_mut().copied_rc = None;
+  }
+
+
+  fn overwrite_with_clone(&mut self, old: RcDagNode);
+
 }
 
 // clone_trait_object!(DagNode);
@@ -390,48 +433,5 @@ fn graph_count(
 }
 
 
-
-// region Free Functions
 // This function now lives in `theory::automaton::LHSAutomaton`.
-/*
-pub fn match_variable(
-  this: RcDagNode,
-  index: i32,
-  sort: RcSort,
-  copy_to_avoid_overwriting: bool,
-  solution: &mut Substitution,
-  // extension_info: Option<&ExtensionInfo>
-) -> (bool, MaybeSubproblem)
-{
-
-  // if let Some(ext_info) = extension_info {
-  //   return self.match_variable_with_extension(index, sort, solution, returned_subproblem, ext_info);
-  // }
-  let d = solution.value(index);
-  match d {
-    None => {
-      if let (Outcome::Success, maybe_subproblem) = this.borrow().check_sort(sort) {
-        let dag_node_ref =
-            if copy_to_avoid_overwriting {
-              this.borrow().shallow_copy()
-            } else {
-              this.clone()
-            };
-        solution.bind(index, Some(dag_node_ref));
-        (true, maybe_subproblem)
-      } else {
-        (false, None)
-      }
-    }
-    Some(existing_d) => {
-      if this.borrow().compare(&*existing_d.borrow()).is_eq() {
-        (true, None)
-      } else {
-        (false, None)
-      }
-    }
-  }
-
-}
-*/
-// endregion
+// pub fn match_variable

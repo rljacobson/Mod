@@ -119,7 +119,7 @@ impl RewritingContext {
     // (8) Tracing is enabled
 
     if redex.is_none() {
-      // For the Rule case.
+      // Only relevant for the Rule case.
       // Dummy rewrite; need to ignore the following trace_post_rule_rewrite() call.
       self.attributes.reset(ContextAttribute::TracePost);
       return;
@@ -133,7 +133,16 @@ impl RewritingContext {
     let interpreter = self.interpreter.upgrade().unwrap();
 
     if interpreter.attribute(InterpreterAttribute::Profile) {
-      let mut profile_module = self.root.borrow().symbol().get_module().upgrade().unwrap().borrow_mut();
+      // Todo: Is `self.root` gauranteed to exist?
+      let mut profile_module
+          = self.root
+                .unwrap()
+                .borrow()
+                .symbol()
+                .get_module()
+                .upgrade()
+                .unwrap()
+                .borrow_mut();
       // TODO: Unify `profile_*_rewrite` code
       profile_module.profile_eq_rewrite(redex.clone(), Some(equation), eq_type);
     }
@@ -191,7 +200,11 @@ impl RewritingContext {
 
       SortConstraint{sort, ..} => {
         if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-          println!("Whole: {}", self.root.borrow());
+          if let Some(root) = &self.root {
+            println!("Whole: {}", root.borrow());
+          } else {
+            println!("Whole: <root is None>");
+          }
         }
         if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
           // TODO: We are assuming the redex does have a sort. Check that this is guaranteed for sort constraints.
@@ -201,7 +214,11 @@ impl RewritingContext {
 
       _ => {
         if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-          println!("Old: {}", self.root.borrow());
+          if let Some(root) = &self.root {
+            println!("Old: {}", root.borrow());
+          } else {
+            println!("Old: <root is None>");
+          }
         }
         if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
           println!("{} \n--->", redex_ref);
@@ -224,7 +241,11 @@ impl RewritingContext {
       log(Channel::Debug, 1, replacement.borrow().to_string().as_str());
 
       if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-        println!("New: {}", self.root.borrow());
+        if let Some(root) = &self.root {
+          println!("New: {}", root.borrow());
+        } else {
+          println!("New: <root is None>");
+        }
       }
     }
   }
@@ -296,12 +317,20 @@ impl RewritingContext {
       if let Some(VariantTraceInfo{old_variant_substitution, original_variables, ..})
           = variant
       {
-        println!("\nOld variant: {}", self.root.borrow());
+        if let Some(root) = &self.root {
+          println!("\nOld variant: {}", root.borrow());
+        } else {
+          println!("\nOld variant: <root is None>");
+        }
         print_substitution_narrowing(&old_variant_substitution, original_variables);
         println!();
       }
       else {
-        println!("Old: {}", self.root.borrow());
+        if let Some(root) = &self.root {
+          println!("\nOld: {}", root.borrow());
+        } else {
+          println!("\nOld: <root is None>");
+        }
       }
     }
 
@@ -401,13 +430,15 @@ impl RewritingContext {
     let interpreter: RcInterpreter = self.interpreter.upgrade().unwrap();
 
     if interpreter.attribute(InterpreterAttribute::Profile) {
-      let module: &mut Module = &mut *self.root
-          .borrow()
-          .symbol()
-          .get_module()
-          .upgrade()
-          .unwrap()
-          .borrow_mut();
+      let module: &mut Module
+          = &mut *self.root
+                      .unwrap()
+                      .borrow()
+                      .symbol()
+                      .get_module()
+                      .upgrade()
+                      .unwrap()
+                      .borrow_mut();
       module.profile_condition_start(pre_equation);
 
     }

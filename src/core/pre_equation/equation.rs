@@ -36,18 +36,22 @@ use crate::{
       PreEquationAttributes,
       PreEquationKind,
       sort_constraint,
+      sort_constraint_table::SortConstraintTable,
     },
     rewrite_context::RewritingContext,
-    RHSBuilder,
     VariableInfo,
   },
   NONE,
   theory::{
     RcDagNode,
     RcLHSAutomaton,
-    RcTerm
+    RcTerm,
+    term_compiler::compile_top_rhs,
   },
 };
+use crate::core::automata::RHSBuilder;
+use crate::core::rewrite_context::ContextAttribute;
+use crate::core::TermBag;
 use crate::theory::index_variables;
 
 
@@ -116,5 +120,50 @@ pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
       this.attributes |= PreEquationAttribute::Bad;
     }*/
 
+  }
+}
+
+pub(crate) fn compile(this: &mut PreEquation, mut compile_lhs: bool) {
+  if this.is_compiled() {
+    return;
+  }
+  this.attributes.set(PreEquationAttribute::Compiled);
+
+  let mut available_terms = TermBag::new();  // terms available for reuse
+  this.compile_build(&mut available_terms, true);
+
+  // Destructure
+  if let Equation {rhs_term, rhs_builder, fast_variable_count} = &mut this.kind {
+
+    if this.is_variant() {
+      //
+      // If the equation has the variant attribute, we disallow left->right sharing so
+      // that the rhs can still be instantiated, even if the substitution was made by
+      // unification.
+      //
+      let mut dummy = TermBag::new();
+      compile_top_rhs(rhs_term.clone(), rhs_builder, &mut this.variable_info, &mut dummy);
+      //
+      // For an equation with the variant attribute we always compile the lhs, even if the parent symbol
+      // doesn't make use of the compiled lhs (in the free theory because it uses a discrimination
+      // net for lhs matching).
+      //
+      compile_lhs = true;
+    }
+    else {
+      compile_top_rhs(rhs_term.clone(), rhs_builder, &mut this.variable_info, &mut available_terms);  // normal case
+    }
+
+    this.compile_match(compile_lhs, true);
+    rhs_builder.remap_indices(&mut this.variable_info);
+    *fast_variable_count = if this.has_condition() {
+      NONE
+    }
+    else {
+      this.variable_info.protected_variable_count()
+    };  // HACK
+
+  } else {
+    unreachable!("Tried to compile nonequation as an equation. This is a bug.")
   }
 }

@@ -10,6 +10,7 @@ by placing a reference to the DagNode at the index of the number. Names are numb
  */
 
 
+use std::cmp::min;
 use std::rc::Rc;
 use crate::abstractions::NatSet;
 
@@ -53,6 +54,22 @@ impl Substitution {
   #[inline(always)]
   pub fn resize(&mut self, size: usize) {
     self.bindings.resize(size, None);
+  }
+
+
+
+  #[inline(always)]
+  pub fn clear_first_n(&mut self, size: usize) {
+    self.copy_size = size;
+
+    for i in  0..min(size, self.bindings.len()) {
+      self.bindings[i] = None;
+    }
+
+    if self.bindings.len() < size {
+      self.bindings.resize(size, None);
+    }
+
   }
 
   /// This getter takes a `usize` for the common case that we start with a `usize` index. Be careful that the `usize`
@@ -131,6 +148,11 @@ impl Substitution {
     if self.copy_size > 0 {
       self.bindings = original.bindings.clone();
     }
+  }
+
+  #[inline(always)]
+  pub fn finished(&mut self) {
+    self.copy_size = 0;
   }
 
 }
