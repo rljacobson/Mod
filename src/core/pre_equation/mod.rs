@@ -155,7 +155,7 @@ impl PreEquationKind {
 pub struct PreEquation {
   pub(crate) name         : Option<IString>,
   attributes   : PreEquationAttributes,
-  lhs_term     : RcTerm,
+  pub(crate) lhs_term     : RcTerm,
   lhs_automaton: Option<RcLHSAutomaton>,
   lhs_dag      : Option<RcDagNode>,
   condition    : Condition,
@@ -163,7 +163,7 @@ pub struct PreEquation {
 
   // `ModuleItem`
   index_within_parent_module: i32,
-  parent_module             : WeakModule,
+  pub(crate) parent_module             : WeakModule,
 
   pub(crate) kind: PreEquationKind
 }
@@ -176,7 +176,7 @@ impl PreEquation {
 
   // region Accessors
   #[inline(always)]
-  fn condition(&self) -> &Condition {
+  pub(crate) fn condition(&self) -> &Condition {
     &self.condition
   }
   /*
@@ -212,7 +212,7 @@ impl PreEquation {
 
   // region  Attributes
   #[inline(always)]
-  fn has_condition(&self) -> bool{
+  pub(crate) fn has_condition(&self) -> bool{
     // ToDo: Can we not just check for empty?
     self.condition.is_empty()
   }
@@ -317,7 +317,7 @@ impl PreEquation {
           return false; // return false since condition variables may be unbound
         }
 
-        context.trace_end_trial(trial_ref, success);
+        context.trace_end_trial(*trial_ref, success);
       }
 
       if success {
@@ -338,7 +338,7 @@ impl PreEquation {
       }
     }
     if trace_status() && trial_ref.is_some() {
-      context.trace_exhausted(trial_ref);
+      context.trace_exhausted(*trial_ref);
     }
     false
   }
@@ -468,7 +468,7 @@ impl PreEquation {
           return false;
         }
         solution.trace_begin_fragment(
-          trial_ref,
+          *trial_ref,
           self.condition[i].as_ref(),
           find_first
         );
@@ -482,8 +482,9 @@ impl PreEquation {
           return false;
         }
         solution.trace_end_fragment(
-          trial_ref,
-          self.condition[i].as_ref(),
+          *trial_ref,
+          self, //.condition[i].as_ref(),
+          i,
           find_first
         );
       }

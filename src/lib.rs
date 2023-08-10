@@ -13,8 +13,8 @@ pub mod parser;
 // Sentinel Values
 // ToDo: Do UNDEFINED the right way. Is this great? No. But it's convenient.
 const UNDEFINED: i32 = -1;
-const NONE: i32 = -1;
-const  ROOT_OK: i32 = -2;
+const NONE     : i32 = -1;
+const ROOT_OK  : i32 = -2;
 
 #[cfg(test)]
 mod tests {
@@ -33,7 +33,7 @@ mod tests {
 
     let pattern = "f(α, β)";
     let pattern_term = match parser.parse(pattern) {
-      Ok(term) => term,
+      Ok(term)  => term,
       Err(_err) => {
         panic!("FAILED TO PARSE.");
       }
@@ -41,7 +41,7 @@ mod tests {
 
     let subject = "f(a, b)";
     let subject_term = match parser.parse(subject) {
-      Ok(term) => term,
+      Ok(term)  => term,
       Err(_err) => {
         panic!("FAILED TO PARSE.");
       }

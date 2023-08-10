@@ -52,5 +52,10 @@ impl Symbol for VariableSymbol {
   fn as_any(&self) -> &dyn Any {
     self
   }
+
+  #[inline(always)]
+  fn is_variable(&self) -> bool {
+    true
+  }
 }
 

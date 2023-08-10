@@ -103,23 +103,6 @@ pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
     // The remainder just happens to be identical to the check for sort constraints.
     sort_constraint::check(this);
 
-    /*if !this.is_nonexec() && !this.variable_info.unbound_variables.is_empty() {
-      let mindex = this.variable_info.unbound_variables.min_value().unwrap();
-      let min_variable = this.variable_info.index2variable(mindex);
-
-      let warning = format!(
-        "{}: variable {} is used before it is bound in {}:\n{}",
-        Paint::magenta(this.repr(FormatStyle::Simple)),
-        min_variable.borrow(),
-        this.kind.noun(),
-        this.repr(FormatStyle::Default)
-      );
-      log(Channel::Warning, 1, warning.as_str());
-
-      // No legitimate use for such equations, so mark it as bad.
-      this.attributes |= PreEquationAttribute::Bad;
-    }*/
-
   }
 }
 

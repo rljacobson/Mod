@@ -1,3 +1,4 @@
+use std::cell::Ref;
 use std::sync::atomic::{AtomicBool, Ordering};
 use yansi::Paint;
 
@@ -28,8 +29,10 @@ use crate::{
   NONE,
   theory::{DagNode, RcDagNode},
 };
+use crate::core::condition_fragment::ConditionFragment;
 use crate::core::interpreter::interpreter_state::RcInterpreter;
 use crate::core::module::Module;
+use crate::core::substitution::print_substitution;
 
 use super::{
   RewritingContext,
@@ -297,7 +300,7 @@ impl RewritingContext {
           // TODO: Is it guaranteed that pre_equation has a module?
           let variable_base = pre_equation.get_module().upgrade().unwrap().borrow().minimum_substitution_size;
           for i in 0..subject_variable_count{
-            let v = variable_info.index2variable(i);
+            let v = variable_info.index_to_variable(i);
             let d = substitution.value(variable_base as usize + i);
 
             assert!(v.is_some(), "null variable");
@@ -460,6 +463,49 @@ impl RewritingContext {
     }
 
     Some((self.trial_count + 1) as i32)
+  }
+
+  pub(crate) fn trace_end_trial(&self, trial_ref: Option<i32>, success: bool) {
+    if !self.attribute(ContextAttribute::Abort) && trial_ref.is_some() {
+      println!("{}{} #{}", HEADER, if success { "success" } else { "failure" }, trial_ref.unwrap());
+    }
+  }
+
+  pub(crate) fn trace_exhausted(&self, trial_ref: Option<i32>) {
+    if !self.attribute(ContextAttribute::Abort) && trial_ref.is_some() {
+      println!("{}exhausted (#{})", HEADER, trial_ref.unwrap());
+    }
+  }
+
+  pub(crate) fn trace_begin_fragment(&self, trial_ref: Option<i32>, fragment: &ConditionFragment, first_attempt: bool) {
+    if self.attribute(ContextAttribute::Abort) || trial_ref.is_none() {
+      return;
+    }
+    // let fragment: Ref<ConditionFragment> = pre_equation.condition()[fragment_index].borrow();
+    let prefix = if first_attempt { "" } else { "re-" };
+    println!("{}{}solving condition fragment\n{}", HEADER, prefix, fragment.repr(FormatStyle::Simple));
+  }
+
+  pub(crate) fn trace_end_fragment(&mut self, trial_ref: Option<i32>, pre_equation: &PreEquation, fragment_index: usize, success: bool) {
+    if self.interpreter.upgrade().unwrap().attribute(InterpreterAttribute::Profile) {
+      if let Some(module) = pre_equation.parent_module.upgrade() {
+        module.borrow().profile_fragment(pre_equation, fragment_index, success);
+      }
+    }
+
+    if self.attribute(ContextAttribute::Abort) || trial_ref.is_none() {
+      return;
+    }
+
+    let fragment = &pre_equation.condition()[fragment_index].borrow();
+    if success {
+      println!("{}success for condition fragment\n{}", HEADER, fragment.repr(FormatStyle::Simple));
+      if self.interpreter.upgrade().unwrap().attribute(InterpreterAttribute::TraceSubstitution) {
+        print_substitution(&self.substitution, &pre_equation.variable_info);
+      }
+    } else {
+      println!("{}failure for condition fragment\n{}", HEADER, fragment.repr(FormatStyle::Simple));
+    }
   }
 
 }

@@ -8,6 +8,7 @@ use std::{any::Any, ops::DerefMut};
 use std::cmp::Ordering;
 use std::rc::Rc;
 
+// Variable "Theory"
 use crate::{
   abstractions::RcCell,
   theory::{
@@ -24,15 +25,14 @@ use crate::{
     SubproblemSequence,
     Symbol,
     Term,
+    variable::VariableTerm
   },
   core::{
     sort::SpecialSort,
+    substitution::Substitution
   },
+  NONE,
 };
-use crate::core::substitution::Substitution;
-
-// Variable "Theory"
-use crate::theory::variable::VariableTerm;
 
 // Free Theory
 use super::super::{
@@ -50,12 +50,10 @@ use super::super::{
 };
 
 
-const NONE_INDEX: i32 = -1;
-
 #[derive(Clone)]
 pub struct FreeSubterm {
-  position   : u32,
-  arg_index  : u32,
+  position   : i32,
+  arg_index  : i32,
   symbol     : RcSymbol,
   save_index : i32,
 }
@@ -75,18 +73,18 @@ pub struct FreeLHSAutomaton {
 
 impl FreeLHSAutomaton {
   pub fn new(
-    free_symbols  : Vec<FreeOccurrence>,
-    uncertain_vars: Vec<FreeOccurrence>,
-    bound_vars    : Vec<FreeOccurrence>,
-    gnd_aliens    : Vec<FreeOccurrence>,
-    non_gnd_aliens: Vec<FreeOccurrence>,
-    best_sequence : Vec<u32>,
-    sub_automata  : Vec<RcLHSAutomaton>,
+    free_symbols  : &Vec<FreeOccurrence>,
+    uncertain_vars: &Vec<FreeOccurrence>,
+    bound_vars    : &Vec<FreeOccurrence>,
+    gnd_aliens    : &Vec<FreeOccurrence>,
+    non_gnd_aliens: &Vec<FreeOccurrence>,
+    best_sequence : &Vec<u32>,
+    sub_automata  : &Vec<RcLHSAutomaton>,
   ) -> Self {
     let free_symbol_count = free_symbols.len();
     let top_term        = free_symbols[0].dereference_term::<FreeTerm>();
     let top_symbol      = top_term.symbol();
-    let mut slot_nr     = 1usize;
+    let mut slot_nr     = 1;
 
     top_term.slot_index = 0;
 
@@ -107,7 +105,7 @@ impl FreeLHSAutomaton {
               };
 
           if symbol.arity() > 0 {
-            term.slot_index = slot_nr as u32;
+            term.slot_index = slot_nr;
             slot_nr += 1;
           }
 
@@ -115,7 +113,7 @@ impl FreeLHSAutomaton {
         })
         .collect::<Vec<_>>();
 
-    let stack = vec![NodeList::new(); slot_nr];
+    let stack = vec![NodeList::new(); slot_nr as usize];
 
     // Variables that may be bound //
 
@@ -223,7 +221,7 @@ impl LHSAutomaton for FreeLHSAutomaton {
           return (false, None);
         }
 
-        if i.save_index != NONE_INDEX {
+        if i.save_index != NONE {
           solution.bind(i.save_index, Some(d.clone()));
         }
 

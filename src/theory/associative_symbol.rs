@@ -19,6 +19,8 @@ use crate::{
     pre_equation::sort_constraint_table::SortConstraintTable
   }
 };
+use crate::core::rewrite_context::RewritingContext;
+use crate::theory::RcDagNode;
 
 use super::symbol::SymbolMembers;
 
@@ -70,5 +72,9 @@ impl Symbol for AssociativeSymbol {
 
   fn as_any(&self) -> &dyn Any {
     self
+  }
+
+  fn rewrite(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
+    unimplemented!()
   }
 }

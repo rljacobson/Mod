@@ -9,6 +9,7 @@ The implementation of the compiler-related methods of the `Term` trait, which be
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::any::Any;
+use std::collections::HashSet;
 
 use crate::{abstractions::{
   NatSet,
@@ -29,8 +30,10 @@ use crate::{abstractions::{
   variable::VariableTerm
 }};
 use crate::core::automata::RHSBuilder;
+use crate::core::pre_equation::RcPreEquation;
 use crate::core::TermBag;
 use crate::theory::{find_available_terms, RcTerm, RHSAutomaton};
+use crate::theory::free_theory::{FreeRemainder, RcFreeRemainder};
 use crate::theory::term_compiler::compile_rhs;
 
 use super::super::{
@@ -52,19 +55,19 @@ impl FreeTerm {
     &self,
     free_symbols : &mut Vec<FreeOccurrence>,
     other_symbols: &mut Vec<FreeOccurrence>,
-    parent       : u32,
-    arg_index    : u32
+    parent       : i32,
+    arg_index    : i32
   )
   {
-    let our_position = free_symbols.len() as u32;
+    let our_position = free_symbols.len() as i32;
     let oc = FreeOccurrence::new(parent, arg_index, self.as_ptr().cast_mut());
     free_symbols.push(oc);
 
     for (i, t) in self.args.iter().enumerate() {
       if let Some(f) = t.borrow_mut().as_any_mut().downcast_mut::<FreeTerm>() {
-        f.scan_free_skeleton(free_symbols, other_symbols, our_position, i as u32);
+        f.scan_free_skeleton(free_symbols, other_symbols, our_position, i as i32);
       } else {
-        let oc2 = FreeOccurrence::new(our_position, i as u32, t.as_ptr());
+        let oc2 = FreeOccurrence::new(our_position, i as i32, t.as_ptr());
         other_symbols.push(oc2);
       }
     }
@@ -312,13 +315,13 @@ impl FreeTerm {
 
     let mut automaton: RcCell<dyn LHSAutomaton> = rc_cell!(
       FreeLHSAutomaton::new(
-        free_symbols,
-        uncertain_variables,
-        bound_variables,
-        ground_aliens,
-        non_ground_aliens,
-        best_sequence.sequence,
-        sub_automata,
+        &free_symbols,
+        &uncertain_variables,
+        &bound_variables,
+        &ground_aliens,
+        &non_ground_aliens,
+        &best_sequence.sequence,
+        &sub_automata,
       )
     );
 
@@ -431,6 +434,75 @@ impl FreeTerm {
     index
   }
 
+  pub fn compile_remainder(&self, equation: RcPreEquation, slot_translation: &Vec<i32>) -> RcFreeRemainder {
+    // Gather all symbols lying in or directly under free skeleton
+    let mut free_symbols: Vec<FreeOccurrence> = Vec::new();
+    let mut other_symbols: Vec<FreeOccurrence> = Vec::new();
+    self.scan_free_skeleton(&mut free_symbols, &mut other_symbols, NONE, NONE);
+
+    // Now classify occurrences of non Free-Theory symbols into 4 types
+    let mut bound_variables: Vec<FreeOccurrence> = Vec::new(); // guaranteed bound when matched against
+    let mut free_variables: Vec<FreeOccurrence> = Vec::new(); // guaranteed unbound when matched against
+    let mut ground_aliens: Vec<FreeOccurrence> = Vec::new(); // ground alien subterms
+    let mut non_ground_aliens: Vec<FreeOccurrence> = Vec::new(); // non-ground alien subterms
+
+    let mut bound_uniquely = NatSet::new();
+
+    for occ in &other_symbols {
+      let t = occ.term();
+      if let Some(v) = t.as_any().downcast_ref::<VariableTerm>() {
+        let index = v.index as usize;
+        if bound_uniquely.contains(index) {
+          bound_variables.push(occ.clone());
+        } else {
+          bound_uniquely.insert(index);
+          free_variables.push(occ.clone());
+        }
+      } else {
+        if t.ground() {
+          ground_aliens.push(occ.clone());
+        } else {
+          non_ground_aliens.push(occ.clone());
+        }
+      }
+    }
+
+    let mut best_sequence = ConstraintPropagationSequence::default();
+    let mut sub_automata: Vec<RcLHSAutomaton> = Vec::new();
+    let nr_aliens = non_ground_aliens.len();
+
+    if nr_aliens > 0 {
+      // Now we have to find a best sequence in which to match the
+      // non-ground alien subterms and generate subautomata for them
+      Self::find_constraint_propagation_sequence(&non_ground_aliens, &mut bound_uniquely, &mut best_sequence);
+
+      for i in 0..nr_aliens {
+        let (lhs_automata, _subproblem_likely)
+            = non_ground_aliens[best_sequence.sequence[i] as usize]
+              .term()
+              .compile_lhs(
+                false,
+                &equation.borrow().variable_info,
+                &mut bound_uniquely
+              );
+        sub_automata[i] = lhs_automata;
+      }
+      assert!(bound_uniquely == best_sequence.bound, "bound clash");
+    }
+    Rc::new(
+      FreeRemainder::new(
+        equation.clone(),
+        &free_symbols,
+        &free_variables,
+        &bound_variables,
+        &ground_aliens,
+        &non_ground_aliens,
+        &best_sequence.sequence,
+        &sub_automata,
+        slot_translation
+      )
+    )
+  }
 
   pub fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {
     // First gather all symbols lying in or directly under free skeleton.

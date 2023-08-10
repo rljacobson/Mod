@@ -172,7 +172,7 @@ pub fn print_substitution_narrowing(substitution: &Substitution, variable_info: 
   let variable_count = substitution.fragile_binding_count();
 
   for i in 0..variable_count {
-    let var = variable_info.index2variable(i);
+    let var = variable_info.index_to_variable(i);
     let binding = substitution.value(i);
     assert!(binding.is_some(), "A variable is bound to None. This is a bug.");
     let binding = binding.unwrap();
@@ -180,7 +180,7 @@ pub fn print_substitution_narrowing(substitution: &Substitution, variable_info: 
   }
 }
 
-pub fn print_substitution(substitution: &Substitution, var_info: &VariableInfo, ignored_indices: &NatSet) {
+pub fn print_substitution(substitution: &Substitution, var_info: &VariableInfo) {
   print_substitution_with_ignored(substitution, var_info, &NatSet::default())
 }
 
@@ -191,7 +191,7 @@ pub fn print_substitution_with_ignored(substitution: &Substitution, var_info: &V
     if ignored_indices.contains(i) {
       continue;
     }
-    let var = var_info.index2variable(i);
+    let var = var_info.index_to_variable(i);
     let binding = substitution.value(i);
     debug_assert!(var.is_some(), "null variable");
     debug_assert!(binding.is_some(), "(unbound)");

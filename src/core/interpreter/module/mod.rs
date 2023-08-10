@@ -10,6 +10,7 @@ translation unit in C++ or a module in Python or Rust.
 */
 
 mod profile;
+mod memo_map;
 
 use pratt::{
   Channel::Debug,
@@ -115,7 +116,7 @@ pub struct Module {
 
   pub(crate) minimum_substitution_size: i32,
 
-  // memoMap: RcMemoMap ,  // global memo map for all symbols in module
+  memoMap: RcMemoMap ,  // Memoization map for all symbols in module
 
   // NamedEntity members
   /// An ID, a name given by the user.

@@ -57,6 +57,12 @@ pub struct Sort {
 }
 
 impl Sort {
+
+    pub fn error_free_maximal(&self) -> bool {
+        let component = self.sort_component.borrow();
+        self.sort_index == 1 && component.maximal_sorts_count == 1 && component.error_free
+    }
+
     /// The idea is that it's faster to avoid calling `self.leq_sorts.contains()`,
     /// but only returns the correct result if `(fastTest - 1) <= NatSet::smallIntBound`.
     // Todo: This probably does not give a speed advantage. Benchmark.

@@ -16,7 +16,7 @@ pub type RcConnectedComponent = RcCell<ConnectedComponent>;
 pub struct ConnectedComponent {
   pub(crate) sort_count: u32,
   pub(crate) maximal_sorts_count: u32,
-  error_free_flag: bool,
+  pub(crate) error_free: bool,
   sorts: SortSet,
   last_allocated_match_index: u32,
 }

@@ -93,7 +93,7 @@ pub(crate) struct RewritingContext {
 
   // progress: bool, // Only used for object system
 
-  root: Option<RcDagNode>,
+  pub(crate) root: Option<RcDagNode>,
 
   /// Statistics, records how many rewrites were done.
   pub(crate) mb_count: u64, // Membership
@@ -220,7 +220,7 @@ impl RewritingContext {
   }
 
   #[inline(always)]
-  fn add_counts_from(&mut self, other: &RewritingContext) {
+  pub fn add_counts_from(&mut self, other: &RewritingContext) {
 
     self.mb_count += other.mb_count;
     self.eq_count += other.eq_count;
@@ -295,6 +295,59 @@ impl RewritingContext {
   #[inline(always)]
   pub fn finished(&mut self) {
     self.substitution.finished()
+  }
+
+  #[inline(always)]
+  pub fn reduce(&mut self) {
+    if let Some(root) = &self.root {
+      // root.borrow_mut().reduce(self);
+      // let root = root.borrow_mut();
+
+      self.reduce_dag_node(root.clone());
+    }
+  }
+
+  #[inline(always)]
+  pub fn reduce_dag_node(&mut self, dag_node: RcDagNode) {
+    while !dag_node.borrow().is_reduced() {
+      let mut symbol = dag_node.borrow().symbol();
+
+      if !(symbol.rewrite(dag_node.clone(), self)) {
+        dag_node.borrow_mut().set_reduced();
+        self.fast_compute_true_sort(dag_node.clone());
+      }
+    }
+  }
+
+  /// Computes the true sort of root.
+  #[inline(always)]
+  fn fast_compute_true_sort(&mut self, dag_node: RcDagNode) {
+    // let root = self.root.unwrap();
+    let t = dag_node.borrow()
+                .symbol()
+                .symbol_members()
+                .unique_sort_index;
+
+    if t < 0 {
+      dag_node.borrow_mut().compute_base_sort();  // usual case
+    }
+    else if t > 0 {
+      dag_node.borrow_mut().set_sort_index(t);  // unique sort case
+    }
+    else {
+      self.slow_compute_true_sort(dag_node);  // most general case
+    }
+  }
+
+  /// Computes the true sort of root.
+  fn slow_compute_true_sort(&mut self, dag_node: RcDagNode) {
+    // let root = self.root.unwrap();
+    let mut symbol = dag_node.borrow_mut().symbol();
+    symbol.sort_constraint_table()
+        .constrain_to_smaller_sort(
+          dag_node.clone(),
+          self
+        );
   }
 
 }

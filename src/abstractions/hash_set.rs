@@ -16,20 +16,34 @@ The `HashSet` is really just a thin wrapper around a `HashMap`.
 use std::{
   collections::HashMap,
   borrow::Borrow,
-  hash::{BuildHasher, Hash, Hasher}
+  hash::{
+    BuildHasher,
+    Hash,
+    Hasher
+  },
+  rc::Rc
 };
 
 use crate::{
   abstractions::FastHasherBuilder,
-  theory::{RcTerm, Term, MaybeTerm}
+  theory::{
+    RcTerm,
+    RcDagNode
+  }
 };
 
+pub type TermHashSet = HashSet<RcTerm>;
+pub type DagNodeHashSet = HashSet<RcDagNode>;
+
+
 #[derive(Clone, Default)]
-pub struct TermHashSet {
-  inner: HashMap<u64, RcTerm, FastHasherBuilder>,
+pub struct HashSet<T> {
+  inner: HashMap<u64, T, FastHasherBuilder>,
 }
 
-impl TermHashSet {
+impl<T> HashSet<T>
+    where T: Clone + Hash
+{
 
   #[inline(always)]
   pub fn new() -> Self {
@@ -38,23 +52,8 @@ impl TermHashSet {
     }
   }
 
-  #[inline(always)]
-  pub fn contains<Q>(&self, value: &Q) -> bool
-      where dyn Term: Borrow<Q>,
-                   Q: Hash + Eq + ?Sized
-  {
-    // TODO: What is the best way to do this? Use `self.innner.hasher()`? Call `value.hash(..)` or
-    //       `value.compute_hash()`? Also, should `compute_hash()` return a `u32` or `u64`?
-    let mut fast_hasher = self.inner.hasher().build_hasher();
-    value.hash(&mut fast_hasher);
-
-    let key = fast_hasher.finish();
-    self.inner.contains_key(&key)
-  }
-
   /// Inserts the value into the set, returning true if the value was not already present.
-  #[inline(always)]
-  pub fn insert_replace(&mut self, value: RcTerm) -> MaybeTerm {
+  pub fn insert_replace(&mut self, value: T) -> Option<T> {
     // TODO: Same questions as in `contains`.
     let mut fast_hasher = self.inner.hasher().build_hasher();
     value.hash(&mut fast_hasher);
@@ -64,14 +63,14 @@ impl TermHashSet {
   }
 
   /// Inserts the value into the set if it is not already present, returning true if the value was not already present.
-  #[inline(always)]
-  pub fn insert_no_replace(&mut self, value: RcTerm) -> bool {
+  pub fn insert_no_replace(&mut self, value: T) -> bool {
     // TODO: Same questions as in `contains`.
     let mut fast_hasher = self.inner.hasher().build_hasher();
     value.hash(&mut fast_hasher);
 
     let key = fast_hasher.finish();
 
+    // StdHashMap::insert replaces by default.
     if self.inner.contains_key(&key) {
       return false;
     }
@@ -81,14 +80,30 @@ impl TermHashSet {
 
   /// Fetches the value from the set, returning `None` if it is not present.
   #[inline(always)]
-  pub fn find_for_hash(&self,  hash: u64) -> MaybeTerm {
+  pub fn find_for_hash(&self, hash: u64) -> Option<T> {
     self.inner.get(&hash).cloned()
+  }
+}
+
+// In this impl, `T = Rc<U>`
+impl<U> HashSet<Rc<U>>
+{
+  pub fn contains<Q>(&self, value: &Q) -> bool
+    where U: Borrow<Q>,
+          Q: Hash + Eq + ?Sized
+  {
+    // TODO: What is the best way to do this? Use `self.inner.hasher()`? Call `value.hash(..)` or
+    //       `value.compute_hash()`? Also, should `compute_hash()` return a `u32` or `u64`?
+    let mut fast_hasher = self.inner.hasher().build_hasher();
+    value.hash(&mut fast_hasher);
+
+    let key = fast_hasher.finish();
+    self.inner.contains_key(&key)
   }
 
   /// Finds the provided (borrowed) term, if it is in the set.
-  #[inline(always)]
-  pub fn find<Q>(&self, value: &Q) -> MaybeTerm
-    where dyn Term: Borrow<Q>,
+  pub fn find<Q>(&self, value: &Q) -> Option<Rc<U>>
+    where U: Borrow<Q>,
                  Q: Hash + Eq + ?Sized
   {
     let mut fast_hasher = self.inner.hasher().build_hasher();

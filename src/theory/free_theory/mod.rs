@@ -37,15 +37,15 @@ pub type FreeOccurrences = Vec<FreeOccurrence>;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FreeOccurrence {
-  position : u32,
-  arg_index: u32,
+  position : i32,
+  arg_index: i32,
   term     : *mut dyn Term
 }
 
 impl FreeOccurrence {
   pub fn new(
-    position : u32,
-    arg_index: u32,
+    position : i32,
+    arg_index: i32,
     term     : *mut dyn Term
   ) -> Self {
     FreeOccurrence {
@@ -80,23 +80,23 @@ impl FreeOccurrence {
 // These structs are specific to the free theory. The ACU theory has its own version.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FreeVariable {
-  position : u32,
-  arg_index: u32,
+  position : i32,
+  arg_index: i32,
   var_index: i32,
   sort     : RcSort,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct BoundVariable {
-  position : u32,
-  arg_index: u32,
+  position : i32,
+  arg_index: i32,
   var_index: i32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct GroundAlien {
-  position : u32,
-  arg_index: u32,
+  position : i32,
+  arg_index: i32,
   alien    : *mut dyn Term,
 }
 
@@ -116,8 +116,8 @@ impl GroundAlien {
 
 #[derive(Clone, PartialEq)]
 pub struct NonGroundAlien {
-  position  : u32,
-  arg_index : u32,
+  position  : i32,
+  arg_index : i32,
   automaton : RcLHSAutomaton //RefCell<dyn LHSAutomaton>,
 }
 

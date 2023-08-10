@@ -40,23 +40,28 @@ pub struct VariableInfo {
 
 impl VariableInfo {
 
+  #[inline(always)]
   pub fn new() -> Self {
     Self::default()
   }
 
   // region Accessors
 
+  #[inline(always)]
   pub fn real_variable_count(&self) -> usize {
     self.variables.len()
   }
 
+  #[inline(always)]
   pub fn protected_variable_count(&self) -> i32 {
     self.protected_variable_count
   }
 
-  pub(crate) fn index2variable(&self, index: usize) -> Option<RcTerm> {
-    if index < self.variables.len() {
-      self.variables[index].clone()
+
+  #[inline(always)]
+  pub(crate) fn index_to_variable(&self, index: usize) -> MaybeTerm {
+    if let Some(d) = self.variables.get(index) {
+      d.clone()
     } else {
       None
     }
@@ -108,11 +113,13 @@ impl VariableInfo {
     MAX_PROTECTED_VARIABLE_COUNT as i32 + construction_index_count as i32
   }
 
+  #[inline(always)]
   pub fn make_protected_variable(&mut self) -> i32 {
     self.protected_variable_count += 1;
     self.protected_variable_count - 1
   }
 
+  #[inline(always)]
   pub fn end_of_fragment(&mut self) {
     self.fragment_number += 1;
   }
@@ -127,18 +134,22 @@ impl VariableInfo {
     }
   }
 
+  #[inline(always)]
   pub fn get_condition_variables(&self) -> &NatSet {
     &self.condition_variables
   }
 
+  #[inline(always)]
   pub fn get_unbound_variables(&self) -> &NatSet {
     &self.unbound_variables
   }
 
+  #[inline(always)]
   pub fn add_condition_variables(&mut self, vars: &NatSet) {
     self.condition_variables.union_in_place(vars);
   }
 
+  #[inline(always)]
   pub fn add_unbound_variables(&mut self, vars: &NatSet) {
     self.unbound_variables.union_in_place(vars);
   }
@@ -213,6 +224,7 @@ impl VariableInfo {
 impl Index<usize> for VariableInfo {
   type Output = MaybeTerm;
 
+  #[inline(always)]
   fn index(&self, index: usize) -> &Self::Output {
     &self.variables[index]
   }

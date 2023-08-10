@@ -15,6 +15,7 @@ pub mod condition_fragment;
 pub mod interpreter;
 pub mod pre_equation;
 pub mod sort;
+pub mod hash_cons_set;
 // mod strategy_definition; // Unimplemented
 
 // Re-export most important modules from `interpreter` to save a few keystrokes

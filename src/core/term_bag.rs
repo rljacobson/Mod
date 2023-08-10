@@ -15,13 +15,13 @@ use std::{
 
 use crate::{
   theory::{MaybeTerm, RcTerm, Term},
-  abstractions::{FastHasher, TermHashSet}
+  abstractions::{FastHasher, HashSet}
 };
 
 #[derive(Default)]
 pub struct TermBag {
-  terms_usable_in_eager_context: TermHashSet,
-  terms_usable_in_lazy_context: TermHashSet,
+  terms_usable_in_eager_context: HashSet,
+  terms_usable_in_lazy_context: HashSet,
 }
 
 impl TermBag {

@@ -10,6 +10,7 @@ use std::cmp::Ordering;
 use std::ops::Index;
 use std::ptr::addr_of;
 use std::rc::Rc;
+use std::task::Context;
 
 // use dyn_clone::{clone_trait_object, DynClone};
 use shared_vector::{AtomicSharedVector, SharedVector};
@@ -21,6 +22,7 @@ use crate::{
     sort::{RcSort, Sort, SpecialSort}
   },
 };
+use crate::core::rewrite_context::RewritingContext;
 use crate::theory::DagNodeFlag;
 
 use super::{
@@ -57,6 +59,7 @@ pub struct DagNodeMembers {
   pub(crate) flags     : DagNodeFlags,
   pub(crate) sort_index: i32,
   pub(crate) copied_rc : MaybeDagNode, // Maude's copyPointer
+  pub(crate) hash      : u32,
 }
 
 // Todo: Maude puts `copyPointer` and `top_symbol` in a union for optimization.
@@ -118,6 +121,21 @@ pub trait DagNode {
     self.dag_node_members().sort_index
   }
 
+  /// Set the sort to best of original and other sorts
+  #[inline(always)]
+  fn upgrade_sort_index(&mut self, other: &dyn DagNode) {
+    //  We set the sort to best of original and other sorts; that is:
+    //    SORT_UNKNOWN, SORT_UNKNOWN -> SORT_UNKNOWN
+    //    SORT_UNKNOWN, valid-sort -> valid-sort
+    //    valid-sort, SORT_UNKNOWN -> valid-sort
+    //    valid-sort,  valid-sort -> valid-sort
+    //
+    //  We can do it with a bitwise AND trick because valid sorts should
+    //  always be in agreement and SORT_UNKNOWN is represented by -1, i.e.
+    //  all 1 bits.
+    self.set_sort_index(self.get_sort_index() & other.get_sort_index())
+  }
+
   /// The number of arguments
   #[inline(always)]
   fn len(&self) -> usize {
@@ -127,6 +145,11 @@ pub trait DagNode {
   #[inline(always)]
   fn flags(&self) -> DagNodeFlags{
     self.dag_node_members().flags
+  }
+
+  #[inline(always)]
+  fn set_reduced(&mut self) {
+    self.flags().0 |= DagNodeFlag::Reduced as u32;
   }
 
   #[inline(always)]
@@ -143,13 +166,12 @@ pub trait DagNode {
 
   fn as_ptr(&self) -> *const dyn DagNode;
 
-  /// Defines a partial order on `DagNode`s. Unlike the `Ord`/`PartialOrd` implementation, this method also compares
-  /// the arguments.
+  /// Defines a partial order on `DagNode`s by comparing the symbols and the arguments recursively.
   fn compare(&self, other: &dyn DagNode) -> Ordering {
     // let symbol_order = self.cmp(other);
     let s = self.symbol();
     let symbol_order = //Ord::cmp(s, other.symbol());
-    s.get_hash_value().cmp(&other.symbol().get_hash_value());
+        s.get_hash_value().cmp(&other.symbol().get_hash_value());
 
     match symbol_order {
       Ordering::Equal => self.compare_arguments(other),
@@ -167,17 +189,49 @@ pub trait DagNode {
 
   /// Sets the sort_index of self. This is a method on Symbol in Maude.
   fn compute_base_sort(&mut self) -> i32;
+/*
+  // These methods have been promoted to `RewritingContext`
 
+  #[inline(always)]
+  fn fast_compute_true_sort(&mut self, context: &mut RewritingContext) {
+    let t = self.symbol().symbol_members().unique_sort_index;
 
+    if t < 0 {
+      self.compute_base_sort();  // usual case
+    }
+    else if t > 0 {
+      self.set_sort_index(t);  // unique sort case
+    }
+    else {
+      self.slow_compute_true_sort(context);  // most general case
+    }
+  }
+
+  fn slow_compute_true_sort(&mut self, context: &mut RewritingContext) {
+    if self.get_sort_index() == SpecialSort::Unknown as i32 {
+      self.compute_base_sort();
+      let symbol = self.symbol();
+      symbol.sort_constraint_table().constrain_to_smaller_sort(self, context);
+    }
+  }
+
+  #[inline(always)]
+  fn reduce(&mut self, context: &mut RewritingContext) {
+    while !self.is_reduced() {
+      let symbol = self.symbol();
+
+      if !(symbol.equation_rewrite(self, context)) {
+        self.dag_node_members_mut().flags.0 |= DagNodeFlag::Reduced as u32;
+        self.fast_compute_true_sort(context);
+      }
+    }
+  }
+*/
   fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) {
     if self.get_sort().is_some() {
       return (self.leq_sort(bound_sort.as_ref()).into(), None);
     }
 
-    // This is a weird code smell.
-    // self.symbol_mut().compute_base_sort(self);
-    // The ACUSymbol just turns around and calls `compute_base_sort` on the owning `DagNode`.
-    // It should be a method of DagNode which sets the DagNode's sort index. So that's what we do.
     self.compute_base_sort();
 
     if self.leq_sort(bound_sort.as_ref()) {
@@ -289,6 +343,32 @@ impl Eq for dyn DagNode {}
 impl PartialEq for dyn DagNode {
   #[inline(always)]
   fn eq(&self, other: &dyn DagNode) -> bool {
+    self.cmp(other) == Ordering::Equal
+  }
+}
+
+impl PartialOrd for dyn DagNode {
+  #[inline(always)]
+  fn partial_cmp(&self, other: &dyn DagNode) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for dyn DagNode {
+  #[inline(always)]
+  fn cmp(&self, other: &dyn DagNode) -> Ordering {
+    self.compare(other)
+  }
+}
+
+/*
+TODO: These implementations do not recursively check the arguments. It's not clear if this is ever
+      actually needed. It appears that Maude always checks arguments.
+
+
+impl PartialEq for dyn DagNode {
+  #[inline(always)]
+  fn eq(&self, other: &dyn DagNode) -> bool {
     // self.symbol().eq(other.symbol())
     self.symbol().get_hash_value() == other.symbol().get_hash_value()
   }
@@ -313,6 +393,7 @@ impl Ord for dyn DagNode {
     .cmp(&other.symbol().get_hash_value())
   }
 }
+*/
 // endregion
 
 impl Display for dyn DagNode {

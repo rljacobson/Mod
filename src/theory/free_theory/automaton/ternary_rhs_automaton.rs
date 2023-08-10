@@ -1,6 +1,8 @@
 /*!
 
-A RHS automaton specialized for the single argument case.
+A RHS automaton specialized for the two argument case.
+
+ToDo: Put the args inline.
 
 */
 
@@ -31,14 +33,23 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct FreeUnaryRHSAutomaton {
+pub struct FreeTernaryRHSAutomaton {
   symbol: Option<RcSymbol>,
   instructions: Vec<FreeRHSAutomatonInstruction>,
-  source: i32,
+  sources: [i32; 3],
   destination: i32,
 }
 
-impl RHSAutomaton for FreeUnaryRHSAutomaton {
+impl FreeTernaryRHSAutomaton {
+  #[inline(always)]
+  fn fill_out_args(&self, matcher: &Substitution, dag_node: &mut dyn DagNode) {
+    dag_node.dag_node_members_mut().args.push(matcher.value(0).unwrap());
+    dag_node.dag_node_members_mut().args.push(matcher.value(1).unwrap());
+    dag_node.dag_node_members_mut().args.push(matcher.value(2).unwrap());
+  }
+}
+
+impl RHSAutomaton for FreeTernaryRHSAutomaton {
 
   fn as_any(&self) -> &dyn Any {
     self
@@ -60,17 +71,16 @@ impl RHSAutomaton for FreeUnaryRHSAutomaton {
     // Make fast copy.
     let instr = self.instructions[0].clone();
     self.symbol = Some(instr.symbol);
-    self.source = instr.sources[0];
+    self.sources[0] = instr.sources[0];
+    self.sources[1] = instr.sources[1];
+    self.sources[2] = instr.sources[2];
     self.destination = instr.destination;
   }
 
   fn construct(&self, matcher: &mut Substitution) -> MaybeDagNode {
     let new_dag_node: RcDagNode = rc_cell!(FreeDagNode::new(self.symbol.unwrap().clone()));
     matcher.bind(self.destination as i32, Some(new_dag_node.clone()));
-    new_dag_node.borrow_mut()
-        .dag_node_members_mut()
-        .args
-        .push(matcher.value(self.source as usize).unwrap());
+    self.fill_out_args(matcher, &mut *new_dag_node.borrow_mut());
 
     Some(new_dag_node)
   }
@@ -80,10 +90,7 @@ impl RHSAutomaton for FreeUnaryRHSAutomaton {
 
     if let Some(old_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>(){
       let _ = std::mem::replace(old_node, new_dag_node);
-      old_node.dag_node_members_mut()
-          .args
-          .push(matcher.value(self.source as usize).unwrap());
-
+      self.fill_out_args(matcher, old_node);
     } else{
       unreachable!("Attempted to swap non free dag node for free dag node. This is a bug.");
     }

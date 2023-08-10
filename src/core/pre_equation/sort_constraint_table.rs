@@ -115,7 +115,7 @@ impl SortConstraintTable {
   }
 
 
-  fn constrain_to_smaller_sort(&mut self, subject: RcDagNode, context: &mut RewritingContext) {
+  pub(crate) fn constrain_to_smaller_sort(&mut self, subject: RcDagNode, context: &mut RewritingContext) {
     if self.sort_constraint_free() {
       return;
     }
@@ -157,9 +157,9 @@ impl SortConstraintTable {
 
             if let (true, mut subproblem)
                 = sort_constraint.lhs_automaton
-                .unwrap()
-                .borrow_mut()
-                .match_(subject.clone(), &mut context.substitution)
+                    .unwrap()
+                    .borrow_mut()
+                    .match_(subject.clone(), &mut context.substitution)
             {
               if subproblem.is_none() || subproblem.as_mut().unwrap().solve(true, context) {
                 // `subproblem` needs to be repackaged for `check_condition_simple`.

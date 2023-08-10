@@ -206,6 +206,7 @@ impl Term for VariableTerm {
     // There are no arguments to descend into for `VariableTerm`, so this is a no-op.
   }
 
+
   // endregion
 }
 

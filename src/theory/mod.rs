@@ -23,7 +23,7 @@ mod dag_node;
 mod term;
 mod subproblem;
 mod automaton;
-mod associative_symbol;
+// mod associative_symbol;
 
 // Theories
 pub mod free_theory;
@@ -42,20 +42,16 @@ pub(crate) use subproblem::{
   VariableAbstractionSubproblem,
   SubproblemSequence
 };
-pub(crate) use associative_symbol::{
-  AssociativeSymbolStructure,
-
-};
 pub(crate) use term::{
-  find_available_terms,
-  index_variables,
-  NodeCache,
-  RcTerm,
-  Term,
-  TermFlags,
-  TermMembers,
-  TermSet,
-  MaybeTerm,
+    find_available_terms,
+    index_variables,
+    NodeCache,
+    RcTerm,
+    Term,
+    TermAttribute,
+    TermMembers,
+    TermSet,
+    MaybeTerm,
 };
 pub(crate) use dag_node_flags::{
   DagNodeFlag,
@@ -94,8 +90,18 @@ pub(crate) use automaton::{
 };
 
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum AssociativeSymbolStructure {
+  Unstructured,
+  // no guarantees
+  LimitSort,
+  // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
+  PureSort,      // replaces ===> with <===>, taking sort constraints in to account
+}
+
 
 // Todo: Should we use Option<bool>?
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Outcome {
   Success,
   Failure,

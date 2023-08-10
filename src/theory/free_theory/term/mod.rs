@@ -41,11 +41,13 @@ use crate::{
     RcSymbol,
     RcTerm,
     Term,
-    TermFlags,
+    TermAttribute,
     TermMembers,
   },
 };
 use crate::core::automata::RHSBuilder;
+use crate::core::pre_equation::RcPreEquation;
+use crate::theory::free_theory::{FreeRemainder, RcFreeRemainder};
 
 use super::{FreeSymbol, FreeOccurrence, FreeDagNode};
 
@@ -54,7 +56,7 @@ pub type RcFreeTerm = RcCell<FreeTerm>;
 pub struct FreeTerm {
   pub(crate) term_members: TermMembers,
   pub(crate) args        : Vec<RcTerm>,
-  pub(crate) slot_index  : u32,
+  pub(crate) slot_index  : i32,
   pub(crate) visited     : bool
 }
 
@@ -241,7 +243,6 @@ impl Term for FreeTerm {
   ) -> i32{
     FreeTerm::compile_rhs_aux(&mut self, rhs_builder, variable_info, available_terms, eager_context)
   }
-
 
   #[inline(always)]
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet) {

@@ -80,7 +80,7 @@ pub enum TermKind {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u8)]
-pub(crate) enum TermFlags {
+pub(crate) enum TermAttribute {
   ///	A subterm is stable if its top symbol cannot change under instantiation.
   Stable = 1,
 
@@ -108,7 +108,7 @@ pub struct TermMembers {
   pub(crate) occurs_set         : NatSet,
   pub(crate) context_set        : NatSet,
   pub(crate) collapse_set       : SymbolSet,
-  pub(crate) flags              : u8,
+  pub(crate) attributes         : u8,
   pub(crate) sort_index         : i32, //i16,
   pub(crate) connected_component: RcConnectedComponent,
   pub(crate) save_index         : i32, // NoneIndex = -1
@@ -138,7 +138,7 @@ impl TermMembers {
       occurs_set         : Default::default(),
       context_set        : Default::default(),
       collapse_set       : Default::default(),
-      flags              : 0,
+      attributes         : 0,
       sort_index         : SpecialSort::Unknown as i32,
       connected_component: Default::default(),
       save_index         : 0,
@@ -176,29 +176,34 @@ pub trait Term: Formattable {
   /// Is the term stable?
   #[inline(always)]
   fn is_stable(&self) -> bool {
-    self.term_members().flags & TermFlags::Stable as u8 != 0
+    self.term_members().attributes & TermAttribute::Stable as u8 != 0
   }
 
   /// A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
   /// when all the terms variables are already bound.
   #[inline(always)]
   fn honors_ground_out_match(&self) -> bool {
-    self.term_members().flags & TermFlags::HonorsGroundOutMatch as u8 != 0
+    self.term_members().attributes & TermAttribute::HonorsGroundOutMatch as u8 != 0
   }
 
   #[inline(always)]
   fn set_honors_ground_out_match(&mut self, value: bool) {
     let mut members = self.term_members_mut();
     if value {
-      members.flags = members.flags | TermFlags::HonorsGroundOutMatch as u8;
+      members.attributes = members.attributes | TermAttribute::HonorsGroundOutMatch as u8;
     } else {
-      members.flags = members.flags & !(TermFlags::HonorsGroundOutMatch as u8);
+      members.attributes = members.attributes & !(TermAttribute::HonorsGroundOutMatch as u8);
     }
   }
 
   #[inline(always)]
   fn is_eager_context(&self) -> bool {
-    self.term_members().flags & TermFlags::EagerContext as u8 != 0
+    self.term_members().attributes & TermAttribute::EagerContext as u8 != 0
+  }
+
+  #[inline(always)]
+  fn is_variable(&self) -> bool {
+    self.symbol().is_variable()
   }
 
   #[inline(always)]
@@ -250,6 +255,34 @@ pub trait Term: Formattable {
       size
     }
   }
+
+  fn set_sort_info(&mut self, connected_component: RcConnectedComponent, sort_index: i32) {
+    let mut members = self.term_members_mut();
+    members.connected_component = connected_component;
+    members.sort_index = sort_index;
+  }
+
+  /// Sets the given attribute (to true)
+  fn set_attribute(&mut self, attribute: TermAttribute) {
+    self.term_members_mut().attributes |= attribute as u8;
+  }
+
+  /// Resets the given attribute (to false)
+  fn reset_attribute(&mut self, attribute: TermAttribute) {
+    self.term_members_mut().attributes &= !(attribute as u8);
+  }
+
+  #[inline(always)]
+  fn sort_index(&self) -> i32 {
+    self.term_members().sort_index
+  }
+
+  #[inline(always)]
+  fn connected_component(&self) -> RcConnectedComponent {
+    self.term_members().connected_component.clone()
+  }
+
+
 
   // endregion
 
@@ -362,10 +395,10 @@ pub trait Term: Formattable {
   /// the `save_index`.
   fn compile_rhs_aux(
     &mut self,
-    builder: &mut RHSBuilder,
-    variable_info: &VariableInfo,
+    builder        : &mut RHSBuilder,
+    variable_info  : &VariableInfo,
     available_terms: &mut TermBag,
-    eager_context: bool
+    eager_context  : bool
   ) -> i32;
 
   // A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
@@ -376,9 +409,22 @@ pub trait Term: Formattable {
 
   fn analyse_constraint_propagation(&mut self, bound_uniquely: &mut NatSet);
 
+  fn analyse_collapses(&mut self) {
+    for arg in &mut self.iter_args() {
+      arg.borrow_mut().analyse_collapses();
+    }
+
+    if !self.is_variable() && self.collapse_symbols().is_empty() {
+      self.set_attribute(TermAttribute::Stable);
+    }
+  }
+
   /// This is the theory-specific part of `find_available_terms`
   fn find_available_terms_aux(&self, available_terms: &mut TermBag, eager_context: bool, at_top: bool);
 
+  /// Computes and updates the set of variables that occur in the context of a term and its
+  /// subterms. The "context" of a term refers to the rest of the term in which it occurs (its
+  /// parent term and sibling subterms).
   fn determine_context_variables(&mut self) {
     // Used to defer mutation of self while immutable borrow of self is held by `iter_args`.
     let mut context_set = NatSet::default();
@@ -417,6 +463,45 @@ pub trait Term: Formattable {
     }
   }
 
+  /// This method populates the sort information for the term and its subterms based on their
+  /// symbol's sort declarations, validating them against the symbol's expected input and output
+  /// types (domain and range components). (This is a method on `Symbol` in Maude.)
+  fn fill_in_sort_info(&mut self) {
+    let symbol    = self.symbol();
+    let component = symbol.sort_table().range_component(); // should be const
+    // assert!(component.is_some(), "couldn't get component");
+
+    if symbol.arity() == 0 {
+      self.set_sort_info(
+        component.clone(),
+        symbol.sort_table().traverse(0, 0)
+      ); // HACK
+      return;
+    }
+
+    let mut step = 0;
+    // let mut seen_args_count = 0;
+
+    for t in &mut self.iter_args() {
+      let mut term = t.borrow_mut();
+      term.fill_in_sort_info();
+      // ToDo: Restore this assert.
+      // debug_assert_eq!(
+      //   term.get_component(),
+      //   symbol.domain_component(seen_args_count),
+      //   "component error on arg {} while computing sort of {}",
+      //   seen_args_count,
+      //   self
+      // );
+      step = symbol.sort_table().traverse(step as usize, term.sort_index() as usize);
+      // seen_args_count += 1;
+    }
+
+    // ToDo: Restore this assert.
+    // debug_assert_eq!(seen_args_count, seen_args_count, "bad # of args for op");
+    self.set_sort_info(component, step);
+  }
+
   // endregion
 }
 
@@ -450,7 +535,7 @@ impl Eq for dyn Term{}
 /// it's possible to add the Rc to the indices vector.
 pub fn index_variables(term: RcTerm, indices: &mut VariableInfo) {
   // This condition needs to check an RcTerm for a VariableTerm
-  if term.borrow().as_any().downcast_ref::<VariableTerm>().is_some() {
+  if term.borrow().is_variable() {
     // This call needs an RcTerm
     let index = indices.variable_to_index(term.clone());
     {

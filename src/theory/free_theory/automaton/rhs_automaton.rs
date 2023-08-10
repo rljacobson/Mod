@@ -12,7 +12,6 @@ The RHS automaton for the free theory has six variations specialized for arities
  */
 
 use std::{
-  any::Any,
   cell::RefCell,
   rc::Rc
 };
@@ -30,18 +29,22 @@ use crate::{
     dag_node::MaybeDagNode,
     free_theory::{
       automaton::{
-        FreeNullaryRHSAutomaton,
         FreeRHSAutomatonInstruction,
+        FreeNullaryRHSAutomaton,
         FreeUnaryRHSAutomaton,
+        FreeBinaryRHSAutomaton,
+        FreeFast2RHSAutomaton,
+        FreeFast3RHSAutomaton,
+        FreeTernaryRHSAutomaton
       },
       FreeDagNode
     },
+    DagNode,
     RcDagNode,
     RcSymbol,
     RHSAutomaton,
   }
 };
-use crate::theory::DagNode;
 
 
 #[derive(Default)]
@@ -150,6 +153,7 @@ impl RHSAutomaton for FreeRHSAutomaton {
     for instruction in &self.instructions[..nr_instructions-1] {
       let mut new_dag_node = FreeDagNode::new(instruction.symbol.clone());
       self.fill_out_args(instruction, matcher, &mut new_dag_node);
+
       let new_dag_node: RcDagNode = rc_cell!(new_dag_node);
       matcher.bind(instruction.destination as i32, Some(new_dag_node));
     }

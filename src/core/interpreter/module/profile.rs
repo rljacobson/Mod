@@ -224,7 +224,7 @@ impl Module {
   }
 */
 
-  fn profile_fragment(&mut self, pre_equation: &PreEquation, fragment_index: usize, success: bool) {
+  pub(crate) fn profile_fragment(&mut self, pre_equation: &PreEquation, fragment_index: usize, success: bool) {
     // Check that the pre_equation's module is self.
     assert!(pre_equation.get_module().upgrade().unwrap().borrow().name == self.name);
     let index = pre_equation.get_index_within_module();

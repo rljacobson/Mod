@@ -96,6 +96,7 @@ impl SortTable {
 
   #[inline(always)]
   pub fn range_component(&self) -> RcConnectedComponent {
+    // ToDo: Is this function fallible? Should it return `Option<RcConnectedComponent>`?
     (&self.op_declarations[0])[self.arg_count].borrow().sort_component.clone()
   }
 

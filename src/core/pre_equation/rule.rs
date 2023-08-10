@@ -86,7 +86,7 @@ pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
 
     if !this.is_nonexec() && !this.variable_info.unbound_variables.is_empty() {
       let mindex = this.variable_info.unbound_variables.min_value().unwrap();
-      let min_variable = this.variable_info.index2variable(mindex).unwrap();
+      let min_variable = this.variable_info.index_to_variable(mindex).unwrap();
 
       let warning = format!(
         "{}: variable {} is used before it is bound in {}:\n{}",

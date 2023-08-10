@@ -2,15 +2,27 @@
 
 The Symbol trait and its concrete implementations BinarySymbol and AssociativeSymbol.
 
-A Symbol implements the traits:
-RuleTable,
-NamedEntity,
-LineNumber,
-SortTable,
-SortConstraintTable,
-EquationTable,
-Strategy,
-MemoTable
+In Maude, a Symbol subclasses
+  RuleTable,
+  NamedEntity,
+  LineNumber,
+  SortTable,
+  SortConstraintTable,
+  EquationTable,
+  Strategy,
+  MemoTable
+
+In Maude the relationship between symbols and sort computations are strange. Symbols compute sort
+information for their owning parent terms or DAG nodes. These methods more naturally belong to the
+parent, not the symbol, so that's what we do. Here's a summary.
+
+| Maude object | Method                                       | Mod object                              | Description                          |
+| ------------ | -------------------------------------------- | --------------------------------------- | ------------------------------------ |
+| `Symbol`     | `fillInSortInfo(Term* subject)`              | `Term::fill_in_sort_info(&mut self)`    | Virtual in base class `SortTable`    |
+| `Symbol`     | `computeBaseSort(subject: &mut dyn DagNode)` | `DagNode::compute_base_sort(&mut self)` | Pure virtual, defined in each theory |
+|              |                                              |                                         |                                      |
+|              |                                              |                                         |                                      |
+|              |                                              |                                         |                                      |
 
 */
 
@@ -40,6 +52,7 @@ use crate::{
   NONE,
   UNDEFINED,
 };
+use crate::core::rewrite_context::RewritingContext;
 
 pub type RcSymbol = Rc<dyn Symbol>;
 pub type SymbolSet = Set<dyn Symbol>;
@@ -105,8 +118,12 @@ impl SymbolMembers {
     // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
     // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
     // IString implementation.
-    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
-    IString::get_hash(&self.name) | (self.arity << 24)
+
+    // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric
+    //       order. However, it still produces a total order on symbols in which symbols are ordered first
+    //       by arity and then arbitrarily (by hash). Ordering by insertion order is just as arbitrary, so
+    //       it should be ok.
+    IString::get_hash(&self.name) | (self.arity << 32) // Maude: self.arity << 24
   }
 }
 
@@ -142,6 +159,11 @@ pub trait Symbol {
   fn sort_constraint_table_mut(&mut self) -> &mut SortConstraintTable {
     &mut self.symbol_members_mut().sort_constraint_table
   }
+
+  #[inline(always)]
+  fn index_within_parent(&self) -> i32 {
+    self.symbol_members().index_within_parent_module
+  }
   // endregion
 
   // Note: `compute_base_sort` is a method of *Symbol in Maude.
@@ -176,6 +198,16 @@ pub trait Symbol {
   }
 
   fn as_any(&self) -> &dyn Any;
+
+  #[inline(always)]
+  fn is_variable(&self) -> bool { false }
+
+  #[inline(always)]
+  fn is_memoized(&self) -> bool {
+    self.symbol_members().memo_flag
+  }
+
+  fn rewrite(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool;
 
 }
 

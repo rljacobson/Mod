@@ -22,14 +22,15 @@ impl NarrowingVariableInfo {
   }
 
   #[inline(always)]
-  pub(crate) fn index2variable(&self, index: usize) -> MaybeDagNode {
-    if index < self.variables.len() {
-      self.variables[index].clone()
+  pub(crate) fn index_to_variable(&self, index: usize) -> MaybeDagNode {
+    if let Some(d) = self.variables.get(index) {
+      d.clone()
     } else {
       None
     }
   }
 
+  // ToDo: Use a BiMap instead of using `Vec::position`, which is O(n).
   pub(crate) fn variable_to_index(&mut self, variable: RcDagNode) -> i32 {
     // assert!(variable != &VariableTerm::default(), "null term");
     let idx = self.variables
@@ -52,6 +53,7 @@ impl NarrowingVariableInfo {
 
   }
 
+  #[inline(always)]
   pub(crate) fn iter(&self) -> Box<dyn Iterator<Item=(usize, RcDagNode)>> {
     Box::new(self.variables.iter().filter_map(|v| (*v).clone()).enumerate())
   }
