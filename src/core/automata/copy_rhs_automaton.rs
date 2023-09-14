@@ -7,7 +7,7 @@ Right hand side automata that make copies of bindings in the substitution.
 
 
 use std::any::Any;
-use pratt::{Channel, log};
+use tiny_logger::{Channel, log};
 use crate::{
   core::{
     VariableInfo,

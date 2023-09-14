@@ -9,7 +9,7 @@ equation::fast_variable_count(&this);
 */
 
 use std::assert_matches::assert_matches;
-use pratt::{Channel, log};
+use tiny_logger::{Channel, log};
 use yansi::Paint;
 
 use crate::{

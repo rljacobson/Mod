@@ -21,7 +21,7 @@ use std::error::Error;
 use simple_error::simple_error;
 use unicode_blocks;
 
-use pratt::{Atom, Parser as ParserCore, ParserBuilder};
+use pratt::{Atom, Parser as ParserCore};
 use crate::abstractions::{IString, RcCell};
 use crate::core::Strategy;
 use crate::rc_cell;
@@ -29,17 +29,14 @@ use crate::theory::{RcSymbol, RcTerm, variable::{VariableSymbol}};
 use crate::theory::free_theory::{FreeSymbol, FreeTerm};
 use crate::theory::variable::VariableTerm;
 
+static OPERATOR_TABLE_PATH: &str = "resources/operators.csv";
 
-pub(crate) struct Parser(ParserCore);
+
+pub(crate) struct Parser<'t>(ParserCore<'t>);
 
 impl Parser {
   pub fn new() -> Parser {
-    // Parser(ParserCore::new())
-    let parser_builder = ParserBuilder::new()
-        .operator_file("resources/operators.csv")
-        .unwrap();
-
-    Parser(parser_builder.build().unwrap())
+    Parser(ParserCore::with_operator_file(OPERATOR_TABLE_PATH))
   }
 
 

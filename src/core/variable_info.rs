@@ -7,8 +7,10 @@ Information about a variable that gets passed down through the compilation funct
 
 use std::collections::HashSet;
 use std::ops::Index;
-use pratt::Channel::Debug;
-use pratt::log;
+
+use tiny_logger::{
+  Channel::Debug, log
+};
 
 use crate::abstractions::{NatSet, Graph};
 use crate::theory::{RcTerm};

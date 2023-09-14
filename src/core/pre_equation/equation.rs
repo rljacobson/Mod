@@ -8,13 +8,12 @@ equation::fast_variable_count(&this);
 
 */
 
-
 use std::{
   fmt::{Display, Formatter},
   rc::Rc
 };
 
-use pratt::{Channel, log};
+use tiny_logger::{Channel, log};
 use yansi::Paint;
 
 use crate::{

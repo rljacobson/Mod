@@ -1,8 +1,8 @@
 use std::assert_matches::assert_matches;
 use std::cmp::Ordering;
 
+use tiny_logger::{Channel, log};
 
-use pratt::{Channel, log};
 use crate::{
   core::rewrite_context::RewritingContext,
   theory::RcDagNode,

@@ -18,7 +18,7 @@ use std::iter::once;
 use std::collections::HashSet as StdHashSet;
 
 pub use yansi::{Paint, Color, Style};
-pub use pratt::{log, set_verbosity, Channel};
+pub use tiny_logger::{log, set_verbosity, Channel};
 
 // Interned string.
 pub use string_cache::DefaultAtom as IString;

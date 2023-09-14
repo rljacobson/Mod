@@ -66,7 +66,8 @@ impl VariableTerm {
     }
   }
 
-  // ToDo: What is the relationship between the term's name and the symbol's name?
+  // ToDo: What is the relationship between the term's name and the symbol's name? Is name different
+  //       from index? Is it different from the name of the symbol?
   pub fn new(name: IString, symbol: RcSymbol) -> VariableTerm {
 
     let term_members = TermMembers::new(symbol);

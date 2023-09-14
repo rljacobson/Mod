@@ -4,10 +4,7 @@ A `Rule` is like an equation except that it is nondeterministic and the system i
 
 */
 
-
-
-
-use pratt::{Channel, log};
+use tiny_logger::{Channel, log};
 use yansi::Paint;
 
 use crate::{
