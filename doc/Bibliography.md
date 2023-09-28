@@ -22,4 +22,5 @@ Of the following, (2) and (3) contain the most important parts of the algorithms
 
 # Additional Bibliography
 
-Bouhoula, A., Jouannaud, J.-P., & Meseguer, J. (1997). *Specification and proof in membership equational logic. Lecture Notes in Computer Science, 67–92.* doi:10.1007/bfb0030589
+* Bouhoula, A., Jouannaud, J.-P., & Meseguer, J. (1997). *Specification and proof in membership equational logic. Lecture Notes in Computer Science, 67–92.* doi:10.1007/bfb0030589
+* Clavel, M., Eker, S., Lincoln, P., & Meseguer, J. (1996). Principles of Maude. Electronic Notes in Theoretical Computer Science, 4, 65-89. doi: 10.1016/S1571-0661(04)00034-9

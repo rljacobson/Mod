@@ -47,6 +47,7 @@ impl FreeDagNode {
       flags: Default::default(),
       sort_index: 0,
       copied_rc: None,
+      hash: 0,
     };
 
     FreeDagNode{
@@ -187,6 +188,7 @@ impl DagNode for FreeDagNode {
         flags     : self.flags() & DagNodeFlags::RewritingFlags,
         sort_index: self.get_sort_index(),
         copied_rc: self.members.copied_rc.clone(),
+        hash: 0,
       }
     };
 

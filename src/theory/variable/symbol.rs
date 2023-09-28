@@ -8,6 +8,8 @@ use crate::{
   core::sort::{OpDeclaration, RcSort},
   theory::{Symbol, SymbolMembers},
 };
+use crate::core::rewrite_context::RewritingContext;
+use crate::theory::RcDagNode;
 
 
 pub type RcVariableSymbol = Rc<VariableSymbol>;
@@ -34,6 +36,7 @@ impl VariableSymbol {
 
     v.first().unwrap().clone()
   }
+
 }
 
 impl Symbol for VariableSymbol {
@@ -56,6 +59,10 @@ impl Symbol for VariableSymbol {
   #[inline(always)]
   fn is_variable(&self) -> bool {
     true
+  }
+
+  fn rewrite(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
+    self.apply_replace(subject, context)
   }
 }
 

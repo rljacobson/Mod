@@ -34,14 +34,14 @@ static OPERATOR_TABLE_PATH: &str = "resources/operators.csv";
 
 pub(crate) struct Parser<'t>(ParserCore<'t>);
 
-impl Parser {
-  pub fn new() -> Parser {
-    Parser(ParserCore::with_operator_file(OPERATOR_TABLE_PATH))
+impl<'t> Parser<'t> {
+  pub fn new() -> Parser<'t> {
+    Parser(ParserCore::<'t>::with_operator_file(OPERATOR_TABLE_PATH))
   }
 
 
   pub fn parse(&mut self, text: &str) -> Result<RcTerm, Box<dyn Error>> {
-    match self.0.parse_str(text) {
+    match self.0.parse(text) {
       Ok(atom) => Ok(termify_atom(atom)),
       Err(())   => { Err(Box::new(simple_error!("Parse failed.") ))}
     }
@@ -76,11 +76,11 @@ fn termify_atom(atom: Atom) -> RcTerm {
         }
 
         Atom::Symbol(name) => {
-          let (is_variable, symbol) = name_to_symbol(IString::from(name.as_str()), 0);
+          let (is_variable, symbol) = name_to_symbol(name, 0);
 
           // Variable
           if is_variable {
-            rc_cell!(VariableTerm::new(IString::from(name.as_str()), symbol))
+            rc_cell!(VariableTerm::new(name, symbol))
           }
 
           // Symbol (nonvariable)
@@ -98,7 +98,7 @@ fn termify_atom(atom: Atom) -> RcTerm {
             let arity = rest.len() as u32;
 
             // ToDo: How do I represent a "function variable"?
-            let (_is_variable, symbol) = name_to_symbol(IString::from(name.as_str()), arity);
+            let (_is_variable, symbol) = name_to_symbol(name, arity);
             rc_cell!(FreeTerm::with_args(symbol, rest))
           } else {
             unreachable!("Could not destructure head as a symbol. This is a bug.");

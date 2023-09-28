@@ -43,6 +43,8 @@ use super::{automaton::LHSAutomaton, RcDagNode};
 //	need to generate matching or unification subproblems or
 //	pass back extension information.
 
+// ToDo: This appears to be used as an output parameter for methods that create subproblems. So far
+//       I have omitted these because they aren't used for the free theory.
 pub trait ExtensionInfo {
   // Todo: Implement `ExtensionInfo`.
   /// sets the valid_after_match field

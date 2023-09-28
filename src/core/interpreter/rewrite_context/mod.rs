@@ -97,7 +97,7 @@ pub(crate) struct RewritingContext {
 
   /// Statistics, records how many rewrites were done.
   pub(crate) mb_count: u64, // Membership
-  eq_count: u64, // Equation
+  pub(crate) eq_count: u64, // Equation
   rl_count: u64, // Rule
 
   narrowing_count        : u64,
@@ -207,6 +207,11 @@ impl RewritingContext {
   #[inline(always)]
   pub fn trace_abort(&self) -> bool {
     self.attribute(ContextAttribute::Abort)
+  }
+
+  #[inline(always)]
+  pub fn trace_status(&self) -> bool {
+    self.attribute(ContextAttribute::Trace)
   }
 
   // region Statistics

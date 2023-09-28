@@ -156,14 +156,14 @@ pub struct PreEquation {
   pub(crate) name         : Option<IString>,
   attributes   : PreEquationAttributes,
   pub(crate) lhs_term     : RcTerm,
-  lhs_automaton: Option<RcLHSAutomaton>,
+  pub(crate) lhs_automaton: Option<RcLHSAutomaton>,
   lhs_dag      : Option<RcDagNode>,
   condition    : Condition,
   pub(crate) variable_info: VariableInfo,
 
   // `ModuleItem`
   index_within_parent_module: i32,
-  pub(crate) parent_module             : WeakModule,
+  pub(crate) parent_module  : WeakModule,
 
   pub(crate) kind: PreEquationKind
 }

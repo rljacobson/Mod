@@ -8,20 +8,19 @@ sides to enable common subexpression sharing both within rhs and lhs->rhs.
 */
 
 use std::{
-  collections::HashSet,
   borrow::Borrow,
   hash::{Hash, Hasher}
 };
 
 use crate::{
   theory::{MaybeTerm, RcTerm, Term},
-  abstractions::{FastHasher, HashSet}
+  abstractions::{FastHasher, TermHashSet}
 };
 
 #[derive(Default)]
 pub struct TermBag {
-  terms_usable_in_eager_context: HashSet,
-  terms_usable_in_lazy_context: HashSet,
+  terms_usable_in_eager_context: TermHashSet,
+  terms_usable_in_lazy_context: TermHashSet,
 }
 
 impl TermBag {

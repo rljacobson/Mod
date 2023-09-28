@@ -12,7 +12,7 @@ translation unit in C++ or a module in Python or Rust.
 mod profile;
 mod memo_map;
 
-use pratt::{
+use tiny_logger::{
   Channel::Debug,
   log
 };
@@ -36,6 +36,7 @@ pub use profile::{
   FragmentProfile,
   StatementProfile,
 };
+use crate::core::module::memo_map::{BxMemoMap, RcMemoMap};
 use crate::core::pre_equation::RcPreEquation;
 use crate::core::sort::RcConnectedComponent;
 
@@ -116,7 +117,7 @@ pub struct Module {
 
   pub(crate) minimum_substitution_size: i32,
 
-  memoMap: RcMemoMap ,  // Memoization map for all symbols in module
+  pub memo_map: BxMemoMap ,  // Memoization map for all symbols in module
 
   // NamedEntity members
   /// An ID, a name given by the user.
@@ -128,7 +129,7 @@ pub struct Module {
   mb_info    : Vec<StatementProfile>, // Membership
   eq_info    : Vec<StatementProfile>, // Equation
   rl_info    : Vec<StatementProfile>, // Rule
-  sd_info    : Vec<StatementProfile>, // Strategy Definition
+  // sd_info    : Vec<StatementProfile>, // Strategy Definition
 }
 
 impl Module {

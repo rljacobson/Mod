@@ -32,6 +32,7 @@ use std::{
   fmt::{Debug, Display, Formatter},
   rc::Rc,
 };
+use tiny_logger::{Channel, log};
 
 use crate::{
   abstractions::{
@@ -41,18 +42,28 @@ use crate::{
   theory::{
     RcDagNode,
     RcTerm,
+    MaybeSubproblem
   },
   core::{
     module::{ModuleItem, WeakModule},
     format::{FormatStyle, Formattable},
     sort::{SortTable},
     Strategy,
-    pre_equation::sort_constraint_table::SortConstraintTable
+    pre_equation::{
+      sort_constraint_table::SortConstraintTable,
+      PreEquation,
+      PreEquationKind,
+      RcPreEquation
+    },
+    rewrite_context::{
+      ContextAttribute,
+      RewritingContext,
+      trace::trace_status
+    }
   },
   NONE,
   UNDEFINED,
 };
-use crate::core::rewrite_context::RewritingContext;
 
 pub type RcSymbol = Rc<dyn Symbol>;
 pub type SymbolSet = Set<dyn Symbol>;
@@ -90,6 +101,9 @@ pub struct SymbolMembers {
 
   // `Strategy`
   pub(crate) strategy: Strategy,
+
+  // `EquationTable`
+  equations: Vec<RcPreEquation>
 }
 
 impl SymbolMembers {
@@ -107,6 +121,7 @@ impl SymbolMembers {
         index_within_parent_module: NONE,
         parent_module        : Default::default(),
         strategy             : Strategy::default(),
+        equations: vec![],
       };
     // The only time the hash is computed.
     new_symbol.hash_value = new_symbol.compute_hash();
@@ -125,6 +140,138 @@ impl SymbolMembers {
     //       it should be ok.
     IString::get_hash(&self.name) | (self.arity << 32) // Maude: self.arity << 24
   }
+
+  // region EquationTable methods
+
+  fn apply_replace(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
+    for eq in &self.equations {
+      // Destructure the equation
+      if let
+          PreEquationKind::Equation {
+            rhs_term,
+            ref mut rhs_builder,
+            fast_variable_count
+          }  = &eq.borrow().kind
+      {
+        if *fast_variable_count >= 0 {
+          // Fast case
+          context.substitution.clear_first_n(*fast_variable_count as usize);
+          if let Some(lhs_automaton) = &eq.borrow().lhs_automaton {
+            if let (true, sp) = lhs_automaton.borrow_mut().match_(subject.clone(), &mut context.substitution) {
+              if sp.is_some() || context.trace_status() {
+                self.apply_replace_slow_case(subject.clone(), eq.clone(), sp, context);
+              }
+              if /*extension_info.is_none() || extension_info.matched_whole()*/ true {
+                rhs_builder.replace(subject.clone(), &mut context.substitution); // Implement get_rhs_builder and replace methods
+              }
+              else {
+                // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
+                subject.borrow_mut().partial_replace(
+                  // ToDo: Implement get_rhs_builder and construct methods
+                  eq.get_rhs_builder().construct(context),
+                  // extension_info,
+                );
+              }
+              context.eq_count += 1;
+              context.finished();
+              // Memory::ok_to_collect_garbage();
+              return true;
+            }
+          } else { unreachable!("LHS automaton expected. This is a bug.")}
+        }
+        else {
+          // General case
+          let nr_variables = eq.borrow().variable_info.protected_variable_count();
+          context.clear(nr_variables);
+          if let Some(lhs_automaton) = eq.borrow().lhs_automaton.clone() {
+            if let (true, sp) = lhs_automaton.match_(
+              subject.clone(),
+              context,
+              // extension_info,
+            ) {
+              self.apply_replace_slow_case(subject.clone(), eq, sp, context, /*extension_info*/);
+            }
+          }
+          context.finished();
+          // MemoryCell::ok_to_collect_garbage(); // Implement ok_to_collect_garbage
+        }
+
+
+      } else {
+        unreachable!("Destructured a nonequation as an equation. This is a bug.");
+      };
+
+    }
+    false
+  }
+
+  fn apply_replace_slow_case(
+    &mut self,
+    subject: RcDagNode,
+    eq: RcPreEquation,
+    sp: MaybeSubproblem,
+    context: &mut RewritingContext,
+    /*extension_info: &mut ExtensionInfo,*/
+  ) -> bool
+  {
+    #[cfg_attr(debug_assertions = true)]
+    log(
+      Channel::Debug,
+      5,
+      format!(
+        "EquationTable::applyReplace() slowCase:\nsubject = {}\neq = {}",
+        subject.borrow(),
+        eq.borrow().repr(FormatStyle::Simple)
+      ).as_str()
+    );
+
+    if sp.is_none() || sp.unwrap().solve(true, context) {
+      if !eq.has_condition() || eq.check_condition(subject, context, sp) {
+        let trace = RewritingContext::get_trace_status();
+        if trace {
+          context.trace_pre_eq_rewrite(subject.clone(), eq, RewritingContext::NORMAL);
+          if context.trace_abort() {
+            context.finished();
+            return false;
+          }
+        }
+        // Destructure the equation
+        if let
+            PreEquationKind::Equation {
+              rhs_term,
+              ref mut rhs_builder,
+              fast_variable_count
+            }  = &eq.borrow().kind
+        {
+
+          // ToDo: Implement extension_info
+          if /*extension_info.is_none() || extension_info.unwrap().matched_whole()*/ true {
+            rhs_builder.replace(subject.clone(), &mut context.substitution);
+          } else {
+            // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
+            //       Apparently only used by AU, ACU, S theories.
+            subject.borrow_mut().partial_replace(
+              rhs_builder.construct(&mut context.substitution),
+              // extension_info.unwrap(),
+            );
+          }
+          context.increment_eq_count();
+          if trace {
+            context.trace_post_eq_rewrite(subject.clone());
+          }
+          context.finished();
+          // MemoryCell::ok_to_collect_garbage(); // Implement ok_to_collect_garbage if necessary
+          return true;
+
+        }
+
+
+      }
+    }
+    false
+
+  }
+  // endregion EquationTable methods
 }
 
 pub trait Symbol {

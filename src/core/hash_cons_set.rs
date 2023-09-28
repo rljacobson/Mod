@@ -7,11 +7,17 @@ This wraps an `IndexedHashSet<RcDagNode>` so that operations specific to canonic
 use crate::abstractions::IndexedHashSet;
 use crate::theory::RcDagNode;
 
-#[derive(Default)]
 pub struct HashConsSet {
   inner: IndexedHashSet<RcDagNode>
 }
 
+impl Default for HashConsSet {
+  fn default() -> Self {
+    HashConsSet {
+      inner: IndexedHashSet::default()
+    }
+  }
+}
 
 impl HashConsSet {
 

@@ -11,6 +11,7 @@ pub mod rewrite_context;
 mod interpreter_state;
 pub mod format;
 mod tui;
+pub mod memo_table;
 
 pub use attributes::{InterpreterAttribute, InterpreterAttributes};
 pub use print_flags::{PrintFlag, PrintFlags};

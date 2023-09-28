@@ -3,27 +3,34 @@
 Variables have very minimal DAG nodes.
 
 */
-use std::any::Any;
-use std::cell::RefCell;
-use std::cmp::Ordering;
-use std::ops::Deref;
-use std::rc::Rc;
-use crate::{theory::{
-  DagNode,
-  dag_node_flags,
-  NodeList,
-  RcSymbol,
-  RcTerm,
-  DagNodeFlags,
-  RcDagNode,
-  variable::{
-    VariableSymbol,
-    VariableTerm
+use std::{
+  ops::Deref,
+  cmp::Ordering,
+  cell::RefCell,
+  any::Any,
+  rc::Rc
+};
+
+use crate::{
+  theory::{
+    DagNode,
+    dag_node_flags,
+    NodeList,
+    RcSymbol,
+    RcTerm,
+    DagNodeFlags,
+    RcDagNode,
+    variable::{
+      VariableSymbol,
+      VariableTerm
+    },
+    DagNodeMembers,
+    DagNodeFlag
   },
-  dag_node::DagNodeMembers,
-}, abstractions::{IString, RcCell}, rc_cell};
-use crate::core::RedexPosition;
-use crate::theory::DagNodeFlag;
+  abstractions::{IString, RcCell},
+  rc_cell,
+  core::RedexPosition,
+};
 
 
 pub struct VariableDagNode {
@@ -38,10 +45,10 @@ impl VariableDagNode {
     let members = DagNodeMembers {
       top_symbol: symbol,
       args      : NodeList::new(),
-      // sort      : None,
       flags     : DagNodeFlags::default(),
       sort_index: -1,
-      copied_rc: None,
+      copied_rc : None,
+      hash      : 0,
     };
 
     VariableDagNode {

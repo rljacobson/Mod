@@ -20,6 +20,7 @@ use crate::{
     SymbolMembers,
   },
 };
+use crate::core::interpreter::memo_table::SourceSet;
 use crate::core::rewrite_context::RewritingContext;
 
 use super::{FreeNet, RcFreeNet, FreeDagNode, FreeTerm};
@@ -53,8 +54,8 @@ impl FreeSymbol {
   fn complex_strategy(&self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
     if self.is_memoized() {
       let mut from = SourceSet::new();
-      self.memo_strategy(&mut from, subject, context);
-      self.memo_enter(from, subject);
+      self.memo_strategy(&mut from, subject.clone(), context);
+      self.memo_enter(from, subject.clone());
       return false;
     }
 
@@ -74,8 +75,8 @@ impl FreeSymbol {
           }
           seen_zero = true;
         }
-        if (i + 1 == strat_len) && DISC_NET.apply_replace(subject, context) ||
-            DISC_NET.apply_replace_no_owise(subject, context) {
+        if (i + 1 == strat_len) && self.discrimination_net.apply_replace(subject.clone(), context) ||
+            self.discrimination_net.apply_replace_no_owise(subject.clone(), context) {
           return true;
         }
       } else {

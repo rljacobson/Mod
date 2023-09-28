@@ -5,9 +5,15 @@ Memoization map for all symbols in a module.
 
 */
 
+use std::rc::Rc;
+
 use crate::abstractions::DagNodeHashSet;
 use crate::theory::RcDagNode;
 
+pub type RcMemoMap = Rc<MemoMap>;
+pub type BxMemoMap = Box<MemoMap>;
+
+#[derive(Default)]
 pub struct MemoMap {
   dags: DagNodeHashSet,
   /// Maps from-indices to to-indices
