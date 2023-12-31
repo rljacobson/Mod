@@ -17,36 +17,29 @@ ToDo: This implements way more of Maude than a pattern matching library should h
 
 */
 
-pub mod trace;
 mod context_attributes;
 pub(crate) mod debugger;
+pub mod trace;
 
-use std::fmt::{Display, Formatter};
-use std::rc::Weak;
-
-use crate::{
-  abstractions::{
-    RcCell,
-    WeakCell,
-  },
-  core::{
-    condition_fragment::ConditionFragment,
-    interpreter::{
-      Interpreter,
-      InterpreterAttribute,
-      tui::TUI,
-      WeakInterpreter,
-    },
-    NarrowingVariableInfo,
-    RedexPosition,
-    substitution::Substitution,
-  },
-  ROOT_OK,
-  theory::RcDagNode,
-  UNDEFINED,
+use std::{
+  fmt::{Display, Formatter},
+  rc::Weak,
 };
 
 pub use crate::core::rewrite_context::context_attributes::{ContextAttribute, ContextAttributes};
+use crate::{
+  abstractions::{RcCell, WeakCell},
+  core::{
+    condition_fragment::ConditionFragment,
+    interpreter::{tui::TUI, Interpreter, InterpreterAttribute, WeakInterpreter},
+    substitution::Substitution,
+    NarrowingVariableInfo,
+    RedexPosition,
+  },
+  theory::RcDagNode,
+  ROOT_OK,
+  UNDEFINED,
+};
 
 
 pub type RcRewritingContext = RcCell<RewritingContext>;
@@ -61,7 +54,7 @@ pub enum Purpose {
   SortEval,
   TopLevelEval,
   MetaEval,
-  Other
+  Other,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -92,21 +85,20 @@ pub(crate) struct RewritingContext {
   // Base class members
 
   // progress: bool, // Only used for object system
-
   pub(crate) root: Option<RcDagNode>,
 
   /// Statistics, records how many rewrites were done.
   pub(crate) mb_count: u64, // Membership
   pub(crate) eq_count: u64, // Equation
-  rl_count: u64, // Rule
+  rl_count:            u64, // Rule
 
-  narrowing_count        : u64,
+  narrowing_count:         u64,
   variant_narrowing_count: u64,
 
   //	For rule rewriting
-  redex_stack  : Vec<RedexPosition>,
-  stale_marker : i32, // NONE = -1, ROOT_OK = -2, an index when >= 0
-  lazy_marker  : i32, // NONE = -1, an index when >= 0
+  redex_stack:   Vec<RedexPosition>,
+  stale_marker:  i32, // NONE = -1, ROOT_OK = -2, an index when >= 0
+  lazy_marker:   i32, // NONE = -1, an index when >= 0
   current_index: i32,
 
   // rewrite_limit: u64, // NONE = -1, Only used for object system
@@ -114,14 +106,13 @@ pub(crate) struct RewritingContext {
   // current_gas  : u64, // Only used for object system
 
   // "User Level" members
-
-  parent          : Option<WeakRewritingContext>,
-  interpreter     : WeakInterpreter,
-  pub(crate) substitution    : Substitution,
-  purpose         : Purpose,
-  trial_count     : usize,
-  attributes      : ContextAttributes,
-  debug_level     : i32,
+  parent:                  Option<WeakRewritingContext>,
+  interpreter:             WeakInterpreter,
+  pub(crate) substitution: Substitution,
+  purpose:                 Purpose,
+  trial_count:             usize,
+  attributes:              ContextAttributes,
+  debug_level:             i32,
 
   // Do not belong here
   tui: TUI,
@@ -131,56 +122,56 @@ impl RewritingContext {
   pub fn new(root: Option<RcDagNode>, interpreter: WeakInterpreter) -> Self {
     RewritingContext {
       root,
-      mb_count               : 0,
-      eq_count               : 0,
-      rl_count               : 0,
-      narrowing_count        : 0,
+      mb_count: 0,
+      eq_count: 0,
+      rl_count: 0,
+      narrowing_count: 0,
       variant_narrowing_count: 0,
-      redex_stack            : vec![],
-      stale_marker           : 0,
-      lazy_marker            : 0,
-      current_index          : 0,
-      parent                 : None,
+      redex_stack: vec![],
+      stale_marker: 0,
+      lazy_marker: 0,
+      current_index: 0,
+      parent: None,
       interpreter,
-      substitution           : Substitution::default(),
-      purpose                : Purpose::TopLevelEval,
-      trial_count            : 0,
-      attributes             : ContextAttributes::default(),
-      debug_level            : UNDEFINED,
-      tui                    : TUI::default(),
+      substitution: Substitution::default(),
+      purpose: Purpose::TopLevelEval,
+      trial_count: 0,
+      attributes: ContextAttributes::default(),
+      debug_level: UNDEFINED,
+      tui: TUI::default(),
     }
   }
 
   pub fn with_parent(
-    root            : Option<RcDagNode>,
-    parent          : Option<WeakRewritingContext>,
-    purpose         : Purpose,
+    root: Option<RcDagNode>,
+    parent: Option<WeakRewritingContext>,
+    purpose: Purpose,
     local_trace_flag: bool,
-    interpreter     : WeakInterpreter,
+    interpreter: WeakInterpreter,
   ) -> Self {
     RewritingContext {
       root,
-      eq_count       : 0,
-      mb_count       : 0,
+      eq_count: 0,
+      mb_count: 0,
       narrowing_count: 0,
-      rl_count       : 0,
+      rl_count: 0,
       variant_narrowing_count: 0,
-      redex_stack  : vec![],
-      stale_marker : 0,
-      lazy_marker  : 0,
+      redex_stack: vec![],
+      stale_marker: 0,
+      lazy_marker: 0,
       current_index: 0,
       parent,
       interpreter,
       substitution: Default::default(),
       purpose,
-      trial_count : 0,
-      attributes  : if local_trace_flag {
-                      ContextAttribute::LocalTrace.into()
-                    } else {
-                      ContextAttributes::default()
-                    },
-      debug_level : UNDEFINED,
-      tui         : TUI::default(),
+      trial_count: 0,
+      attributes: if local_trace_flag {
+        ContextAttribute::LocalTrace.into()
+      } else {
+        ContextAttributes::default()
+      },
+      debug_level: UNDEFINED,
+      tui: TUI::default(),
     }
   }
 
@@ -226,7 +217,6 @@ impl RewritingContext {
 
   #[inline(always)]
   pub fn add_counts_from(&mut self, other: &RewritingContext) {
-
     self.mb_count += other.mb_count;
     self.eq_count += other.eq_count;
     self.rl_count += other.rl_count;
@@ -239,6 +229,7 @@ impl RewritingContext {
     self.add_counts_from(other);
     other.clear_counts();
   }
+
   // endregion
 
 
@@ -289,8 +280,9 @@ impl RewritingContext {
     // Replace stale dag node with a copy in which stacked arguments
     // replace corresponding arguments in the original.
     let remade = self.redex_stack[stale_index as usize]
-                     .dag_node.borrow()
-                     .copy_with_replacements(&self.redex_stack, first_idx, last_idx);
+      .dag_node
+      .borrow()
+      .copy_with_replacements(&self.redex_stack, first_idx, last_idx);
     self.redex_stack[stale_index as usize].dag_node = remade;
   }
 
@@ -328,19 +320,14 @@ impl RewritingContext {
   #[inline(always)]
   fn fast_compute_true_sort(&mut self, dag_node: RcDagNode) {
     // let root = self.root.unwrap();
-    let t = dag_node.borrow()
-                .symbol()
-                .symbol_members()
-                .unique_sort_index;
+    let t = dag_node.borrow().symbol().symbol_members().unique_sort_index;
 
     if t < 0 {
-      dag_node.borrow_mut().compute_base_sort();  // usual case
-    }
-    else if t > 0 {
-      dag_node.borrow_mut().set_sort_index(t);  // unique sort case
-    }
-    else {
-      self.slow_compute_true_sort(dag_node);  // most general case
+      dag_node.borrow_mut().compute_base_sort(); // usual case
+    } else if t > 0 {
+      dag_node.borrow_mut().set_sort_index(t); // unique sort case
+    } else {
+      self.slow_compute_true_sort(dag_node); // most general case
     }
   }
 
@@ -348,13 +335,10 @@ impl RewritingContext {
   fn slow_compute_true_sort(&mut self, dag_node: RcDagNode) {
     // let root = self.root.unwrap();
     let mut symbol = dag_node.borrow_mut().symbol();
-    symbol.sort_constraint_table()
-        .constrain_to_smaller_sort(
-          dag_node.clone(),
-          self
-        );
+    symbol
+      .sort_constraint_table()
+      .constrain_to_smaller_sort(dag_node.clone(), self);
   }
-
 }
 
 
@@ -366,6 +350,6 @@ pub fn make_subcontext(parent: RcRewritingContext, root: Option<RcDagNode>, purp
     Some(parent.downgrade()),
     purpose,
     parent_ref.attribute(ContextAttribute::LocalTrace),
-    parent_ref.interpreter.clone()
+    parent_ref.interpreter.clone(),
   )
 }

@@ -10,39 +10,31 @@ something done to a term.
 
 
 use std::ops::Deref;
+
 use crate::{
   core::{
-    automata::{
-      CopyRHSAutomaton,
-      RHSBuilder,
-    },
-    automata::TrivialRHSAutomaton,
+    automata::{CopyRHSAutomaton, RHSBuilder, TrivialRHSAutomaton},
     TermBag,
     VariableInfo,
   },
+  theory::{variable::VariableTerm, RcTerm, Term},
   NONE,
-  theory::{
-    RcTerm,
-    Term,
-    variable::VariableTerm,
-  },
 };
 
 /// Compiles the RHS automaton, returning the tuple `(rhs_automaton, subproblem_likely).
 pub fn compile_rhs(
-  term           : RcTerm,
-  rhs_builder    : &mut RHSBuilder,
-  variable_info  : &mut VariableInfo,
+  term: RcTerm,
+  rhs_builder: &mut RHSBuilder,
+  variable_info: &mut VariableInfo,
   available_terms: &mut TermBag,
-  eager_context  : bool
-) -> i32
-{
+  eager_context: bool,
+) -> i32 {
   if let Some(found_term) = available_terms.find(&*term.borrow(), eager_context) {
     let mut found_term = found_term.borrow_mut();
 
     if found_term.term_members_mut().save_index == NONE {
       if let Some(vt) = found_term.as_any().downcast_ref::<VariableTerm>() {
-        return vt.index
+        return vt.index;
       }
 
       found_term.term_members_mut().save_index = variable_info.make_protected_variable() as i32;
@@ -64,17 +56,19 @@ pub fn compile_rhs(
     return var_index;
   }
 
-  let index = term.borrow_mut().compile_rhs_aux(rhs_builder, variable_info, available_terms, eager_context);
+  let index = term
+    .borrow_mut()
+    .compile_rhs_aux(rhs_builder, variable_info, available_terms, eager_context);
   term.borrow_mut().term_members_mut().save_index = index;
   available_terms.insert_built_term(term, eager_context);
   return index;
 }
 
 pub(crate) fn compile_top_rhs(
-  term           : RcTerm,
-  rhs_builder    : &mut RHSBuilder,
-  variable_info  : &mut VariableInfo,
-  available_terms: &mut TermBag
+  term: RcTerm,
+  rhs_builder: &mut RHSBuilder,
+  variable_info: &mut VariableInfo,
+  available_terms: &mut TermBag,
 ) {
   let index = compile_rhs(term, rhs_builder, variable_info, available_terms, true);
   variable_info.use_index(index);

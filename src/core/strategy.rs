@@ -8,12 +8,12 @@ use crate::abstractions::NatSet;
 
 #[derive(Default, Eq, PartialEq)]
 pub struct Strategy {
-  pub is_standard          : bool,
+  pub is_standard:           bool,
   pub unevaluated_arguments: bool,
-  pub strategy             : Vec<i32>,
-  pub eager                : NatSet,
-  pub evaluated            : NatSet,
-  pub frozen               : NatSet,
+  pub strategy:              Vec<i32>,
+  pub eager:                 NatSet,
+  pub evaluated:             NatSet,
+  pub frozen:                NatSet,
 }
 
 impl Strategy {

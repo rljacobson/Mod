@@ -11,29 +11,23 @@ to navigate. In particular, the compiler for the matcher is in `compiler.rs`.
 
 mod compiler;
 
-use std::{
-  cmp::Ordering,
-  any::Any,
-  rc::Rc,
-  cell::RefCell,
-  fmt::Display,
-};
+use std::{any::Any, cell::RefCell, cmp::Ordering, fmt::Display, rc::Rc};
 
+use super::{FreeDagNode, FreeOccurrence, FreeSymbol};
 use crate::{
-  abstractions::{
-    hash2 as term_hash,
-    NatSet,
-    RcCell,
-  },
+  abstractions::{hash2 as term_hash, NatSet, RcCell},
   core::{
+    automata::RHSBuilder,
     format::{FormatStyle, Formattable},
-    OrderingValue,
+    pre_equation::RcPreEquation,
     substitution::Substitution,
+    OrderingValue,
     TermBag,
     VariableInfo,
   },
   rc_cell,
   theory::{
+    free_theory::{FreeRemainder, RcFreeRemainder},
     DagNode,
     NodeCache,
     RcDagNode,
@@ -45,26 +39,21 @@ use crate::{
     TermMembers,
   },
 };
-use crate::core::automata::RHSBuilder;
-use crate::core::pre_equation::RcPreEquation;
-use crate::theory::free_theory::{FreeRemainder, RcFreeRemainder};
-
-use super::{FreeSymbol, FreeOccurrence, FreeDagNode};
 
 pub type RcFreeTerm = RcCell<FreeTerm>;
 
 pub struct FreeTerm {
   pub(crate) term_members: TermMembers,
-  pub(crate) args        : Vec<RcTerm>,
-  pub(crate) slot_index  : i32,
-  pub(crate) visited     : bool
+  pub(crate) args:         Vec<RcTerm>,
+  pub(crate) slot_index:   i32,
+  pub(crate) visited:      bool,
 }
 
 // Constructors
 impl FreeTerm {
   pub fn new(symbol: RcSymbol) -> FreeTerm {
     let term_members = TermMembers::new(symbol);
-    FreeTerm{
+    FreeTerm {
       term_members,
       args: vec![],
       slot_index: 0,
@@ -74,7 +63,7 @@ impl FreeTerm {
 
   pub fn with_args(symbol: RcSymbol, args: Vec<RcTerm>) -> FreeTerm {
     let term_members = TermMembers::new(symbol);
-    FreeTerm{
+    FreeTerm {
       term_members,
       args,
       slot_index: 0,
@@ -103,10 +92,7 @@ impl Term for FreeTerm {
     let mut hash_value: u32 = self.symbol().semantic_hash();
 
     for arg in &self.args {
-      hash_value = term_hash(
-        hash_value,
-        arg.borrow().semantic_hash()
-      );
+      hash_value = term_hash(hash_value, arg.borrow().semantic_hash());
     }
 
     hash_value
@@ -124,10 +110,7 @@ impl Term for FreeTerm {
       //       If so, why even have `normalize` in addition to `semantic_hash`?
 
       changed = changed || child_changed;
-      hash_value = term_hash(
-        hash_value,
-        child_hash
-      );
+      hash_value = term_hash(hash_value, child_hash);
     }
 
     (hash_value, changed)
@@ -147,9 +130,10 @@ impl Term for FreeTerm {
   }
 
   #[inline(always)]
-  fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_>{
+  fn iter_args(&self) -> Box<dyn Iterator<Item = RcTerm> + '_> {
     Box::new(self.args.iter().cloned())
   }
+
   // endregion
 
   // region Comparison Methods
@@ -158,33 +142,28 @@ impl Term for FreeTerm {
     assert_eq!(&self.symbol(), &other.symbol(), "symbols differ");
 
     if let Some(other) = other.as_any().downcast_ref::<FreeTerm>() {
-
-      for (arg_self, arg_other) in self.args.iter().zip(other.args.iter()){
+      for (arg_self, arg_other) in self.args.iter().zip(other.args.iter()) {
         let r = arg_self.borrow().compare(arg_other.as_ref());
         if r.is_ne() {
-          return r
+          return r;
         }
       }
       return Ordering::Equal;
-
     } else {
       unreachable!("Could not downcast Term to FreeTerm. This is a bug.")
     }
   }
 
-
   fn compare_dag_arguments(&self, other: &dyn DagNode) -> Ordering {
     // assert_eq!(self.symbol(), other.symbol(), "symbols differ");
     if let Some(other) = other.as_any().downcast_ref::<FreeDagNode>() {
-
-      for (arg_self, arg_other) in self.args.iter().zip(other.iter_args()){
+      for (arg_self, arg_other) in self.args.iter().zip(other.iter_args()) {
         let r = arg_self.borrow().compare_dag_node(arg_other.as_ref());
         if r.is_ne() {
-          return r
+          return r;
         }
       }
       return Ordering::Equal;
-
     } else {
       unreachable!("Could not downcast Term to FreeTerm. This is a bug.")
     }
@@ -194,18 +173,22 @@ impl Term for FreeTerm {
   fn partial_compare_arguments(&self, partial_substitution: &mut Substitution, other: &dyn DagNode) -> OrderingValue {
     assert!(self.symbol().compare(other.symbol().as_ref()).is_eq(), "symbols differ");
 
-    if let Some(da) = other.as_any().downcast_ref::<FreeDagNode>(){
+    if let Some(da) = other.as_any().downcast_ref::<FreeDagNode>() {
       for (term_arg, dag_arg) in self.args.iter().zip(da.iter_args()) {
-        let r = term_arg.borrow()
-            .partial_compare(partial_substitution, dag_arg.as_ref());
+        let r = term_arg
+          .borrow()
+          .partial_compare(partial_substitution, dag_arg.as_ref());
         if r != OrderingValue::Equal {
           return r;
         }
       }
-      return OrderingValue::Equal
-    }
-    else {
-      unreachable!("{}:{}: Could not downcast to FreeDagNode. This is a bug.", file!(), line!())
+      return OrderingValue::Equal;
+    } else {
+      unreachable!(
+        "{}:{}: Could not downcast to FreeDagNode. This is a bug.",
+        file!(),
+        line!()
+      )
     }
   }
 
@@ -222,16 +205,14 @@ impl Term for FreeTerm {
     node
   }
 
-
   // region Compiler-related
   #[inline(always)]
   fn compile_lhs(
     &self,
-    match_at_top     : bool,
-    variable_info    : &VariableInfo,
-    bound_uniquely   : &mut NatSet,
-  ) -> (RcLHSAutomaton, bool)
-  {
+    match_at_top: bool,
+    variable_info: &VariableInfo,
+    bound_uniquely: &mut NatSet,
+  ) -> (RcLHSAutomaton, bool) {
     FreeTerm::compile_lhs(self, match_at_top, variable_info, bound_uniquely)
   }
 
@@ -243,8 +224,8 @@ impl Term for FreeTerm {
     rhs_builder: &mut RHSBuilder,
     variable_info: &VariableInfo,
     available_terms: &mut TermBag,
-    eager_context: bool
-  ) -> i32{
+    eager_context: bool,
+  ) -> i32 {
     FreeTerm::compile_rhs_aux(&mut self, rhs_builder, variable_info, available_terms, eager_context)
   }
 
@@ -258,48 +239,33 @@ impl Term for FreeTerm {
     FreeTerm::find_available_terms_aux(&self, available_terms, eager_context, at_top);
   }
   // endregion
-
 }
 
 
 impl Formattable for FreeTerm {
   fn repr(&self, style: FormatStyle) -> String {
-
     let mut accumulator = String::new();
     match style {
-
       FormatStyle::Simple => {
-        accumulator.push_str(
-          self.term_members.top_symbol.repr(style).as_str()
-        );
+        accumulator.push_str(self.term_members.top_symbol.repr(style).as_str());
       }
 
-      | FormatStyle::Debug
-      | _ => {
-        accumulator.push_str(
-          format!(
-            "free<{}>",
-            self.term_members.top_symbol.repr(style).as_str()
-          ).as_str()
-        );
+      FormatStyle::Debug | _ => {
+        accumulator.push_str(format!("free<{}>", self.term_members.top_symbol.repr(style).as_str()).as_str());
       }
     }
 
-    accumulator.push_str(
-      format!(
-        "free<{}>",
-        self.term_members.top_symbol.repr(style).as_str()
-      ).as_str()
-    );
+    accumulator.push_str(format!("free<{}>", self.term_members.top_symbol.repr(style).as_str()).as_str());
     if !self.args.is_empty() {
       accumulator.push('(');
       accumulator.push_str(
-        self.args
-            .iter()
-            .map(|arg| arg.borrow().repr(style))
-            .collect::<Vec<String>>()
-            .join(", ")
-            .as_str()
+        self
+          .args
+          .iter()
+          .map(|arg| arg.borrow().repr(style))
+          .collect::<Vec<String>>()
+          .join(", ")
+          .as_str(),
       );
       accumulator.push(')');
     }

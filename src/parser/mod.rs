@@ -14,20 +14,23 @@ parser into a tree of `Term`s.
 
 */
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::error::Error;
+use std::{cell::RefCell, error::Error, rc::Rc};
 
+use pratt::{Atom, Parser as ParserCore};
 use simple_error::simple_error;
 use unicode_blocks;
 
-use pratt::{Atom, Parser as ParserCore};
-use crate::abstractions::{IString, RcCell};
-use crate::core::Strategy;
-use crate::rc_cell;
-use crate::theory::{RcSymbol, RcTerm, variable::{VariableSymbol}};
-use crate::theory::free_theory::{FreeSymbol, FreeTerm};
-use crate::theory::variable::VariableTerm;
+use crate::{
+  abstractions::{IString, RcCell},
+  core::Strategy,
+  rc_cell,
+  theory::{
+    free_theory::{FreeSymbol, FreeTerm},
+    variable::{VariableSymbol, VariableTerm},
+    RcSymbol,
+    RcTerm,
+  },
+};
 
 static OPERATOR_TABLE_PATH: &str = "resources/operators.csv";
 
@@ -39,72 +42,67 @@ impl<'t> Parser<'t> {
     Parser(ParserCore::<'t>::with_operator_file(OPERATOR_TABLE_PATH))
   }
 
-
   pub fn parse(&mut self, text: &str) -> Result<RcTerm, Box<dyn Error>> {
     match self.0.parse(text) {
       Ok(atom) => Ok(termify_atom(atom)),
-      Err(())   => { Err(Box::new(simple_error!("Parse failed.") ))}
+      Err(()) => Err(Box::new(simple_error!("Parse failed."))),
     }
-
-
   }
 }
 
 
 fn is_greek_letter(s: char) -> bool {
   unicode_blocks::ANCIENT_GREEK_MUSICAL_NOTATION.contains(s)
-  || unicode_blocks::ANCIENT_GREEK_NUMBERS.contains(s)
-  || unicode_blocks::GREEK_AND_COPTIC.contains(s)
-  || unicode_blocks::GREEK_EXTENDED.contains(s)
-  || unicode_blocks::PHONETIC_EXTENSIONS.contains(s)
-  || [
-        0x1DBF, // MODIFIER LETTER SMALL THETA
-        0x2126, // OHM SIGN
-        0xAB65, // GREEK LETTER SMALL CAPITAL OMEGA
-        0x101A0 // GREEK SYMBOL TAU RHO
-     ].contains(&(s as i32))
+    || unicode_blocks::ANCIENT_GREEK_NUMBERS.contains(s)
+    || unicode_blocks::GREEK_AND_COPTIC.contains(s)
+    || unicode_blocks::GREEK_EXTENDED.contains(s)
+    || unicode_blocks::PHONETIC_EXTENSIONS.contains(s)
+    || [
+      0x1DBF,  // MODIFIER LETTER SMALL THETA
+      0x2126,  // OHM SIGN
+      0xAB65,  // GREEK LETTER SMALL CAPITAL OMEGA
+      0x101A0, // GREEK SYMBOL TAU RHO
+    ]
+    .contains(&(s as i32))
 }
 
 fn termify_atom(atom: Atom) -> RcTerm {
   // let term: RcTerm = // the following match
   match atom {
-        Atom::String(_)
-        | Atom::Integer(_)
-        | Atom::Real(_) => {
-          // No literals implemented for this simple matching.
-          unimplemented!("Literals are not implemented.");
-        }
+    Atom::String(_) | Atom::Integer(_) | Atom::Real(_) => {
+      // No literals implemented for this simple matching.
+      unimplemented!("Literals are not implemented.");
+    }
 
-        Atom::Symbol(name) => {
-          let (is_variable, symbol) = name_to_symbol(name, 0);
+    Atom::Symbol(name) => {
+      let (is_variable, symbol) = name_to_symbol(name, 0);
 
-          // Variable
-          if is_variable {
-            rc_cell!(VariableTerm::new(name, symbol))
-          }
-
-          // Symbol (nonvariable)
-          else {
-            rc_cell!(FreeTerm::new(symbol))
-          }
-        }
-
-        Atom::SExpression(children) => {
-          let mut child_iter = Rc::into_inner(children).unwrap().into_iter();
-          let head           = child_iter.next().unwrap();
-          // Destructure
-          if let Atom::Symbol(name) = head {
-            let rest  = child_iter.map(|a| termify_atom(a) ).collect::<Vec<_>>();
-            let arity = rest.len() as u32;
-
-            // ToDo: How do I represent a "function variable"?
-            let (_is_variable, symbol) = name_to_symbol(name, arity);
-            rc_cell!(FreeTerm::with_args(symbol, rest))
-          } else {
-            unreachable!("Could not destructure head as a symbol. This is a bug.");
-          }
-        }
+      // Variable
+      if is_variable {
+        rc_cell!(VariableTerm::new(name, symbol))
       }
+      // Symbol (nonvariable)
+      else {
+        rc_cell!(FreeTerm::new(symbol))
+      }
+    }
+
+    Atom::SExpression(children) => {
+      let mut child_iter = Rc::into_inner(children).unwrap().into_iter();
+      let head = child_iter.next().unwrap();
+      // Destructure
+      if let Atom::Symbol(name) = head {
+        let rest = child_iter.map(|a| termify_atom(a)).collect::<Vec<_>>();
+        let arity = rest.len() as u32;
+
+        // ToDo: How do I represent a "function variable"?
+        let (_is_variable, symbol) = name_to_symbol(name, arity);
+        rc_cell!(FreeTerm::with_args(symbol, rest))
+      } else {
+        unreachable!("Could not destructure head as a symbol. This is a bug.");
+      }
+    }
+  }
 }
 
 
@@ -115,14 +113,14 @@ fn name_to_symbol(name: IString, arity: u32) -> (bool, RcSymbol) {
   if first_char.is_ascii_uppercase() || is_greek_letter(first_char) {
     // A variable
     (true, Rc::new(VariableSymbol::new(IString::from(name))))
-  }
-  else {
+  } else {
     // Nonvariable symbol
-    (false, Rc::new(FreeSymbol::new( IString::from(name), arity, false, Strategy::default() )))
+    (
+      false,
+      Rc::new(FreeSymbol::new(IString::from(name), arity, false, Strategy::default())),
+    )
   }
 }
-
-
 
 
 #[cfg(test)]
@@ -147,5 +145,4 @@ mod tests {
     let dag = term.borrow_mut().make_dag();
     println!("DAG: {}", dag.borrow());
   }
-
 }

@@ -1,5 +1,8 @@
-use std::fmt::{Display, Formatter, write};
-use std::ops::{BitOr, BitOrAssign};
+use std::{
+  fmt::{write, Display, Formatter},
+  ops::{BitOr, BitOrAssign},
+};
+
 use crate::core::format::{FormatStyle, Formattable};
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -17,35 +20,33 @@ pub enum PreEquationAttribute {
 impl Display for PreEquationAttribute {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
-
       PreEquationAttribute::Compiled => {
-          write!(f, "Compiled")
-      },
+        write!(f, "Compiled")
+      }
 
       PreEquationAttribute::NonExecute => {
         write!(f, "NonExecute")
-      },
+      }
 
       PreEquationAttribute::Otherwise => {
         write!(f, "Otherwise")
-      },
+      }
 
       PreEquationAttribute::Variant => {
         write!(f, "Variant")
-      },
+      }
 
       PreEquationAttribute::Print => {
         write!(f, "Print")
-      },
+      }
 
       PreEquationAttribute::Narrowing => {
         write!(f, "Narrowing")
-      },
+      }
 
       PreEquationAttribute::Bad => {
         write!(f, "Bad")
-      },
-
+      }
     }
   }
 }
@@ -88,6 +89,7 @@ impl From<PreEquationAttribute> for PreEquationAttributes {
 
 impl BitOr for PreEquationAttributes {
   type Output = PreEquationAttributes;
+
   #[inline(always)]
   fn bitor(self, rhs: Self) -> Self::Output {
     PreEquationAttributes(self.0 | rhs.0)
@@ -96,6 +98,7 @@ impl BitOr for PreEquationAttributes {
 
 impl BitOr<PreEquationAttribute> for PreEquationAttributes {
   type Output = PreEquationAttributes;
+
   #[inline(always)]
   fn bitor(self, rhs: PreEquationAttribute) -> Self::Output {
     PreEquationAttributes(self.0 | (1 << (rhs as u8)))

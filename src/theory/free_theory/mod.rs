@@ -7,57 +7,43 @@ The free theory: Functions that are not assumed to have additional structure (as
 mod automaton;
 mod dag_node;
 mod free_net;
-mod term;
 mod remainder;
 mod symbol;
+mod term;
 
 use std::cell::RefCell;
 
 pub use automaton::{FreeLHSAutomaton, FreeRHSAutomaton};
 pub use dag_node::{FreeDagNode, RcFreeDagNode};
 pub use free_net::{FreeNet, PatternSet, RcFreeNet};
-pub use remainder::{FreeRemainder, RcFreeRemainder, FreeRemainderList};
+pub use remainder::{FreeRemainder, FreeRemainderList, RcFreeRemainder};
 pub use symbol::{FreeSymbol, RcFreeSymbol};
 pub use term::{FreeTerm, RcFreeTerm};
 
-use crate::{
-  core::sort::RcSort,
-  theory::variable::RcVariableTerm,
-};
-
-use super::{
-  LHSAutomaton,
-  RcLHSAutomaton,
-  RcTerm,
-  Term,
-};
+use super::{LHSAutomaton, RcLHSAutomaton, RcTerm, Term};
+use crate::{core::sort::RcSort, theory::variable::RcVariableTerm};
 
 
 pub type FreeOccurrences = Vec<FreeOccurrence>;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FreeOccurrence {
-  position : i32,
+  position:  i32,
   arg_index: i32,
-  term     : *mut dyn Term
+  term:      *mut dyn Term,
 }
 
 impl FreeOccurrence {
-  pub fn new(
-    position : i32,
-    arg_index: i32,
-    term     : *mut dyn Term
-  ) -> Self {
+  pub fn new(position: i32, arg_index: i32, term: *mut dyn Term) -> Self {
     FreeOccurrence {
       position,
       arg_index,
-      term
+      term,
     }
   }
 
-
   pub fn dereference_term<T: 'static>(&self) -> &mut T {
-    let term: &mut dyn Term = unsafe{ &mut *self.term };
+    let term: &mut dyn Term = unsafe { &mut *self.term };
 
     if let Some(term) = term.as_any_mut().downcast_mut::<T>() {
       term
@@ -66,44 +52,43 @@ impl FreeOccurrence {
     }
   }
 
-
   pub fn try_dereference_term<T: 'static>(&self) -> Option<&mut T> {
-    let term: &mut dyn Term = unsafe{ &mut *self.term };
+    let term: &mut dyn Term = unsafe { &mut *self.term };
     term.as_any_mut().downcast_mut::<T>()
   }
 
   pub fn term(&self) -> &mut dyn Term {
-    unsafe{ &mut *self.term }
+    unsafe { &mut *self.term }
   }
 }
 
 // These structs are specific to the free theory. The ACU theory has its own version.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FreeVariable {
-  position : i32,
+  position:  i32,
   arg_index: i32,
   var_index: i32,
-  sort     : RcSort,
+  sort:      RcSort,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct BoundVariable {
-  position : i32,
+  position:  i32,
   arg_index: i32,
   var_index: i32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct GroundAlien {
-  position : i32,
+  position:  i32,
   arg_index: i32,
-  alien    : *mut dyn Term,
+  alien:     *mut dyn Term,
 }
 
 
 impl GroundAlien {
   pub fn dereference_term<T: 'static>(&self) -> &mut T {
-    let term: &mut dyn Term = unsafe{ &mut *self.alien };
+    let term: &mut dyn Term = unsafe { &mut *self.alien };
 
     if let Some(term) = term.as_any_mut().downcast_mut::<T>() {
       term
@@ -116,8 +101,7 @@ impl GroundAlien {
 
 #[derive(Clone, PartialEq)]
 pub struct NonGroundAlien {
-  position  : i32,
-  arg_index : i32,
-  automaton : RcLHSAutomaton //RefCell<dyn LHSAutomaton>,
+  position:  i32,
+  arg_index: i32,
+  automaton: RcLHSAutomaton, //RefCell<dyn LHSAutomaton>,
 }
-

@@ -1,13 +1,7 @@
 use crate::{
   abstractions::RcCell,
-  core::{
-    VariableInfo,
-    substitution::Substitution
-  },
-  theory::{
-    dag_node::MaybeDagNode,
-    RcDagNode
-  },
+  core::{substitution::Substitution, VariableInfo},
+  theory::{dag_node::MaybeDagNode, RcDagNode},
 };
 
 

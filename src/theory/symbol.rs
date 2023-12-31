@@ -32,35 +32,21 @@ use std::{
   fmt::{Debug, Display, Formatter},
   rc::Rc,
 };
-use tiny_logger::{Channel, log};
+
+use tiny_logger::{log, Channel};
 
 use crate::{
-  abstractions::{
-    Set,
-    IString,
-  },
-  theory::{
-    RcDagNode,
-    RcTerm,
-    MaybeSubproblem
-  },
+  abstractions::{IString, Set},
   core::{
-    module::{ModuleItem, WeakModule},
     format::{FormatStyle, Formattable},
-    sort::{SortTable},
+    interpreter::module::item::ModuleItem,
+    module::WeakModule,
+    pre_equation::{sort_constraint_table::SortConstraintTable, PreEquationKind, RcPreEquation},
+    rewrite_context::RewritingContext,
+    sort::SortTable,
     Strategy,
-    pre_equation::{
-      sort_constraint_table::SortConstraintTable,
-      PreEquation,
-      PreEquationKind,
-      RcPreEquation
-    },
-    rewrite_context::{
-      ContextAttribute,
-      RewritingContext,
-      trace::trace_status
-    }
   },
+  theory::{MaybeSubproblem, RcDagNode, RcTerm},
   NONE,
   UNDEFINED,
 };
@@ -82,12 +68,12 @@ pub struct SymbolMembers {
   pub name: IString,
 
   /// `Symbol` members
-  pub hash_value        : u32, // Unique integer for comparing symbols, also called order.
+  pub hash_value:        u32, // Unique integer for comparing symbols, also called order.
   // ToDo: Can the `IString` value be used as the `hash_value`?
-  pub unique_sort_index : i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
-  pub match_index       : u32,       // For fast matching
-  pub arity             : u32,
-  pub memo_flag         : bool,
+  pub unique_sort_index: i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
+  pub match_index:       u32, // For fast matching
+  pub arity:             u32,
+  pub memo_flag:         bool,
 
   /// `SortConstraintTable` members.
   /// It is Maude's Symbol superclass, but we use composition instead.
@@ -98,32 +84,31 @@ pub struct SymbolMembers {
 
   // `ModuleItem`
   pub(crate) index_within_parent_module: i32,
-  pub(crate) parent_module             : WeakModule,
+  pub(crate) parent_module:              WeakModule,
 
   // `Strategy`
   pub(crate) strategy: Strategy,
 
   // `EquationTable`
-  equations: Vec<RcPreEquation>
+  equations: Vec<RcPreEquation>,
 }
 
 impl SymbolMembers {
   pub fn new(name: IString, arity: u32, memo_flag: bool) -> SymbolMembers {
-    let mut new_symbol =
-      SymbolMembers{
-        name,
-        hash_value       : 0,
-        unique_sort_index: UNDEFINED,
-        match_index      : 0,
-        arity,
-        memo_flag,
-        sort_constraint_table: Default::default(),
-        sort_table           : Default::default(),
-        index_within_parent_module: NONE,
-        parent_module        : Default::default(),
-        strategy             : Strategy::default(),
-        equations: vec![],
-      };
+    let mut new_symbol = SymbolMembers {
+      name,
+      hash_value: 0,
+      unique_sort_index: UNDEFINED,
+      match_index: 0,
+      arity,
+      memo_flag,
+      sort_constraint_table: Default::default(),
+      sort_table: Default::default(),
+      index_within_parent_module: NONE,
+      parent_module: Default::default(),
+      strategy: Strategy::default(),
+      equations: vec![],
+    };
     // The only time the hash is computed.
     new_symbol.hash_value = new_symbol.compute_hash();
 
@@ -147,25 +132,29 @@ impl SymbolMembers {
   fn apply_replace(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
     for eq in &self.equations {
       // Destructure the equation
-      if let
-          PreEquationKind::Equation {
-            rhs_term,
-            ref mut rhs_builder,
-            fast_variable_count
-          }  = &eq.borrow().kind
+      if let PreEquationKind::Equation {
+        rhs_term,
+        ref mut rhs_builder,
+        fast_variable_count,
+      } = &eq.borrow().kind
       {
         if *fast_variable_count >= 0 {
           // Fast case
           context.substitution.clear_first_n(*fast_variable_count as usize);
           if let Some(lhs_automaton) = &eq.borrow().lhs_automaton {
-            if let (true, sp) = lhs_automaton.borrow_mut().match_(subject.clone(), &mut context.substitution) {
+            if let (true, sp) = lhs_automaton
+              .borrow_mut()
+              .match_(subject.clone(), &mut context.substitution)
+            {
               if sp.is_some() || context.trace_status() {
                 self.apply_replace_slow_case(subject.clone(), eq.clone(), sp, context);
               }
-              if /*extension_info.is_none() || extension_info.matched_whole()*/ true {
-                rhs_builder.replace(subject.clone(), &mut context.substitution); // Implement get_rhs_builder and replace methods
-              }
-              else {
+              if
+              /* extension_info.is_none() || extension_info.matched_whole() */
+              true {
+                rhs_builder.replace(subject.clone(), &mut context.substitution); // Implement get_rhs_builder and
+                                                                                 // replace methods
+              } else {
                 // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
                 subject.borrow_mut().partial_replace(
                   // ToDo: Implement get_rhs_builder and construct methods
@@ -178,9 +167,10 @@ impl SymbolMembers {
               // Memory::ok_to_collect_garbage();
               return true;
             }
-          } else { unreachable!("LHS automaton expected. This is a bug.")}
-        }
-        else {
+          } else {
+            unreachable!("LHS automaton expected. This is a bug.")
+          }
+        } else {
           // General case
           let nr_variables = eq.borrow().variable_info.protected_variable_count();
           context.clear(nr_variables);
@@ -190,18 +180,15 @@ impl SymbolMembers {
               context,
               // extension_info,
             ) {
-              self.apply_replace_slow_case(subject.clone(), eq, sp, context, /*extension_info*/);
+              self.apply_replace_slow_case(subject.clone(), eq, sp, context /* extension_info */);
             }
           }
           context.finished();
           // MemoryCell::ok_to_collect_garbage(); // Implement ok_to_collect_garbage
         }
-
-
       } else {
         unreachable!("Destructured a nonequation as an equation. This is a bug.");
       };
-
     }
     false
   }
@@ -212,9 +199,8 @@ impl SymbolMembers {
     eq: RcPreEquation,
     sp: MaybeSubproblem,
     context: &mut RewritingContext,
-    /*extension_info: &mut ExtensionInfo,*/
-  ) -> bool
-  {
+    /* extension_info: &mut ExtensionInfo, */
+  ) -> bool {
     #[cfg(debug_assertions)]
     log(
       Channel::Debug,
@@ -223,7 +209,8 @@ impl SymbolMembers {
         "EquationTable::applyReplace() slowCase:\nsubject = {}\neq = {}",
         subject.borrow(),
         eq.borrow().repr(FormatStyle::Simple)
-      ).as_str()
+      )
+      .as_str(),
     );
 
     if sp.is_none() || sp.unwrap().solve(true, context) {
@@ -237,16 +224,16 @@ impl SymbolMembers {
           }
         }
         // Destructure the equation
-        if let
-            PreEquationKind::Equation {
-              rhs_term,
-              ref mut rhs_builder,
-              fast_variable_count
-            }  = &eq.borrow().kind
+        if let PreEquationKind::Equation {
+          rhs_term,
+          ref mut rhs_builder,
+          fast_variable_count,
+        } = &eq.borrow().kind
         {
-
           // ToDo: Implement extension_info
-          if /*extension_info.is_none() || extension_info.unwrap().matched_whole()*/ true {
+          if
+          /* extension_info.is_none() || extension_info.unwrap().matched_whole() */
+          true {
             rhs_builder.replace(subject.clone(), &mut context.substitution);
           } else {
             // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
@@ -263,20 +250,15 @@ impl SymbolMembers {
           context.finished();
           // MemoryCell::ok_to_collect_garbage(); // Implement ok_to_collect_garbage if necessary
           return true;
-
         }
-
-
       }
     }
     false
-
   }
   // endregion EquationTable methods
 }
 
 pub trait Symbol {
-
   // region Member Getters and Setters
   /// Trait level access to members for shared implementation
   fn symbol_members(&self) -> &SymbolMembers;
@@ -350,7 +332,9 @@ pub trait Symbol {
   fn as_any(&self) -> &dyn Any;
 
   #[inline(always)]
-  fn is_variable(&self) -> bool { false }
+  fn is_variable(&self) -> bool {
+    false
+  }
 
   #[inline(always)]
   fn is_memoized(&self) -> bool {
@@ -358,7 +342,6 @@ pub trait Symbol {
   }
 
   fn rewrite(&mut self, subject: RcDagNode, context: &mut RewritingContext) -> bool;
-
 }
 
 //  region Order and Equality impls
@@ -390,14 +373,14 @@ impl PartialEq for dyn Symbol {
 
 // Every `Symbol` is a `ModuleItem`
 impl ModuleItem for dyn Symbol {
-#[inline(always)]
-fn get_index_within_module(&self) -> i32 {
-  self.symbol_members().index_within_parent_module
-}
+  #[inline(always)]
+  fn get_index_within_module(&self) -> i32 {
+    self.symbol_members().index_within_parent_module
+  }
 
   #[inline(always)]
   fn set_module_information(&mut self, module: WeakModule, index_within_module: i32) {
-    self.symbol_members_mut().parent_module       = module;
+    self.symbol_members_mut().parent_module = module;
     self.symbol_members_mut().index_within_parent_module = index_within_module;
   }
 
@@ -430,4 +413,3 @@ pub trait BinarySymbol: Symbol {
   fn get_identity(&self) -> Option<RcTerm>;
   fn get_identity_dag(&self) -> Option<RcDagNode>;
 }
-

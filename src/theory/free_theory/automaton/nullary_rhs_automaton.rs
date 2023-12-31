@@ -4,39 +4,30 @@ A RHS automaton specialized for the zero argument case.
 
 */
 
-use std::{
-  any::Any,
-  cell::RefCell,
-  rc::Rc
-};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use crate::{
   abstractions::RcCell,
-  core::{
-    substitution::Substitution,
-    VariableInfo,
-  },
+  core::{substitution::Substitution, VariableInfo},
   rc_cell,
   theory::{
     dag_node::MaybeDagNode,
+    free_theory::{automaton::FreeRHSAutomatonInstruction, FreeDagNode},
     DagNode,
-    free_theory::automaton::FreeRHSAutomatonInstruction,
-    free_theory::FreeDagNode,
+    RHSAutomaton,
     RcDagNode,
     RcSymbol,
-    RHSAutomaton,
   },
 };
 
 #[derive(Default)]
 pub struct FreeNullaryRHSAutomaton {
-  symbol: Option<RcSymbol>,
-  destination: i32,
-  instructions: Vec<FreeRHSAutomatonInstruction>
+  symbol:       Option<RcSymbol>,
+  destination:  i32,
+  instructions: Vec<FreeRHSAutomatonInstruction>,
 }
 
 impl RHSAutomaton for FreeNullaryRHSAutomaton {
-
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -68,12 +59,11 @@ impl RHSAutomaton for FreeNullaryRHSAutomaton {
   }
 
   fn replace(&mut self, old: RcDagNode, _matcher: &mut Substitution) {
-    let new_dag_node: FreeDagNode =  FreeDagNode::new(self.symbol.unwrap().clone());
-    if let Some(old_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>(){
+    let new_dag_node: FreeDagNode = FreeDagNode::new(self.symbol.unwrap().clone());
+    if let Some(old_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>() {
       let _ = std::mem::replace(old_node, new_dag_node);
-    } else{
+    } else {
       unreachable!("Attempted to swap non free dag node for free dag node. This is a bug.");
     }
   }
-
 }

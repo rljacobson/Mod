@@ -6,35 +6,35 @@ and fast look-ups can be done using the index.
 */
 
 use std::{
-  collections::{
-    HashMap,
-    hash_map::Entry
-  },
   borrow::Borrow,
-  hash::{
-    BuildHasher,
-    Hash,
-    Hasher
-  },
+  collections::{hash_map::Entry, HashMap},
+  hash::{BuildHasher, Hash, Hasher},
   rc::Rc,
 };
 
-use crate::{
-  abstractions::FastHasherBuilder,
-};
+use crate::abstractions::FastHasherBuilder;
 
 /// Similar to a HashSet, except an index equal to original insertion order is assigned to each
 /// element, and fast look-ups can be done using the index.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct IndexedHashSet<T> {
-  inner: HashMap<u64, (T, usize), FastHasherBuilder>,
-  hashes: Vec<u64>
+  inner:  HashMap<u64, (T, usize), FastHasherBuilder>,
+  hashes: Vec<u64>,
+}
+
+impl<T> Default for IndexedHashSet<T> {
+  fn default() -> Self {
+    IndexedHashSet {
+      inner: Default::default(),
+      hashes: vec![],
+    }
+  }
 }
 
 impl<T> IndexedHashSet<T>
-  where T: Clone + Hash
+where
+  T: Clone + Hash,
 {
-
   #[inline(always)]
   pub fn new() -> Self {
     Self::default()
@@ -50,7 +50,6 @@ impl<T> IndexedHashSet<T>
     let key = fast_hasher.finish();
     let mut entry = self.inner.entry(key);
     match entry {
-
       Entry::Vacant(vacant_entry) => {
         let index = self.hashes.len();
 
@@ -65,7 +64,6 @@ impl<T> IndexedHashSet<T>
         (value, *idx)
       }
     }
-
   }
 
   /// Inserts the value into the set if it is not already present, returning true if the value was not already present.
@@ -78,7 +76,6 @@ impl<T> IndexedHashSet<T>
     let mut entry = self.inner.entry(key);
 
     match entry {
-
       Entry::Vacant(vacant_entry) => {
         let index = self.hashes.len();
         self.hashes.push(key);
@@ -91,9 +88,7 @@ impl<T> IndexedHashSet<T>
         let (found, idx): &(T, usize) = occupied_entry.get();
         (found.clone(), *idx)
       }
-
     } // end match
-
   }
 
   /// Fetches the value from the set, returning `None` if it is not present.
@@ -112,7 +107,6 @@ impl<T> IndexedHashSet<T>
     }
   }
 
-
   #[inline(always)]
   fn compute_hash(&self, value: &T) -> u64 {
     // TODO: What is the best way to do this? Use `self.inner.hasher()`? Call `value.hash(..)` or
@@ -125,23 +119,23 @@ impl<T> IndexedHashSet<T>
 }
 
 // In this impl, `T = Rc<U>`
-impl<U> IndexedHashSet<Rc<U>> {
-
-  pub fn contains<Q>(&self, value: &Q) -> bool
-    where U: Borrow<Q>,
-          Q: Hash + Eq + ?Sized
+impl<U: Hash> IndexedHashSet<Rc<U>> {
+  pub fn contains(&self, value: Rc<U>) -> bool
+  // where
+  //   U: Borrow<Q> + Hash,
+    // Q: Hash + Eq + ?Sized,
   {
-    let key = self.compute_hash(value);
+    let key = self.compute_hash(&value);
     self.inner.contains_key(&key)
   }
 
   /// Finds the provided (borrowed) term, if it is in the set.
-  pub fn find<Q>(&self, value: &Q) -> Option<(Rc<U>, usize)>
-    where U: Borrow<Q>,
-          Q: Hash + Eq + ?Sized
+  pub fn find(&self, value: Rc<U>) -> Option<(Rc<U>, usize)>
+  // where
+  //   U: Borrow<Q>,
+  //   Q: Hash + Eq + ?Sized,
   {
-    let key = self.compute_hash(value);
+    let key = self.compute_hash(&value);
     self.find_for_hash(key)
   }
-
 }

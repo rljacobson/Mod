@@ -1,19 +1,12 @@
 use crate::{
-  core::{
-    sort::RcSort,
-    substitution::Substitution
-  },
-  theory::{
-    LHSAutomaton,
-    MaybeSubproblem,
-    RcDagNode
-  },
+  core::{sort::RcSort, substitution::Substitution},
+  theory::{LHSAutomaton, MaybeSubproblem, RcDagNode},
 };
 
 pub struct VariableLHSAutomaton {
   index: i32, // -1 = None
-  sort : RcSort,
-  copy_to_avoid_overwriting: bool
+  sort: RcSort,
+  copy_to_avoid_overwriting: bool,
 }
 
 impl VariableLHSAutomaton {
@@ -21,7 +14,7 @@ impl VariableLHSAutomaton {
     VariableLHSAutomaton {
       index,
       sort,
-      copy_to_avoid_overwriting
+      copy_to_avoid_overwriting,
     }
   }
 }
@@ -34,7 +27,7 @@ impl LHSAutomaton for VariableLHSAutomaton {
       self.index,
       self.sort.clone(),
       self.copy_to_avoid_overwriting,
-      solution
+      solution,
     )
   }
 }

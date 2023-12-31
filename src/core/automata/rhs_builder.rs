@@ -7,30 +7,23 @@
 
 use crate::{
   core::{
-    substitution::Substitution,
-    VariableInfo
+    substitution::{MaybeDagNode, Substitution},
+    VariableInfo,
   },
-  theory::{
-    DagNode,
-    RHSAutomaton,
-    RcRHSAutomaton,
-    RcDagNode
-  }
+  theory::{BxRHSAutomaton, DagNode, RHSAutomaton, RcDagNode, RcRHSAutomaton},
 };
-use crate::core::substitution::MaybeDagNode;
-use crate::theory::BxRHSAutomaton;
 
 #[derive(Default)]
 pub struct RHSBuilder {
   // TODO: I think `RHSAutomaton` are single owner. Use `BxRHSAutomaton`.
-  automata: Vec<BxRHSAutomaton>,
+  automata:       Vec<BxRHSAutomaton>,
   last_automaton: Option<BxRHSAutomaton>,
 }
 
 impl RHSBuilder {
   pub fn new() -> RHSBuilder {
     RHSBuilder {
-      automata: Vec::new(),
+      automata:       Vec::new(),
       last_automaton: None,
     }
   }
@@ -54,20 +47,21 @@ impl RHSBuilder {
       last_automaton.remap_indices(variable_info);
     }
   }
+
   // TODO: `record_info` requires `StackMachineRhsCompiler` to be implemented.
-/*
-  pub fn record_info(&self, compiler: &mut StackMachineRhsCompiler) -> bool {
-    for automaton in self.automata.iter() {
-      if !automaton.record_info(compiler) {
-        return false;
+  /*
+    pub fn record_info(&self, compiler: &mut StackMachineRhsCompiler) -> bool {
+      for automaton in self.automata.iter() {
+        if !automaton.record_info(compiler) {
+          return false;
+        }
+      }
+      match &self.last_automaton {
+        Some(last_automaton) => last_automaton.record_info(compiler),
+        None => true,
       }
     }
-    match &self.last_automaton {
-      Some(last_automaton) => last_automaton.record_info(compiler),
-      None => true,
-    }
-  }
-*/
+  */
 
   pub fn construct(&self, matcher: &mut Substitution) -> MaybeDagNode {
     for automaton in self.automata.iter() {
@@ -97,5 +91,4 @@ impl RHSBuilder {
       last_automaton.replace(old, matcher);
     }
   }
-
 }

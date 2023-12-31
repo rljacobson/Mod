@@ -15,7 +15,6 @@ pub(crate) static DEFAULT_PROMPT: &'static str = "Maude> ";
 #[derive(Debug)]
 pub struct TUI {
   prompt_format: String,
-
   // std_in : Stdin,
   // std_out: Stdout,
   // std_err: Stderr,
@@ -27,15 +26,15 @@ impl TUI {
     self.prompt_format = prompt;
   }
 
-  pub fn command_loop(&mut self) -> ParseResult{
+  pub fn command_loop(&mut self) -> ParseResult {
     ParseResult::Resume
   }
 }
 
 impl Default for TUI {
   fn default() -> Self {
-    TUI{
-      prompt_format: DEFAULT_PROMPT.to_string()
+    TUI {
+      prompt_format: DEFAULT_PROMPT.to_string(),
     }
   }
 }

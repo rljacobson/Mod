@@ -1,15 +1,13 @@
-use std::{
-  any::Any,
-  rc::Rc
-};
+use std::{any::Any, rc::Rc};
 
 use crate::{
   abstractions::IString,
-  core::sort::{OpDeclaration, RcSort},
-  theory::{Symbol, SymbolMembers},
+  core::{
+    rewrite_context::RewritingContext,
+    sort::{OpDeclaration, RcSort},
+  },
+  theory::{RcDagNode, Symbol, SymbolMembers},
 };
-use crate::core::rewrite_context::RewritingContext;
-use crate::theory::RcDagNode;
 
 
 pub type RcVariableSymbol = Rc<VariableSymbol>;
@@ -17,12 +15,11 @@ pub type RcVariableSymbol = Rc<VariableSymbol>;
 pub struct VariableSymbol {
   // `SymbolMembers`
   symbol_members: SymbolMembers,
-
 }
 
 impl VariableSymbol {
   pub fn new(name: IString) -> VariableSymbol {
-    VariableSymbol{
+    VariableSymbol {
       symbol_members: SymbolMembers::new(name, 0, false),
     }
   }
@@ -36,18 +33,16 @@ impl VariableSymbol {
 
     v.first().unwrap().clone()
   }
-
 }
 
 impl Symbol for VariableSymbol {
-
   #[inline(always)]
   fn symbol_members(&self) -> &SymbolMembers {
     &self.symbol_members
   }
 
   #[inline(always)]
-  fn symbol_members_mut (&mut self) -> &mut SymbolMembers{
+  fn symbol_members_mut(&mut self) -> &mut SymbolMembers {
     &mut self.symbol_members
   }
 
@@ -65,4 +60,3 @@ impl Symbol for VariableSymbol {
     self.apply_replace(subject, context)
   }
 }
-

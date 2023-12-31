@@ -3,26 +3,25 @@
 #![feature(assert_matches)]
 #![allow(dead_code)]
 #![allow(non_snake_case)]
-pub mod core;
-pub mod theory;
 pub mod abstractions;
+pub mod core;
 pub mod parser;
+pub mod theory;
 
 // use Pratt::Parser;
 
 // Sentinel Values
 // ToDo: Do UNDEFINED the right way. Is this great? No. But it's convenient.
 const UNDEFINED: i32 = -1;
-const NONE     : i32 = -1;
-const ROOT_OK  : i32 = -2;
+const NONE: i32 = -1;
+const ROOT_OK: i32 = -2;
 
 #[cfg(test)]
 mod tests {
   use parser::Parser;
-  use crate::abstractions::NatSet;
-  use crate::core::VariableInfo;
-  use crate::theory::RcLHSAutomaton;
+
   use super::*;
+  use crate::{abstractions::NatSet, core::VariableInfo, theory::RcLHSAutomaton};
 
 
   #[test]
@@ -33,7 +32,7 @@ mod tests {
 
     let pattern = "f(α, β)";
     let pattern_term = match parser.parse(pattern) {
-      Ok(term)  => term,
+      Ok(term) => term,
       Err(_err) => {
         panic!("FAILED TO PARSE.");
       }
@@ -41,25 +40,20 @@ mod tests {
 
     let subject = "f(a, b)";
     let subject_term = match parser.parse(subject) {
-      Ok(term)  => term,
+      Ok(term) => term,
       Err(_err) => {
         panic!("FAILED TO PARSE.");
       }
     };
 
     println!("PATTERN: {}", pattern);
-    println!("TERM: {}"   , pattern_term.borrow());
+    println!("TERM: {}", pattern_term.borrow());
     println!("SUBJECT: {}", subject);
-    println!("TERM: {}"   , subject_term.borrow());
+    println!("TERM: {}", subject_term.borrow());
 
     let (_pattern_automata, _subproblem_likely): (RcLHSAutomaton, bool) =
-        pattern_term.borrow_mut()
-                    .compile_lhs(
-                      true,
-                      &VariableInfo::default(),
-                      &mut NatSet::default()
-                    );
-
-
+      pattern_term
+        .borrow_mut()
+        .compile_lhs(true, &VariableInfo::default(), &mut NatSet::default());
   }
 }

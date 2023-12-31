@@ -11,15 +11,14 @@ pounter_set->insert(*dagnode, dagnode->hash_value) gives __index__ ?
 
 use std::rc::Rc;
 
-use crate::abstractions::DagNodeHashSet;
-use crate::theory::RcDagNode;
+use crate::{abstractions::DagNodeHashSet, theory::RcDagNode};
 
 pub type RcMemoMap = Rc<MemoMap>;
 pub type BxMemoMap = Box<MemoMap>;
 
 #[derive(Default)]
 pub struct MemoMap {
-  dags: DagNodeHashSet,
+  dags:       DagNodeHashSet,
   /// Maps from-indices to to-indices
   to_indices: Vec<Option<i32>>,
 }

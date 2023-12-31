@@ -14,25 +14,16 @@ The `HashSet` is really just a thin wrapper around a `HashMap` (but using `Seman
 
 
 use std::{
-  collections::HashMap,
   borrow::Borrow,
-  hash::{
-    BuildHasher,
-    Hash,
-    Hasher
-  }
+  collections::{hash_map::Entry, HashMap},
+  hash::{BuildHasher, Hash, Hasher},
 };
-use std::collections::hash_map::Entry;
 
 use crate::{
-  abstractions::FastHasherBuilder,
-  theory::{
-    RcTerm,
-    RcDagNode
-  }
+  abstractions::{FastHasherBuilder, RcCell},
+  core::hash_cons_set::HashConsSet,
+  theory::{RcDagNode, RcTerm},
 };
-use crate::abstractions::RcCell;
-use crate::core::hash_cons_set::HashConsSet;
 
 pub type TermHashSet = HashSet<RcTerm>;
 pub type DagNodeHashSet = HashConsSet;
@@ -45,22 +36,22 @@ pub struct HashSet<T> {
   inner: HashMap<HashValueType, T, FastHasherBuilder>,
 }
 
-impl<T> Default for HashSet<T>{
+impl<T> Default for HashSet<T> {
   fn default() -> Self {
-    HashSet{
-      inner: HashMap::<HashValueType, T, FastHasherBuilder>::new()
+    HashSet {
+      inner: HashMap::default(),
     }
   }
 }
 
 impl<T> HashSet<T>
-    where T: Clone + Hash
+where
+  T: Clone + Hash,
 {
-
   #[inline(always)]
   pub fn new() -> Self {
     Self {
-      inner: HashMap::default()
+      inner: HashMap::default(),
     }
   }
 
@@ -84,9 +75,7 @@ impl<T> HashSet<T>
     let key = fast_hasher.finish();
 
     match self.inner.entry(key) {
-      Entry::Occupied(entry) => {
-        (entry.get().clone(), false)
-      }
+      Entry::Occupied(entry) => (entry.get().clone(), false),
       Entry::Vacant(entry) => {
         entry.insert(value.clone());
         (value, true)
@@ -102,11 +91,11 @@ impl<T> HashSet<T>
 }
 
 // In this impl, `T = Rc<U>`
-impl<U: ?Sized> HashSet<RcCell<U>>
-{
+impl<U: ?Sized> HashSet<RcCell<U>> {
   pub fn contains<Q>(&self, value: &Q) -> bool
-    where U: Borrow<Q>,
-          Q: Hash + Eq + ?Sized
+  where
+    U: Borrow<Q>,
+    Q: Hash + Eq + ?Sized,
   {
     // TODO: What is the best way to do this? Use `self.inner.hasher()`? Call `value.hash(..)` or
     //       `value.compute_hash()`? Also, should `compute_hash()` return a `u32` or `HashValueType`?
@@ -119,8 +108,9 @@ impl<U: ?Sized> HashSet<RcCell<U>>
 
   /// Finds the provided (borrowed) term, if it is in the set.
   pub fn find<Q>(&self, value: &Q) -> Option<(RcCell<U>, HashValueType)>
-    where U: Borrow<Q>,
-                 Q: Hash + Eq + ?Sized
+  where
+    U: Borrow<Q>,
+    Q: Hash + Eq + ?Sized,
   {
     let mut fast_hasher = self.inner.hasher().build_hasher();
     value.hash(&mut fast_hasher);

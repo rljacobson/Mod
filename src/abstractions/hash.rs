@@ -10,16 +10,18 @@ Maude:
  * The Term version is in symmetry with DagNode version.
 
  */
-use std::ops::{Mul, Shr, BitXor, Shl};
-use std::hash::{Hasher, BuildHasher};
-use std::num::Wrapping;
+use std::{
+  hash::{BuildHasher, Hasher},
+  num::Wrapping,
+  ops::{BitXor, Mul, Shl, Shr},
+};
 
 
 #[inline(always)]
 pub fn hash2<T>(v1: T, v2: T) -> T
-  where
-      T: Mul<Output = T> + Shr<u8, Output = T> + BitXor<Output = T> + Copy,
-      Wrapping<T>: Mul<Output = Wrapping<T>>
+where
+  T: Mul<Output = T> + Shr<u8, Output = T> + BitXor<Output = T> + Copy,
+  Wrapping<T>: Mul<Output = Wrapping<T>>,
 {
   let wv1 = Wrapping(v1);
   let wv1_squared = wv1 * wv1;
@@ -29,14 +31,14 @@ pub fn hash2<T>(v1: T, v2: T) -> T
 
 #[inline(always)]
 pub fn hash3<T>(v1: T, v2: T, v3: T) -> T
-  where
-      T: Mul<Output = T> + Shr<u8, Output = T> + BitXor<Output = T> + Copy,
-      Wrapping<T>: Mul<Output = Wrapping<T>>
+where
+  T: Mul<Output = T> + Shr<u8, Output = T> + BitXor<Output = T> + Copy,
+  Wrapping<T>: Mul<Output = Wrapping<T>>,
 {
-  let wv2   = Wrapping(v2);
-  let wv3   = Wrapping(v3);
+  let wv2 = Wrapping(v2);
+  let wv3 = Wrapping(v3);
   let wv2v3 = wv2 * wv3;
-  let v2v3  = wv2v3.0;
+  let v2v3 = wv2v3.0;
 
   hash2(v1, v2v3) // (v1 * v1) ^ (v1 >> 16) ^ (v2 * v3)
 }
@@ -51,9 +53,7 @@ pub struct FastHasher {
 impl FastHasher {
   #[inline(always)]
   pub fn new() -> Self {
-    FastHasher {
-      value: 0,
-    }
+    FastHasher { value: 0 }
   }
 }
 
@@ -79,23 +79,26 @@ impl Hasher for FastHasher {
   fn write_u32(&mut self, v: u32) {
     self.value = hash3(self.value, self.value, v as u64)
   }
+
   #[inline(always)]
   fn write_u64(&mut self, v: u64) {
     self.value = hash3(self.value, self.value, v)
   }
+
   #[inline(always)]
   fn write_usize(&mut self, v: usize) {
     self.value = hash3(self.value, self.value, v as u64)
   }
+
   #[inline(always)]
   fn write_i32(&mut self, v: i32) {
     self.value = hash3(self.value, self.value, v as u64)
   }
+
   #[inline(always)]
   fn write_i64(&mut self, v: i64) {
     self.value = hash3(self.value, self.value, v as u64)
   }
-
 }
 
 pub type FastHasherBuilder = FastHasher;
@@ -111,9 +114,12 @@ impl BuildHasher for FastHasher {
 
 #[cfg(test)]
 mod tests {
+  use std::{
+    hash::{Hash, Hasher},
+    num::Wrapping,
+  };
+
   use super::*;
-  use std::hash::{Hash, Hasher};
-  use std::num::Wrapping;
 
   #[test]
   fn test_hash2() {
@@ -142,7 +148,15 @@ mod tests {
     hasher.write(&[1, 2, 3, 4]);
     let v0 = 0u64;
     let v1 = 1u64 + 2u64 + 3u64 + 4u64;
-    let v2 = 0u64.shl(7u32).wrapping_add(1u64).shl(7u32).wrapping_add(2u64).shl(7u32).wrapping_add(3u64).shl(7u32).wrapping_add(4u64);
+    let v2 = 0u64
+      .shl(7u32)
+      .wrapping_add(1u64)
+      .shl(7u32)
+      .wrapping_add(2u64)
+      .shl(7u32)
+      .wrapping_add(3u64)
+      .shl(7u32)
+      .wrapping_add(4u64);
     let hash_result = hash3(v0, v1, v2);
     assert_eq!(hasher.finish(), hash_result);
 
@@ -175,7 +189,15 @@ mod tests {
 
     hasher.write(&[1, 2, 3, 4]);
     let v1 = 1u64 + 2u64 + 3u64 + 4u64;
-    let v2 = 0u64.shl(7u64).wrapping_add(1u64).shl(7u64).wrapping_add(2u64).shl(7u64).wrapping_add(3u64).shl(7u64).wrapping_add(4u64);
+    let v2 = 0u64
+      .shl(7u64)
+      .wrapping_add(1u64)
+      .shl(7u64)
+      .wrapping_add(2u64)
+      .shl(7u64)
+      .wrapping_add(3u64)
+      .shl(7u64)
+      .wrapping_add(4u64);
     assert_eq!(hasher.finish(), hash2(v1, v2));
 
     1u32.hash(&mut hasher);
@@ -238,5 +260,4 @@ mod tests {
 
     assert_ne!(hello_hash, world_hash);
   }
-
 }

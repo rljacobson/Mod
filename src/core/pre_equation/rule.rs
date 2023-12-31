@@ -4,44 +4,20 @@ A `Rule` is like an equation except that it is nondeterministic and the system i
 
 */
 
-use tiny_logger::{Channel, log};
+use tiny_logger::{log, Channel};
 use yansi::Paint;
 
 use crate::{
-  abstractions::{
-    IString,
-    NatSet
-  },
+  abstractions::{IString, NatSet},
   core::{
-    condition_fragment::{
-      Condition,
-      repr_condition
-    },
-    format::{
-      FormatStyle,
-      Formattable
-    },
+    condition_fragment::{repr_condition, Condition},
+    format::{FormatStyle, Formattable},
     interpreter::InterpreterAttribute,
-    pre_equation::{
-      PreEquation,
-      PreEquationAttribute,
-      PreEquationKind,
-      Rule
-    },
-    rewrite_context::{
-      ContextAttribute,
-      RewritingContext,
-    },
-    TermBag
+    pre_equation::{PreEquation, PreEquationAttribute, PreEquationKind, Rule},
+    rewrite_context::{ContextAttribute, RewritingContext},
+    TermBag,
   },
-  theory::{
-    index_variables,
-    LHSAutomaton,
-    RcDagNode,
-    RcLHSAutomaton,
-    RcTerm,
-    term_compiler::compile_top_rhs
-  },
+  theory::{index_variables, term_compiler::compile_top_rhs, LHSAutomaton, RcDagNode, RcLHSAutomaton, RcTerm},
   UNDEFINED,
 };
 
@@ -50,29 +26,29 @@ fn new(name: Option<IString>, lhs_term: RcTerm, rhs_term: RcTerm, condition: Con
   // assert!(rhs.is_some(), "null rhs");
   PreEquation {
     name,
-    attributes                : Default::default(),
+    attributes: Default::default(),
     lhs_term,
-    lhs_automaton             : None,
-    lhs_dag                   : None,
+    lhs_automaton: None,
+    lhs_dag: None,
     condition,
-    variable_info             : Default::default(),
+    variable_info: Default::default(),
     index_within_parent_module: UNDEFINED,
-    parent_module             : Default::default(),
-    kind                      : Rule {
-        rhs_term,
-        rhs_builder                : Default::default(),
-        non_extension_lhs_automaton: None,
-        extension_lhs_automaton    : None,
-      }
+    parent_module: Default::default(),
+    kind: Rule {
+      rhs_term,
+      rhs_builder: Default::default(),
+      non_extension_lhs_automaton: None,
+      extension_lhs_automaton: None,
+    },
   }
 }
 
 pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
-  if let Rule{
+  if let Rule {
     rhs_term,
     rhs_builder,
     non_extension_lhs_automaton,
-    extension_lhs_automaton
+    extension_lhs_automaton,
   } = &this.kind
   {
     rhs_term.borrow_mut().normalize(false);
@@ -116,25 +92,23 @@ pub(crate) fn compile(this: &mut PreEquation, compile_lhs: bool) {
   // to avoid having a condition reduce a lazy subterm.
   this.compile_build(&mut available_terms, !this.has_condition());
 
-  if let Rule {rhs_term, mut rhs_builder, ..} = &mut this.kind {
-
-
+  if let Rule {
+    rhs_term,
+    mut rhs_builder,
+    ..
+  } = &mut this.kind
+  {
     // HACK: we pessimize the compilation of unconditional rules to avoid
     // left->right subterm sharing that would break narrowing.
     if !this.has_condition() {
       let mut dummy = TermBag::new();
-      compile_top_rhs(
-        rhs_term.clone(),
-        &mut rhs_builder,
-        &mut this.variable_info,
-        &mut dummy
-      );
+      compile_top_rhs(rhs_term.clone(), &mut rhs_builder, &mut this.variable_info, &mut dummy);
     } else {
       compile_top_rhs(
         rhs_term.clone(),
         &mut rhs_builder,
         &mut this.variable_info,
-        &mut available_terms
+        &mut available_terms,
       ); // original code
     }
 
@@ -146,5 +120,7 @@ pub(crate) fn compile(this: &mut PreEquation, compile_lhs: bool) {
   // if we compile lhs again in get_non_ext_lhs_automaton() or get_ext_lhs_automaton()
   // it will be compiled to generate all matchers rather than just those
   // that differ on variables in the condition.
-  this.variable_info.add_condition_variables(this.lhs_term.borrow().occurs_below());
+  this
+    .variable_info
+    .add_condition_variables(this.lhs_term.borrow().occurs_below());
 }

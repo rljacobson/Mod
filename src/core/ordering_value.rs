@@ -16,17 +16,17 @@ use std::cmp::Ordering;
 #[repr(i8)]
 pub enum OrderingValue {
   Greater = 1,
-  Less = -2,
-  Equal = 0,
-  Unknown = -1
+  Less    = -2,
+  Equal   = 0,
+  Unknown = -1,
 }
 
 impl From<Ordering> for OrderingValue {
   fn from(value: Ordering) -> Self {
     match value {
-      Ordering::Less    => {OrderingValue::Less}
-      Ordering::Equal   => {OrderingValue::Equal}
-      Ordering::Greater => {OrderingValue::Greater}
+      Ordering::Less => OrderingValue::Less,
+      Ordering::Equal => OrderingValue::Equal,
+      Ordering::Greater => OrderingValue::Greater,
     }
   }
 }
@@ -45,7 +45,8 @@ impl From<i32> for OrderingValue {
 
 #[inline(always)]
 pub fn numeric_ordering<T>(value: T) -> Ordering
-  where T: Into<isize>
+where
+  T: Into<isize>,
 {
   let value: isize = value.into();
   if value > 0 {
@@ -59,7 +60,8 @@ pub fn numeric_ordering<T>(value: T) -> Ordering
 
 #[inline(always)]
 pub fn numeric_ordering_value<T>(value: T) -> OrderingValue
-  where T: Into<isize>
+where
+  T: Into<isize>,
 {
   let value: isize = value.into();
   if value > 0 {

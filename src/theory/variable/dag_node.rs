@@ -3,60 +3,46 @@
 Variables have very minimal DAG nodes.
 
 */
-use std::{
-  ops::Deref,
-  cmp::Ordering,
-  cell::RefCell,
-  any::Any,
-  rc::Rc
-};
+use std::{any::Any, cell::RefCell, cmp::Ordering, ops::Deref, rc::Rc};
 
 use crate::{
+  abstractions::{IString, RcCell},
+  core::{hash_cons_set::HashConsSet, RedexPosition},
+  rc_cell,
   theory::{
-    DagNode,
     dag_node_flags,
+    variable::{VariableSymbol, VariableTerm},
+    DagNode,
+    DagNodeFlag,
+    DagNodeFlags,
+    DagNodeMembers,
     NodeList,
+    RcDagNode,
     RcSymbol,
     RcTerm,
-    DagNodeFlags,
-    RcDagNode,
-    variable::{
-      VariableSymbol,
-      VariableTerm
-    },
-    DagNodeMembers,
-    DagNodeFlag
   },
-  abstractions::{IString, RcCell},
-  rc_cell,
-  core::RedexPosition,
 };
-use crate::core::hash_cons_set::HashConsSet;
 
 
 pub struct VariableDagNode {
   // Base DagNode Members
   pub members: DagNodeMembers,
-  pub name: IString,
-  pub index: i32,
+  pub name:    IString,
+  pub index:   i32,
 }
 
 impl VariableDagNode {
   pub fn new(symbol: RcSymbol, name: IString, index: i32) -> Self {
     let members = DagNodeMembers {
       top_symbol: symbol,
-      args      : NodeList::new(),
-      flags     : DagNodeFlags::default(),
+      args:       NodeList::new(),
+      flags:      DagNodeFlags::default(),
       sort_index: -1,
-      copied_rc : None,
-      hash      : 0,
+      copied_rc:  None,
+      hash:       0,
     };
 
-    VariableDagNode {
-      members,
-      name,
-      index
-    }
+    VariableDagNode { members, name, index }
   }
 }
 
@@ -82,7 +68,7 @@ impl DagNode for VariableDagNode {
   }
 
   fn compare_arguments(&self, other: &dyn DagNode) -> Ordering {
-    if let Some(other) = other.as_any().downcast_ref::<VariableDagNode>(){
+    if let Some(other) = other.as_any().downcast_ref::<VariableDagNode>() {
       self.name.cmp(&other.name)
     } else {
       Ordering::Less
@@ -102,7 +88,6 @@ impl DagNode for VariableDagNode {
   fn termify(&self) -> RcTerm {
     rc_cell!(VariableTerm::new(self.name.clone(), self.symbol()))
   }
-
 
   fn shallow_copy(&self) -> RcDagNode {
     // There are no args, so just make a new one.
@@ -128,21 +113,19 @@ impl DagNode for VariableDagNode {
     rc_cell!(VariableDagNode::new(self.symbol(), self.name, self.index))
   }
 
-
   fn overwrite_with_clone(&mut self, mut old: RcDagNode) {
-    if let Some(old_dag_node) = old.borrow_mut().as_any_mut().downcast_mut::<VariableDagNode>(){
+    if let Some(old_dag_node) = old.borrow_mut().as_any_mut().downcast_mut::<VariableDagNode>() {
       let mut fdg = VariableDagNode::new(self.symbol(), self.name.clone(), self.index);
       fdg.set_flags(
         self.flags()
-            | DagNodeFlag::Reduced
-            | DagNodeFlag::Unrewritable
-            | DagNodeFlag::Unstackable
-            | DagNodeFlag::Ground
+          | DagNodeFlag::Reduced
+          | DagNodeFlag::Unrewritable
+          | DagNodeFlag::Unstackable
+          | DagNodeFlag::Ground,
       );
 
       let _ = std::mem::replace(old_dag_node, fdg);
-    }
-    else {
+    } else {
       unreachable!("This execution path should be unreachable. This is a bug.")
     }
   }

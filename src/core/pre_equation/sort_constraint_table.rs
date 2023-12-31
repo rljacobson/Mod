@@ -1,27 +1,20 @@
-use std::assert_matches::assert_matches;
-use std::cmp::Ordering;
+use std::{assert_matches::assert_matches, cmp::Ordering};
 
-use tiny_logger::{Channel, log};
+use tiny_logger::{log, Channel};
 
+use super::{PreEquation as SortConstraint, PreEquationKind, RcPreEquation as RcSortConstraint};
 use crate::{
-  core::rewrite_context::RewritingContext,
-  theory::RcDagNode,
-};
-use crate::core::rewrite_context::RewriteType;
-use crate::core::rewrite_context::trace::trace_status;
-use crate::core::sort::{index_leq_sort, sort_leq_index};
-use crate::theory::{DagNode, Subproblem, RcSubproblem, MaybeSubproblem};
-
-use super::{
-  PreEquation as SortConstraint,
-  RcPreEquation as RcSortConstraint,
-  PreEquationKind,
+  core::{
+    rewrite_context::{trace::trace_status, RewriteType, RewritingContext},
+    sort::{index_leq_sort, sort_leq_index},
+  },
+  theory::{DagNode, MaybeSubproblem, RcDagNode, RcSubproblem, Subproblem},
 };
 
 #[derive(Default)]
 pub struct SortConstraintTable {
   constraints: Vec<Option<RcSortConstraint>>,
-  complete: bool,
+  complete:    bool,
 }
 
 impl SortConstraintTable {
@@ -51,7 +44,6 @@ impl SortConstraintTable {
     self.complete
   }
 
-
   // Sort constraints are sorted in the order: largest index (smallest sort) first
   fn sort_constraint_lt(lhs: &SortConstraint, rhs: &SortConstraint) -> Ordering {
     if let PreEquationKind::SortConstraint { sort: lhs_sort, .. } = &lhs.kind {
@@ -72,7 +64,7 @@ impl SortConstraintTable {
     // is itself affected by sort constraints. So we "comb" out usable sort
     // constraints in successive passes; this is inefficient but we expect the number
     // of sort constraints to be very small so it's not worth doing anything smarter.
-    self.complete = true;  // not really complete until we've finished, but pretend it is
+    self.complete = true; // not really complete until we've finished, but pretend it is
     let sort_constraint_count = self.constraints.len();
     if sort_constraint_count == 0 {
       return;
@@ -98,7 +90,9 @@ impl SortConstraintTable {
         break;
       }
     }
-    self.constraints.sort_by(|a, b| Self::sort_constraint_lt(a.unwrap().as_ref(), b.unwrap().as_ref()));
+    self
+      .constraints
+      .sort_by(|a, b| Self::sort_constraint_lt(a.unwrap().as_ref(), b.unwrap().as_ref()));
   }
 
   #[inline(always)]
@@ -110,10 +104,8 @@ impl SortConstraintTable {
 
   // Placeholder for the actual implementations of these methods
   fn accept_sort_constraint(&self, _sort_constraint: RcSortConstraint) -> bool {
-
     unimplemented!()
   }
-
 
   pub(crate) fn constrain_to_smaller_sort(&mut self, subject: RcDagNode, context: &mut RewritingContext) {
     if self.sort_constraint_free() {
@@ -129,7 +121,8 @@ impl SortConstraintTable {
         format!(
           "ignoring sort constraints for {} because context is limited",
           subject.borrow()
-        ).as_str()
+        )
+        .as_str(),
       );
       return;
     }
@@ -151,15 +144,16 @@ impl SortConstraintTable {
             return;
           }
 
-          if sort_leq_index(sort.as_ref(), current_sort_index) { // not equal because of previous test
+          if sort_leq_index(sort.as_ref(), current_sort_index) {
+            // not equal because of previous test
             let variable_count = sort_constraint.variable_info.protected_variable_count();
             context.substitution.clear_first_n(variable_count as usize);
 
-            if let (true, mut subproblem)
-                = sort_constraint.lhs_automaton
-                    .unwrap()
-                    .borrow_mut()
-                    .match_(subject.clone(), &mut context.substitution)
+            if let (true, mut subproblem) = sort_constraint
+              .lhs_automaton
+              .unwrap()
+              .borrow_mut()
+              .match_(subject.clone(), &mut context.substitution)
             {
               if subproblem.is_none() || subproblem.as_mut().unwrap().solve(true, context) {
                 // `subproblem` needs to be repackaged for `check_condition_simple`.
@@ -170,11 +164,15 @@ impl SortConstraintTable {
                 };
 
                 if !sort_constraint.has_condition()
-                    || sort_constraint.check_condition_simple(subject.clone(), context, subproblem)
+                  || sort_constraint.check_condition_simple(subject.clone(), context, subproblem)
                 {
                   subproblem.take(); // equivalent to delete sp in C++
                   if trace_status() {
-                    context.trace_pre_eq_application(Some(subject.clone()), Some(&*sort_constraint), RewriteType::Normal);
+                    context.trace_pre_eq_application(
+                      Some(subject.clone()),
+                      Some(&*sort_constraint),
+                      RewriteType::Normal,
+                    );
                     if context.trace_abort() {
                       context.finished();
                       return;

@@ -8,20 +8,17 @@ other validation is performed.
 */
 
 
-use crate::{
-  theory::RcDagNode,
-};
-use crate::core::substitution::Substitution;
+use crate::{core::substitution::Substitution, theory::RcDagNode};
 
 pub struct Binding {
-  active        : bool,
+  active:         bool,
   variable_index: i32,
-  value         : RcDagNode,
+  value:          RcDagNode,
 }
 
 #[derive(Default)]
 pub struct LocalBindings {
-  pub bindings: Vec<Binding>
+  pub bindings: Vec<Binding>,
 }
 
 impl LocalBindings {
@@ -30,13 +27,11 @@ impl LocalBindings {
   }
 
   pub fn add_binding(&mut self, index: i32, value: RcDagNode) {
-    self.bindings.push(
-      Binding{
-        active: false,
-        variable_index: index,
-        value
-      }
-    );
+    self.bindings.push(Binding {
+      active: false,
+      variable_index: index,
+      value,
+    });
   }
 
   pub fn len(&self) -> usize {
@@ -45,7 +40,7 @@ impl LocalBindings {
 
   pub fn assert(&mut self, substitution: &mut Substitution) -> bool {
     for i in self.bindings.iter() {
-      if let Some(d) = substitution.get(i.variable_index){
+      if let Some(d) = substitution.get(i.variable_index) {
         if d.as_ref() != i.value.as_ref() {
           return false;
         }
@@ -71,5 +66,4 @@ impl LocalBindings {
       }
     }
   }
-
 }

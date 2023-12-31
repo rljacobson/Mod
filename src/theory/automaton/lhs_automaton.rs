@@ -8,18 +8,8 @@ use std::rc::Rc;
 
 use crate::{
   abstractions::RcCell,
-  core::{
-    sort::RcSort,
-    substitution::Substitution
-  },
-  theory::{
-    ExtensionInfo,
-    MaybeSubproblem,
-    RcDagNode,
-    RcTerm,
-    Outcome,
-    Term
-  },
+  core::{sort::RcSort, substitution::Substitution},
+  theory::{ExtensionInfo, MaybeSubproblem, Outcome, RcDagNode, RcTerm, Term},
 };
 
 pub type RcLHSAutomaton = RcCell<dyn LHSAutomaton>;
@@ -39,13 +29,12 @@ pub trait LHSAutomaton {
   fn match_variable(
     &self,
     dag_node: RcDagNode,
-    index   : i32,
-    sort    : RcSort,
+    index: i32,
+    sort: RcSort,
     copy_to_avoid_overwriting: bool,
     solution: &mut Substitution,
     // extension_info: Option<&ExtensionInfo>
-  ) -> (bool, MaybeSubproblem)
-  {
+  ) -> (bool, MaybeSubproblem) {
     // if let Some(ext_info) = extension_info {
     //   return self.match_variable_with_extension(index, sort, solution, returned_subproblem, ext_info);
     // }
@@ -53,12 +42,11 @@ pub trait LHSAutomaton {
     match d {
       None => {
         if let (Outcome::Success, maybe_subproblem) = dag_node.borrow_mut().check_sort(sort) {
-          let dag_node_ref =
-              if copy_to_avoid_overwriting {
-                dag_node.borrow().shallow_copy()
-              } else {
-                dag_node.clone()
-              };
+          let dag_node_ref = if copy_to_avoid_overwriting {
+            dag_node.borrow().shallow_copy()
+          } else {
+            dag_node.clone()
+          };
           solution.bind(index, Some(dag_node_ref));
           (true, maybe_subproblem)
         } else {
@@ -73,7 +61,5 @@ pub trait LHSAutomaton {
         }
       }
     }
-
   }
-
 }

@@ -11,10 +11,10 @@ use std::fmt::{Display, Formatter};
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default)]
 pub enum FormatStyle {
   #[default]
-  Default,  // Use the default formatting
-  Simple,   // Use a simplified formatting
-  Input,    // Format the term as a valid input expression, if possible.
-  Debug     // Format with extra debugging information
+  Default, // Use the default formatting
+  Simple, // Use a simplified formatting
+  Input,  // Format the term as a valid input expression, if possible.
+  Debug,  // Format with extra debugging information
 }
 
 pub trait Formattable {
@@ -26,11 +26,6 @@ pub trait Formattable {
 
 impl Display for dyn Formattable {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "{}",
-      Formattable::repr(self, FormatStyle::Default)
-    )
+    write!(f, "{}", Formattable::repr(self, FormatStyle::Default))
   }
 }
-

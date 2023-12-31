@@ -11,25 +11,25 @@ use std::ops::{BitOr, BitOrAssign};
 #[repr(u32)]
 pub enum InterpreterAttribute {
   // Show (information) flags
-  ShowCommand   = 0x1,
-  ShowStats     = 0x2,
-  ShowTiming    = 0x4,
-  ShowBreakdown = 0x8,
+  ShowCommand       = 0x1,
+  ShowStats         = 0x2,
+  ShowTiming        = 0x4,
+  ShowBreakdown     = 0x8,
 
   // Loop mode flags
-  ShowLoopStats    = 0x10,
-  ShowLoopTiming   = 0x20,
-  ERewriteLoopMode = 0x40,
+  ShowLoopStats     = 0x10,
+  ShowLoopTiming    = 0x20,
+  ERewriteLoopMode  = 0x40,
 
   // Memoization flags
-  AutoClearMemo = 0x100,
+  AutoClearMemo     = 0x100,
 
   // Profiler flags
-  Profile          = 0x200,
-  AutoClearProfile = 0x400,
+  Profile           = 0x200,
+  AutoClearProfile  = 0x400,
 
   // Debugger flags
-  Break = 0x800,
+  Break             = 0x800,
 
   // Tracer flags
   Trace             = 0x1000,
@@ -50,38 +50,33 @@ pub enum InterpreterAttribute {
   PrintAttribute        = 0x1000000,
   PrintAttributeNewline = 0x2000000,
   */
-
   // Counter flags
-  AutoClearRules = 0x40000000,
+  AutoClearRules    = 0x40000000,
 
   // Compiler flags
-  CompileCount = 0x80000000,
+  CompileCount      = 0x80000000,
 
   // Composite flags
-
-  ExceptionFlags = InterpreterAttribute::Trace as u32
-      | InterpreterAttribute::Break as u32
-      | InterpreterAttribute::Profile as u32 ,
-      // | InterpreterAttribute::PrintAttribute as u32, // Not implemented
-
+  ExceptionFlags    =
+    InterpreterAttribute::Trace as u32 | InterpreterAttribute::Break as u32 | InterpreterAttribute::Profile as u32,
+  // | InterpreterAttribute::PrintAttribute as u32, // Not implemented
   #[default]
-  DefaultFlags = InterpreterAttribute::ShowCommand as u32
-      | InterpreterAttribute::ShowStats as u32
-      | InterpreterAttribute::ShowTiming as u32
-      | InterpreterAttribute::ShowLoopTiming as u32
-      | InterpreterAttribute::CompileCount as u32
-      | InterpreterAttribute::TraceCondition as u32
-      | InterpreterAttribute::TraceSubstitution as u32
-      | InterpreterAttribute::TraceMb as u32
-      | InterpreterAttribute::TraceEq as u32
-      | InterpreterAttribute::TraceRl as u32
-      | InterpreterAttribute::TraceSd as u32
-      | InterpreterAttribute::TraceRewrite as u32
-      | InterpreterAttribute::TraceBody as u32
-      | InterpreterAttribute::TraceBuiltin as u32
-      | InterpreterAttribute::AutoClearProfile as u32
-      | InterpreterAttribute::AutoClearRules as u32
-      // | InterpreterAttribute::PrintAttributeNewline as u32,
+  DefaultFlags      = InterpreterAttribute::ShowCommand as u32
+    | InterpreterAttribute::ShowStats as u32
+    | InterpreterAttribute::ShowTiming as u32
+    | InterpreterAttribute::ShowLoopTiming as u32
+    | InterpreterAttribute::CompileCount as u32
+    | InterpreterAttribute::TraceCondition as u32
+    | InterpreterAttribute::TraceSubstitution as u32
+    | InterpreterAttribute::TraceMb as u32
+    | InterpreterAttribute::TraceEq as u32
+    | InterpreterAttribute::TraceRl as u32
+    | InterpreterAttribute::TraceSd as u32
+    | InterpreterAttribute::TraceRewrite as u32
+    | InterpreterAttribute::TraceBody as u32
+    | InterpreterAttribute::TraceBuiltin as u32
+    | InterpreterAttribute::AutoClearProfile as u32
+    | InterpreterAttribute::AutoClearRules as u32, // | InterpreterAttribute::PrintAttributeNewline as u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -141,6 +136,7 @@ impl From<InterpreterAttribute> for InterpreterAttributes {
 
 impl BitOr for InterpreterAttributes {
   type Output = InterpreterAttributes;
+
   fn bitor(self, rhs: Self) -> Self::Output {
     InterpreterAttributes(self.0 | rhs.0)
   }
@@ -148,6 +144,7 @@ impl BitOr for InterpreterAttributes {
 
 impl BitOr<InterpreterAttribute> for InterpreterAttributes {
   type Output = InterpreterAttributes;
+
   fn bitor(self, rhs: InterpreterAttribute) -> Self::Output {
     InterpreterAttributes(self.0 | rhs as u32)
   }
@@ -158,6 +155,3 @@ impl BitOrAssign<InterpreterAttribute> for InterpreterAttributes {
     self.0 |= rhs as u32;
   }
 }
-
-
-

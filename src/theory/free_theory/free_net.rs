@@ -9,32 +9,29 @@ the end nodes of the net symbolize the outcomes for the different possible predi
 
 */
 
-use std::{collections::HashSet, default};
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
-use crate::{abstractions::{
-  WeakCell,
-  FastHasher
-}, core::module::ModuleItem, NONE, theory::{
-  DagNode,
-  RcDagNode,
-  RcSymbol,
-  NodeList,
-}};
-use crate::core::pre_equation::{Equation, RcPreEquation};
-use crate::core::rewrite_context::RewritingContext;
-use crate::theory::free_theory::{FreeSymbol, FreeTerm};
-use crate::theory::free_theory::remainder::Speed;
-
-use super::{FreeRemainder, RcFreeRemainder, FreeRemainderList};
+use super::{FreeRemainder, FreeRemainderList};
+use crate::{
+  abstractions::{FastHasher, WeakCell},
+  core::{interpreter::module::item::ModuleItem, pre_equation::RcPreEquation, rewrite_context::RewritingContext},
+  theory::{
+    free_theory::{remainder::Speed, FreeSymbol, FreeTerm},
+    DagNode,
+    NodeList,
+    RcDagNode,
+    RcSymbol,
+  },
+  NONE,
+};
 
 pub type PatternSet = HashSet<i32, FastHasher>;
 pub type RcFreeNet = WeakCell<FreeNet>;
 
 
 struct Triple {
-  symbol: RcSymbol,
-  slot: i32,
+  symbol:  RcSymbol,
+  slot:    i32,
   subtree: i32,
 }
 
@@ -55,9 +52,10 @@ impl PartialOrd for Triple {
 
 impl Ord for Triple {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    self.symbol
-        .get_index_within_module()
-        .cmp(&other.symbol.get_index_within_module())
+    self
+      .symbol
+      .get_index_within_module()
+      .cmp(&other.symbol.get_index_within_module())
   }
 }
 // endregion
@@ -65,27 +63,27 @@ impl Ord for Triple {
 #[derive(Copy, Clone, Default)]
 struct TestNode {
   /// Index of next test node to take for > and < cases (-ve encodes index of applicable list, 0 encodes failure)
-  not_equal   : (i32, i32),
+  not_equal:    (i32, i32),
   /// Itack slot to get free dagnode argument list from (-1 indicates use old argument)
-  position    : i32,
+  position:     i32,
   /// Index of argument to test
-  arg_index   : i32,
+  arg_index:    i32,
   /// Index within module of symbol we test against
   symbol_index: i32,
   /// Index of stack slot to store free dagnode argument list in (-1 indicates do not store)
-  slot        : i32,
+  slot:         i32,
   /// Index of next test node to take for == case (-ve encode index of applicable list)
-  equal       : i32,
+  equal:        i32,
 }
 
 #[derive(Default)]
 pub struct FreeNet {
-  stack          : Vec<NodeList>,
-  net            : Vec<TestNode>,
+  stack:           Vec<NodeList>,
+  net:             Vec<TestNode>,
   fast_applicable: Vec<FreeRemainderList>,
-  remainders     : FreeRemainderList,
-  applicable     : Vec<PatternSet>,
-  fast           : bool,
+  remainders:      FreeRemainderList,
+  applicable:      Vec<PatternSet>,
+  fast:            bool,
 }
 
 impl FreeNet {
@@ -100,7 +98,6 @@ impl FreeNet {
     self.fast
   }
 
-
   fn allocate_node(&mut self, nr_match_arcs: usize) -> usize {
     let len = self.net.len();
     self.net.resize(len + nr_match_arcs, TestNode::default());
@@ -110,28 +107,35 @@ impl FreeNet {
   fn fill_out_node(
     &mut self,
     mut node_index: usize,
-    position      : i32,
-    arg_index     : i32,
-    symbols       : &Vec<RcSymbol>,
-    targets       : &Vec<i32>,
-    slots         : &Vec<i32>,
-    neq_target    : i32,
+    position: i32,
+    arg_index: i32,
+    symbols: &Vec<RcSymbol>,
+    targets: &Vec<i32>,
+    slots: &Vec<i32>,
+    neq_target: i32,
   ) {
     let symbol_count = symbols.len();
     let mut triples = Vec::with_capacity(symbol_count);
 
     for i in 0..symbol_count {
       triples.push(Triple {
-        symbol: symbols[i].clone(),
-        slot: slots[i],
+        symbol:  symbols[i].clone(),
+        slot:    slots[i],
         subtree: targets[i],
       });
     }
 
     triples.sort_by(|a, b| a.symbol.partial_cmp(&b.symbol).unwrap());
-    self.build_ternary_tree(&mut node_index, &mut triples, 0, symbol_count - 1, neq_target, position, arg_index);
+    self.build_ternary_tree(
+      &mut node_index,
+      &mut triples,
+      0,
+      symbol_count - 1,
+      neq_target,
+      position,
+      arg_index,
+    );
   }
-
 
   fn add_remainder_list(&mut self, live_set: PatternSet) -> i32 {
     let index = self.applicable.len();
@@ -139,21 +143,27 @@ impl FreeNet {
     !(index as i32)
   }
 
-
   fn translate_slots(&mut self, nr_real_slots: usize, slot_translation: &Vec<i32>) {
     self.stack.resize(nr_real_slots, NodeList::new());
 
     for node in &mut self.net {
-      node.slot     = if node.slot == NONE { NONE } else { slot_translation[node.slot as usize] };
-      node.position = if node.position == NONE { NONE } else { slot_translation[node.position as usize] };
+      node.slot = if node.slot == NONE {
+        NONE
+      } else {
+        slot_translation[node.slot as usize]
+      };
+      node.position = if node.position == NONE {
+        NONE
+      } else {
+        slot_translation[node.position as usize]
+      };
     }
   }
 
-
   fn build_remainders(
     &mut self,
-    equations       : &Vec<RcPreEquation>,
-    patterns_used   : &PatternSet,
+    equations: &Vec<RcPreEquation>,
+    patterns_used: &PatternSet,
     slot_translation: &Vec<i32>,
   ) {
     let nr_equations = equations.len();
@@ -162,7 +172,13 @@ impl FreeNet {
     for i in patterns_used {
       let e = equations[*i as usize].clone();
 
-      if let Some(free_term) = e.borrow_mut().lhs_term.borrow_mut().as_any_mut().downcast_mut::<FreeTerm>() {
+      if let Some(free_term) = e
+        .borrow_mut()
+        .lhs_term
+        .borrow_mut()
+        .as_any_mut()
+        .downcast_mut::<FreeTerm>()
+      {
         let remainder = free_term.compile_remainder(e, slot_translation);
         self.remainders[*i as usize] = Some(remainder.clone());
 
@@ -170,9 +186,8 @@ impl FreeNet {
         self.fast = (remainder.fast != Speed::Slow);
       } else {
         self.remainders[*i as usize] = Some(Rc::new(FreeRemainder::with_equation(e)));
-        self.fast = false;  // A foreign equation always disables fast handling for the net
+        self.fast = false; // A foreign equation always disables fast handling for the net
       }
-
     }
     // Build null terminated pointer version of applicable for added speed.
     let nr_applicables = self.applicable.len();
@@ -189,7 +204,6 @@ impl FreeNet {
     }
   }
 
-
   fn build_ternary_tree(
     &mut self,
     node_index: &mut usize,
@@ -200,7 +214,6 @@ impl FreeNet {
     position: i32,
     arg_index: i32,
   ) {
-
     // Pick a middle element as the test symbol. If the sum of the first and last eligible indices
     // is odd we have a choice of middle elements and we try to break the tie in a smart way.
     let sum = first + last;
@@ -235,7 +248,6 @@ impl FreeNet {
     }
   }
 
-
   /// Heuristic to decide which symbol is more important and thus should have the fastest matching.
   /// Returns true if first symbol is considered more important.
   ///
@@ -264,9 +276,6 @@ impl FreeNet {
   }
 
   pub fn apply_replace_aux(&self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
-
     false
   }
-
-
 }

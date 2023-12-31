@@ -5,7 +5,7 @@ A thin wrapper around BitSet (the bit-set crate). We could just use a type alias
 */
 
 use bit_set::BitSet;
-pub use bit_set::{Iter as BitSetIterator};
+pub use bit_set::Iter as BitSetIterator;
 
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NatSet(BitSet<u32>);
@@ -13,7 +13,6 @@ pub struct NatSet(BitSet<u32>);
 pub type NatSetIterator<'a> = BitSetIterator<'a, u32>;
 
 impl NatSet {
-
   /*
     capacity
       clear
@@ -176,5 +175,4 @@ impl NatSet {
   pub fn with_capacity(nbits: usize) -> NatSet {
     NatSet(BitSet::with_capacity(nbits))
   }
-
 }

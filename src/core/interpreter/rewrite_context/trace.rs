@@ -1,55 +1,36 @@
-use std::cell::Ref;
 use std::sync::atomic::{AtomicBool, Ordering};
+
 use yansi::Paint;
 
+use super::{ContextAttribute, RewriteType, RewritingContext, HEADER};
 use crate::{
-  abstractions::{
-    Channel,
-    join_iter,
-    log,
-    NatSet,
-  },
+  abstractions::{log, Channel, NatSet},
   core::{
+    condition_fragment::ConditionFragment,
     format::{FormatStyle, Formattable},
     interpreter::{
+      interpreter_state::RcInterpreter,
+      module::{item::ModuleItem, module::Module},
       InterpreterAttribute,
-      interpreter_state::RcInterpreter
     },
-    module::{
-      ModuleItem,
-      Module
+    pre_equation::{PreEquation, PreEquationKind::*},
+    substitution::{
+      print_substitution,
+      print_substitution_narrowing,
+      print_substitution_with_ignored,
+      MaybeDagNode,
+      Substitution,
     },
     NarrowingVariableInfo,
-    pre_equation::{
-      PreEquation,
-      PreEquationKind::*
-    },
-    substitution::{
-      MaybeDagNode,
-      print_substitution_with_ignored,
-      print_substitution_narrowing,
-      Substitution,
-      print_substitution
-    },
-    Token,
-    condition_fragment::ConditionFragment,
   },
-  NONE,
   theory::{DagNode, RcDagNode},
 };
 
-use super::{
-  RewritingContext,
-  ContextAttribute,
-  HEADER,
-  RewriteType
-};
-
 #[derive(Copy, Clone)]
-pub struct VariantTraceInfo<'a >{
+pub struct VariantTraceInfo<'a> {
   old_variant_substitution: &'a Substitution,
   new_variant_substitution: &'a Substitution,
-  original_variables: &'a NarrowingVariableInfo,
+  original_variables:       &'a NarrowingVariableInfo,
 }
 
 /// Tracing status is global for all `RewritingContext`s.
@@ -67,22 +48,14 @@ pub fn set_trace_status(status: bool) {
 
 
 impl RewritingContext {
-
   pub fn do_not_trace(&self, redex: RcDagNode, pe: Option<&PreEquation>) -> bool {
     let symbol = redex.borrow().symbol();
     let interpreter = self.interpreter.upgrade().unwrap();
-    (
-      interpreter.attribute(InterpreterAttribute::TraceSelect)
-        && !(
-          interpreter.trace_name(&symbol.name())
-            || (
-              pe.is_some() && pe.unwrap().name.is_some()
-                && interpreter.trace_name(&pe.unwrap().name.unwrap())
-            )
-          )
-    )
-        || (pe.is_none() && !interpreter.attribute(InterpreterAttribute::TraceBuiltin))
-        || interpreter.excluded_module(&symbol.get_module().upgrade().unwrap().borrow().name)
+    (interpreter.attribute(InterpreterAttribute::TraceSelect)
+      && !(interpreter.trace_name(&symbol.name())
+        || (pe.is_some() && pe.unwrap().name.is_some() && interpreter.trace_name(&pe.unwrap().name.unwrap()))))
+      || (pe.is_none() && !interpreter.attribute(InterpreterAttribute::TraceBuiltin))
+      || interpreter.excluded_module(&symbol.get_module().upgrade().unwrap().borrow().name)
   }
 
   /* Print attributes are unimplemented.
@@ -107,9 +80,8 @@ impl RewritingContext {
     &mut self,
     redex: MaybeDagNode,
     maybe_equation: Option<&PreEquation>,
-    eq_type: RewriteType
-  )
-  {
+    eq_type: RewriteType,
+  ) {
     // All unusual situations during an equational rewrite are funneled
     // through this function, by setting the traceFlag in class Module.
     // This is so that rewriting only has to test a single flag
@@ -141,15 +113,15 @@ impl RewritingContext {
 
     if interpreter.attribute(InterpreterAttribute::Profile) {
       // Todo: Is `self.root` gauranteed to exist?
-      let mut profile_module
-          = self.root
-                .unwrap()
-                .borrow()
-                .symbol()
-                .get_module()
-                .upgrade()
-                .unwrap()
-                .borrow_mut();
+      let mut profile_module = self
+        .root
+        .unwrap()
+        .borrow()
+        .symbol()
+        .get_module()
+        .upgrade()
+        .unwrap()
+        .borrow_mut();
       // TODO: Unify `profile_*_rewrite` code
       profile_module.profile_eq_rewrite(redex.clone(), Some(equation), eq_type);
     }
@@ -162,9 +134,9 @@ impl RewritingContext {
     // ^C interrupts and info interrupts. These are common to
     // all rewrite types.
     if self.handle_debug(redex.clone(), Some(equation))
-        || !self.attribute(ContextAttribute::LocalTrace)
-        || !interpreter.attribute(InterpreterAttribute::TraceEq)
-        || self.do_not_trace(redex.clone(), Some(equation))
+      || !self.attribute(ContextAttribute::LocalTrace)
+      || !interpreter.attribute(InterpreterAttribute::TraceEq)
+      || self.do_not_trace(redex.clone(), Some(equation))
     {
       self.attributes.reset(ContextAttribute::TracePost);
       return;
@@ -172,7 +144,7 @@ impl RewritingContext {
     self.attributes.set(ContextAttribute::TracePost);
 
     if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{} {}", HEADER,  equation.kind.noun());
+      println!("{} {}", HEADER, equation.kind.noun());
     }
 
     // TODO: Fix whenever we figure out the `equation==None` case
@@ -184,28 +156,31 @@ impl RewritingContext {
           print_substitution_with_ignored(&self.substitution, &equation.variable_info, &NatSet::default());
         }
       } else {
-        if let Some(label) = &equation.name{
+        if let Some(label) = &equation.name {
           println!("{}", label);
         } else {
           println!("(unlabeled {})", equation.kind.noun());
         }
       }
-
-    }
-    else {
+    } else {
       // equation == None case
       // TODO: We still need the noun!
       if eq_type != RewriteType::Normal {
-        println!("({} {} for symbol {})", eq_type, equation.kind.noun(), redex_ref.symbol().repr(FormatStyle::Simple));
+        println!(
+          "({} {} for symbol {})",
+          eq_type,
+          equation.kind.noun(),
+          redex_ref.symbol().repr(FormatStyle::Simple)
+        );
       }
     }
 
     match &equation.kind {
-      StrategyDefinition{..} => {
+      StrategyDefinition { .. } => {
         unimplemented!("Strategy language is not implemented.")
       }
 
-      SortConstraint{sort, ..} => {
+      SortConstraint { sort, .. } => {
         if interpreter.attribute(InterpreterAttribute::TraceWhole) {
           if let Some(root) = &self.root {
             println!("Whole: {}", root.borrow());
@@ -215,7 +190,12 @@ impl RewritingContext {
         }
         if interpreter.attribute(InterpreterAttribute::TraceRewrite) {
           // TODO: We are assuming the redex does have a sort. Check that this is guaranteed for sort constraints.
-          println!("{}: {} becomes {}", redex_ref.get_sort().unwrap().borrow(), redex_ref, sort.borrow());
+          println!(
+            "{}: {} becomes {}",
+            redex_ref.get_sort().unwrap().borrow(),
+            redex_ref,
+            sort.borrow()
+          );
         }
       }
 
@@ -257,7 +237,6 @@ impl RewritingContext {
     }
   }
 
-
   pub fn trace_narrowing_step(
     &mut self,
     pre_equation: &PreEquation,
@@ -266,14 +245,13 @@ impl RewritingContext {
     variable_info: &NarrowingVariableInfo,
     substitution: &Substitution,
     new_state: RcDagNode,
-    variant: Option<VariantTraceInfo<'_>> // None for Rule, Some for Equation
-  )
-  {
+    variant: Option<VariantTraceInfo<'_>>, // None for Rule, Some for Equation
+  ) {
     let interpreter = self.interpreter.upgrade().unwrap();
     if self.handle_debug(redex.clone(), Some(pre_equation))
-        || !self.attribute(ContextAttribute::LocalTrace)
-        || !interpreter.attribute(InterpreterAttribute::TraceRl)
-        || self.do_not_trace(redex.clone(), Some(pre_equation))
+      || !self.attribute(ContextAttribute::LocalTrace)
+      || !interpreter.attribute(InterpreterAttribute::TraceRl)
+      || self.do_not_trace(redex.clone(), Some(pre_equation))
     {
       return;
     }
@@ -302,8 +280,13 @@ impl RewritingContext {
           println!("empty substitution");
         } else {
           // TODO: Is it guaranteed that pre_equation has a module?
-          let variable_base = pre_equation.get_module().upgrade().unwrap().borrow().minimum_substitution_size;
-          for i in 0..subject_variable_count{
+          let variable_base = pre_equation
+            .get_module()
+            .upgrade()
+            .unwrap()
+            .borrow()
+            .minimum_substitution_size;
+          for i in 0..subject_variable_count {
             let v = variable_info.index_to_variable(i);
             let d = substitution.value(variable_base as usize + i);
 
@@ -321,8 +304,11 @@ impl RewritingContext {
     }
 
     if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      if let Some(VariantTraceInfo{old_variant_substitution, original_variables, ..})
-          = variant
+      if let Some(VariantTraceInfo {
+        old_variant_substitution,
+        original_variables,
+        ..
+      }) = variant
       {
         if let Some(root) = &self.root {
           println!("\nOld variant: {}", root.borrow());
@@ -331,8 +317,7 @@ impl RewritingContext {
         }
         print_substitution_narrowing(&old_variant_substitution, original_variables);
         println!();
-      }
-      else {
+      } else {
         if let Some(root) = &self.root {
           println!("\nOld: {}", root.borrow());
         } else {
@@ -346,108 +331,103 @@ impl RewritingContext {
     }
 
     if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-      if let Some(VariantTraceInfo{new_variant_substitution, original_variables, ..})
-          = variant
+      if let Some(VariantTraceInfo {
+        new_variant_substitution,
+        original_variables,
+        ..
+      }) = variant
       {
         println!("\nNew variant: {}", new_state.borrow());
         print_substitution_narrowing(&new_variant_substitution, original_variables);
         println!();
-      }
-      else {
+      } else {
         println!("New: {}", new_state.borrow());
       }
     }
   }
 
-
   /* Strategy language not implemented
-  pub fn trace_strategy_call(
-    &self,
-    sdef: &StrategyDefinition,
-    call_dag: RcDagNode,
-    subject: RcDagNode,
-    substitution: &Substitution,
-  ) {
-    let interpreter = self.interpreter.upgrade().unwrap();
-    if interpreter.attribute(InterpreterAttribute::Profile) {
-      if let Some(profile_module)
-          = self.root
-          .borrow()
-          .symbol()
-          .get_module()
-          .upgrade()
-          .unwrap()
-          .borrow() {
-        profile_module.profile_sd_rewrite(subject, sdef);
+    pub fn trace_strategy_call(
+      &self,
+      sdef: &StrategyDefinition,
+      call_dag: RcDagNode,
+      subject: RcDagNode,
+      substitution: &Substitution,
+    ) {
+      let interpreter = self.interpreter.upgrade().unwrap();
+      if interpreter.attribute(InterpreterAttribute::Profile) {
+        if let Some(profile_module)
+            = self.root
+            .borrow()
+            .symbol()
+            .get_module()
+            .upgrade()
+            .unwrap()
+            .borrow() {
+          profile_module.profile_sd_rewrite(subject, sdef);
+        }
       }
-    }
-    // if interpreter.attribute(InterpreterAttribute::PrintAttribute) {
-    //   check_for_print_attribute(MetadataStore::STRAT_DEF, sdef);
-    // }
+      // if interpreter.attribute(InterpreterAttribute::PrintAttribute) {
+      //   check_for_print_attribute(MetadataStore::STRAT_DEF, sdef);
+      // }
 
-    if self.handle_debug(call_dag.clone(), sdef)
-        || !self.local_trace_flag
-        || !interpreter.attribute(InterpreterAttribute::TraceSd)
-        || self.do_not_trace(call_dag.clone(), Some(sdef))
-    {
-      return;
-    }
-
-    if interpreter.attribute(InterpreterAttribute::TraceBody) {
-      println!("{} strategy call", HEADER);
-      println!("{}", sdef);
-      // call_dags uses the auxiliary symbol we should print it readable
-      let call_dag = call_dag.borrow();
-      if call_dag.symbol().arity() > 0 {
-        println!(
-          "call term --> {}({})",
-          Token::name(sdef.get_strategy().name()),
-          join_iter(call_dag.iter_args(), |_| ", ").collect::<String>()
-        );
+      if self.handle_debug(call_dag.clone(), sdef)
+          || !self.local_trace_flag
+          || !interpreter.attribute(InterpreterAttribute::TraceSd)
+          || self.do_not_trace(call_dag.clone(), Some(sdef))
+      {
+        return;
       }
 
-      if interpreter.attribute(InterpreterAttribute::TraceWhole) {
-        println!("subject --> {}", subject.borrow());
-      }
+      if interpreter.attribute(InterpreterAttribute::TraceBody) {
+        println!("{} strategy call", HEADER);
+        println!("{}", sdef);
+        // call_dags uses the auxiliary symbol we should print it readable
+        let call_dag = call_dag.borrow();
+        if call_dag.symbol().arity() > 0 {
+          println!(
+            "call term --> {}({})",
+            Token::name(sdef.get_strategy().name()),
+            join_iter(call_dag.iter_args(), |_| ", ").collect::<String>()
+          );
+        }
 
-      if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
-        print_substitution_narrowing(substitution, sdef.variable_info);
-      }
+        if interpreter.attribute(InterpreterAttribute::TraceWhole) {
+          println!("subject --> {}", subject.borrow());
+        }
 
-    } else {
-      if let Some(label) = sdef.name(){
-        println!("{}", label);
+        if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
+          print_substitution_narrowing(substitution, sdef.variable_info);
+        }
+
       } else {
-        let strat_id = sdef.get_strategy().name();
-        println!("{} (unlabeled definition)", strat_id);
+        if let Some(label) = sdef.name(){
+          println!("{}", label);
+        } else {
+          let strat_id = sdef.get_strategy().name();
+          println!("{} (unlabeled definition)", strat_id);
+        }
       }
     }
-  }
-*/
+  */
 
 
-  pub(crate) fn trace_begin_trial(
-    &mut self,
-    subject: RcDagNode,
-    pre_equation: &PreEquation,
-  ) -> Option<i32>
-  {
+  pub(crate) fn trace_begin_trial(&mut self, subject: RcDagNode, pre_equation: &PreEquation) -> Option<i32> {
     // assert!(equation != 0, "null equation in trial");
 
     let interpreter: RcInterpreter = self.interpreter.upgrade().unwrap();
 
     if interpreter.attribute(InterpreterAttribute::Profile) {
-      let module: &mut Module
-          = &mut *self.root
-                      .unwrap()
-                      .borrow()
-                      .symbol()
-                      .get_module()
-                      .upgrade()
-                      .unwrap()
-                      .borrow_mut();
+      let module: &mut Module = &mut *self
+        .root
+        .unwrap()
+        .borrow()
+        .symbol()
+        .get_module()
+        .upgrade()
+        .unwrap()
+        .borrow_mut();
       module.profile_condition_start(pre_equation);
-
     }
 
     if self.handle_debug(subject.clone(), Some(pre_equation)) {
@@ -455,13 +435,18 @@ impl RewritingContext {
     }
 
     if !self.attribute(ContextAttribute::LocalTrace)
-        || !interpreter.attribute(pre_equation.kind.interpreter_trace_attribute())
-        || self.do_not_trace(subject.clone(), Some(pre_equation))
+      || !interpreter.attribute(pre_equation.kind.interpreter_trace_attribute())
+      || self.do_not_trace(subject.clone(), Some(pre_equation))
     {
       return None;
     }
 
-    println!("{}trial #{}\n{}", HEADER, self.trial_count + 1, pre_equation.repr(FormatStyle::Default));
+    println!(
+      "{}trial #{}\n{}",
+      HEADER,
+      self.trial_count + 1,
+      pre_equation.repr(FormatStyle::Default)
+    );
     if interpreter.attribute(InterpreterAttribute::TraceSubstitution) {
       print_substitution_with_ignored(&self.substitution, &pre_equation.variable_info, &NatSet::new());
     }
@@ -471,7 +456,16 @@ impl RewritingContext {
 
   pub(crate) fn trace_end_trial(&self, trial_ref: Option<i32>, success: bool) {
     if !self.attribute(ContextAttribute::Abort) && trial_ref.is_some() {
-      println!("{}{} #{}", HEADER, if success { "success" } else { "failure" }, trial_ref.unwrap());
+      println!(
+        "{}{} #{}",
+        HEADER,
+        if success {
+          "success"
+        } else {
+          "failure"
+        },
+        trial_ref.unwrap()
+      );
     }
   }
 
@@ -487,11 +481,27 @@ impl RewritingContext {
     }
     // let fragment: Ref<ConditionFragment> = pre_equation.condition()[fragment_index].borrow();
     let prefix = if first_attempt { "" } else { "re-" };
-    println!("{}{}solving condition fragment\n{}", HEADER, prefix, fragment.repr(FormatStyle::Simple));
+    println!(
+      "{}{}solving condition fragment\n{}",
+      HEADER,
+      prefix,
+      fragment.repr(FormatStyle::Simple)
+    );
   }
 
-  pub(crate) fn trace_end_fragment(&mut self, trial_ref: Option<i32>, pre_equation: &PreEquation, fragment_index: usize, success: bool) {
-    if self.interpreter.upgrade().unwrap().attribute(InterpreterAttribute::Profile) {
+  pub(crate) fn trace_end_fragment(
+    &mut self,
+    trial_ref: Option<i32>,
+    pre_equation: &PreEquation,
+    fragment_index: usize,
+    success: bool,
+  ) {
+    if self
+      .interpreter
+      .upgrade()
+      .unwrap()
+      .attribute(InterpreterAttribute::Profile)
+    {
       if let Some(module) = pre_equation.parent_module.upgrade() {
         module.borrow().profile_fragment(pre_equation, fragment_index, success);
       }
@@ -503,13 +513,25 @@ impl RewritingContext {
 
     let fragment = &pre_equation.condition()[fragment_index].borrow();
     if success {
-      println!("{}success for condition fragment\n{}", HEADER, fragment.repr(FormatStyle::Simple));
-      if self.interpreter.upgrade().unwrap().attribute(InterpreterAttribute::TraceSubstitution) {
+      println!(
+        "{}success for condition fragment\n{}",
+        HEADER,
+        fragment.repr(FormatStyle::Simple)
+      );
+      if self
+        .interpreter
+        .upgrade()
+        .unwrap()
+        .attribute(InterpreterAttribute::TraceSubstitution)
+      {
         print_substitution(&self.substitution, &pre_equation.variable_info);
       }
     } else {
-      println!("{}failure for condition fragment\n{}", HEADER, fragment.repr(FormatStyle::Simple));
+      println!(
+        "{}failure for condition fragment\n{}",
+        HEADER,
+        fragment.repr(FormatStyle::Simple)
+      );
     }
   }
-
 }

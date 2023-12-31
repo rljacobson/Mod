@@ -6,47 +6,24 @@ In Maude, there is a subclass of `Module` called `ProfileModule`.
 
 */
 
-use std::rc::Rc;
-
 use crate::{
-  abstractions::IString,
   core::{
-    format::{
-      FormatStyle,
-      Formattable
-    },
-    interpreter::InterpreterAttribute,
-    module::{
-      Module,
-      ModuleItem
-    },
-    pre_equation::{
-      PreEquationKind::*,
-      PreEquation,
-      RcPreEquation,
-    },
+    format::{FormatStyle, Formattable},
+    interpreter::module::{item::ModuleItem, module::Module},
+    pre_equation::{PreEquation, PreEquationKind::*, RcPreEquation},
     rewrite_context::RewriteType,
-    sort::{
-      SpecialSort
-    },
+    sort::SpecialSort,
   },
+  theory::{DagNode, RcDagNode, RcSymbol, Symbol},
   NONE,
-  theory::{
-    DagNode,
-    Symbol,
-    RcDagNode,
-    RcSymbol
-  }
 };
-use crate::abstractions::RcCell;
-use crate::core::pre_equation::PreEquationKind;
 
 #[derive(Default)]
 pub struct SymbolProfile {
   builtin_mb_rewrite_count: u64,
   builtin_eq_rewrite_count: u64,
   builtin_rl_rewrite_count: u64,
-  memo_rewrite_count: u64,
+  memo_rewrite_count:       u64,
 }
 
 impl SymbolProfile {
@@ -69,9 +46,9 @@ impl FragmentProfile {
 
 #[derive(Default)]
 pub struct StatementProfile {
-  rewrite_count: u64,
+  rewrite_count:         u64,
   condition_start_count: u64,
-  fragment_info: Vec<FragmentProfile>,
+  fragment_info:         Vec<FragmentProfile>,
 }
 
 impl StatementProfile {
@@ -132,7 +109,6 @@ impl Module {
       }
 
       match rewrite_type {
-
         RewriteType::Builtin => {
           self.symbol_info[index].builtin_eq_rewrite_count += 1;
         }
@@ -141,10 +117,8 @@ impl Module {
           self.symbol_info[index].memo_rewrite_count += 1;
         }
 
-        _ => { /* pass */}
-
+        _ => { /* pass */ }
       }
-
     }
   }
 
@@ -163,6 +137,7 @@ impl Module {
       self.symbol_info[index].builtin_rl_rewrite_count += 1;
     }
   }
+
   /*
   fn profile_sd_rewrite(&mut self, _: RcDagNode, sd: Option<&StrategyDefinition>) {
     // There are no built-in strategy definitions
@@ -176,16 +151,10 @@ impl Module {
   */
   pub(crate) fn profile_condition_start(&mut self, item: &PreEquation) {
     let mut info = match item.kind {
-      Equation { .. } => {
-        &mut self.eq_info
-      },
-      Rule { .. } => {
-        &mut self.rl_info
-      },
+      Equation { .. } => &mut self.eq_info,
+      Rule { .. } => &mut self.rl_info,
 
-      SortConstraint { .. } => {
-        &mut self.mb_info
-      },
+      SortConstraint { .. } => &mut self.mb_info,
 
       _ => {
         unimplemented!()
@@ -202,27 +171,27 @@ impl Module {
     info[index as usize].condition_start_count += 1;
   }
 
-/*
-  #[inline(always)]
-  fn profile_mb_condition_start(&mut self, mb: &SortConstraint) {
-    self.profile_condition_start(mb, &mut self.mb_info);
-  }
+  /*
+    #[inline(always)]
+    fn profile_mb_condition_start(&mut self, mb: &SortConstraint) {
+      self.profile_condition_start(mb, &mut self.mb_info);
+    }
 
-  #[inline(always)]
-  pub(crate) fn profile_eq_condition_start(&mut self, eq: &Equation) {
-    self.profile_condition_start(eq, &mut self.eq_info);
-  }
+    #[inline(always)]
+    pub(crate) fn profile_eq_condition_start(&mut self, eq: &Equation) {
+      self.profile_condition_start(eq, &mut self.eq_info);
+    }
 
-  #[inline(always)]
-  pub(crate) fn profile_rl_condition_start(&mut self, rl: &Rule) {
-    self.profile_condition_start(rl, &mut self.rl_info);
-  }
+    #[inline(always)]
+    pub(crate) fn profile_rl_condition_start(&mut self, rl: &Rule) {
+      self.profile_condition_start(rl, &mut self.rl_info);
+    }
 
-  #[inline(always)]
-  fn profile_sd_condition_start(&mut self, sdef: &StrategyDefinition) {
-    self.profile_condition_start(sdef, &mut self.sd_info);
-  }
-*/
+    #[inline(always)]
+    fn profile_sd_condition_start(&mut self, sdef: &StrategyDefinition) {
+      self.profile_condition_start(sdef, &mut self.sd_info);
+    }
+  */
 
   pub(crate) fn profile_fragment(&mut self, pre_equation: &PreEquation, fragment_index: usize, success: bool) {
     // Check that the pre_equation's module is self.
@@ -232,28 +201,69 @@ impl Module {
     assert_ne!(index, NONE);
     let index = index as usize;
 
-    fn update_fragment_info(pre_equations: &Vec<RcPreEquation>, item_info: &mut Vec<StatementProfile>, pre_equation: &PreEquation, index: usize, fragment_index: usize, success: bool) {
+    fn update_fragment_info(
+      pre_equations: &Vec<RcPreEquation>,
+      item_info: &mut Vec<StatementProfile>,
+      pre_equation: &PreEquation,
+      index: usize,
+      fragment_index: usize,
+      success: bool,
+    ) {
       if index < pre_equations.len()
-          && pre_equations[index as usize].as_ptr().cast_const() == std::ptr::addr_of!(*pre_equation)
+        && pre_equations[index as usize].as_ptr().cast_const() == std::ptr::addr_of!(*pre_equation)
       {
         item_info[index].update_fragment_info(fragment_index, success);
         return;
       }
     }
 
-    update_fragment_info(&self.sort_constraints, &mut self.mb_info, pre_equation, index, fragment_index, success);
-    update_fragment_info(&self.equations       , &mut self.eq_info, pre_equation, index, fragment_index, success);
-    update_fragment_info(&self.rules           , &mut self.rl_info, pre_equation, index, fragment_index, success);
-    // update_fragment_info(&self.strategy_definitions, &mut self.sd_info, pre_equation, index, fragment_index, success);
+    update_fragment_info(
+      &self.sort_constraints,
+      &mut self.mb_info,
+      pre_equation,
+      index,
+      fragment_index,
+      success,
+    );
+    update_fragment_info(
+      &self.equations,
+      &mut self.eq_info,
+      pre_equation,
+      index,
+      fragment_index,
+      success,
+    );
+    update_fragment_info(
+      &self.rules,
+      &mut self.rl_info,
+      pre_equation,
+      index,
+      fragment_index,
+      success,
+    );
+    // update_fragment_info(&self.strategy_definitions, &mut self.sd_info, pre_equation, index, fragment_index,
+    // success);
 
     // Must be a top-level pattern fragment
   }
 
-  fn show_pre_equations(&self, pre_equations: &Vec<&PreEquation>, info: &Vec<StatementProfile>, s: &mut dyn std::io::Write, float_total: f64) {
+  fn show_pre_equations(
+    &self,
+    pre_equations: &Vec<&PreEquation>,
+    info: &Vec<StatementProfile>,
+    s: &mut dyn std::io::Write,
+    float_total: f64,
+  ) {
     for (i, p) in info.iter().enumerate() {
       if p.condition_start_count > 0 {
         writeln!(s, "{}", pre_equations[i].repr(FormatStyle::Simple)).unwrap();
-        writeln!(s, "lhs matches: {}\trewrites: {}", p.condition_start_count, format_percent(p.rewrite_count, float_total)).unwrap();
+        writeln!(
+          s,
+          "lhs matches: {}\trewrites: {}",
+          p.condition_start_count,
+          format_percent(p.rewrite_count, float_total)
+        )
+        .unwrap();
         Self::show_fragment_profile(s, &p.fragment_info, p.condition_start_count);
         writeln!(s, "").unwrap();
       } else if p.rewrite_count > 0 {
@@ -290,40 +300,70 @@ impl Module {
     }
 
     for (i, p) in self.symbol_info.iter().enumerate() {
-      if p.builtin_mb_rewrite_count + p.builtin_eq_rewrite_count + p.builtin_rl_rewrite_count + p.memo_rewrite_count > 0 {
+      if p.builtin_mb_rewrite_count + p.builtin_eq_rewrite_count + p.builtin_rl_rewrite_count + p.memo_rewrite_count > 0
+      {
         Self::show_symbol(f, self.symbols[i].clone());
         let mut g = "";
         if p.builtin_mb_rewrite_count > 0 {
-          writeln!(f, "built-in mb rewrites: {}", format_percent(p.builtin_mb_rewrite_count, float_total)).unwrap();
+          writeln!(
+            f,
+            "built-in mb rewrites: {}",
+            format_percent(p.builtin_mb_rewrite_count, float_total)
+          )
+          .unwrap();
           g = "\t";
         }
         if p.builtin_eq_rewrite_count > 0 {
-          writeln!(f, "{}built-in eq rewrites: {}", g, format_percent(p.builtin_eq_rewrite_count, float_total)).unwrap();
+          writeln!(
+            f,
+            "{}built-in eq rewrites: {}",
+            g,
+            format_percent(p.builtin_eq_rewrite_count, float_total)
+          )
+          .unwrap();
           g = "\t";
         }
         if p.builtin_rl_rewrite_count > 0 {
-          writeln!(f, "{}built-in rl rewrites: {}", g, format_percent(p.builtin_rl_rewrite_count, float_total)).unwrap();
+          writeln!(
+            f,
+            "{}built-in rl rewrites: {}",
+            g,
+            format_percent(p.builtin_rl_rewrite_count, float_total)
+          )
+          .unwrap();
           g = "\t";
         }
         if p.memo_rewrite_count > 0 {
-          writeln!(f, "{}memo rewrites: {}", g, format_percent(p.memo_rewrite_count, float_total)).unwrap();
+          writeln!(
+            f,
+            "{}memo rewrites: {}",
+            g,
+            format_percent(p.memo_rewrite_count, float_total)
+          )
+          .unwrap();
         }
         writeln!(f, "").unwrap();
       }
     }
 
-    fn process_pre_equations(pre_equations: &Vec<RcPreEquation>, info: &Vec<StatementProfile>, s: &mut dyn std::io::Write, float_total: f64) {
+    fn process_pre_equations(
+      pre_equations: &Vec<RcPreEquation>,
+      info: &Vec<StatementProfile>,
+      s: &mut dyn std::io::Write,
+      float_total: f64,
+    ) {
       for (i, p) in info.iter().enumerate() {
         if p.condition_start_count > 0 {
           writeln!(s, "{}", pre_equations[i].borrow().repr(FormatStyle::Simple)).unwrap();
-        //(p.nrRewrites) << " (" << ((100 * p.nrRewrites) / floatTotal) << "%)"
+          //(p.nrRewrites) << " (" << ((100 * p.nrRewrites) / floatTotal) << "%)"
           writeln!(
             s,
             "lhs matches: {}\trewrites: {} ({:.2}%)",
             p.condition_start_count,
             p.rewrite_count,
-            (100*p.rewrite_count) as f64/float_total
-          ).unwrap();
+            (100 * p.rewrite_count) as f64 / float_total
+          )
+          .unwrap();
           Module::show_fragment_profile(s, &p.fragment_info, p.condition_start_count);
           writeln!(s, "").unwrap();
         } else if p.rewrite_count > 0 {
@@ -332,8 +372,9 @@ impl Module {
             s,
             "rewrites: {} ({:.2}%)",
             p.rewrite_count,
-            (100*p.rewrite_count) as f64/float_total
-          ).unwrap();
+            (100 * p.rewrite_count) as f64 / float_total
+          )
+          .unwrap();
           writeln!(s, "").unwrap();
         }
       }
@@ -349,16 +390,18 @@ impl Module {
     write!(f, "op {} : ", op.repr(FormatStyle::Simple)).unwrap();
     let arg_count = op.arity();
 
-    for domain_component in op.sort_table().domain_components_iter(){
+    for domain_component in op.sort_table().domain_components_iter() {
       write!(
         f,
         "{} ",
-        domain_component.borrow()
-                        .sort(SpecialSort::Kind as i32)
-                        .upgrade()
-                        .unwrap()
-                        .borrow()
-      ).unwrap();
+        domain_component
+          .borrow()
+          .sort(SpecialSort::Kind as i32)
+          .upgrade()
+          .unwrap()
+          .borrow()
+      )
+      .unwrap();
     }
 
     writeln!(
@@ -371,7 +414,8 @@ impl Module {
         .upgrade()
         .unwrap()
         .borrow()
-    ).unwrap();
+    )
+    .unwrap();
   }
 
   fn show_fragment_profile(f: &mut dyn std::io::Write, fragment_info: &[FragmentProfile], mut first_count: u64) {
@@ -392,13 +436,11 @@ impl Module {
         success_count,
         failure_count
       )
-          .unwrap();
+      .unwrap();
       first_count = success_count; // for next fragment
     }
   }
-
 }
-
 
 
 // Used in the `show_*` functions.

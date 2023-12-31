@@ -23,30 +23,30 @@ In Maude, a `TermBag` is a thin wrapper around a PointerSet.
 
 use std::{
   borrow::Borrow,
-  hash::{Hash, Hasher}
+  hash::{Hash, Hasher},
 };
 
 use crate::{
+  abstractions::{FastHasher, TermHashSet},
   theory::{MaybeTerm, RcTerm, Term},
-  abstractions::{FastHasher, TermHashSet}
 };
+use crate::abstractions::HashValueType;
 
 pub struct TermBag {
   terms_usable_in_eager_context: TermHashSet,
-  terms_usable_in_lazy_context: TermHashSet,
+  terms_usable_in_lazy_context:  TermHashSet,
 }
 
 impl Default for TermBag {
   fn default() -> Self {
-    TermBag{
+    TermBag {
       terms_usable_in_eager_context: TermHashSet::new(),
-      terms_usable_in_lazy_context: TermHashSet::new()
+      terms_usable_in_lazy_context:  TermHashSet::new(),
     }
   }
 }
 
 impl TermBag {
-
   #[inline(always)]
   pub fn new() -> Self {
     Self::default()
@@ -82,8 +82,9 @@ impl TermBag {
 
   #[inline(always)]
   pub fn contains<Q>(&self, term: &Q, eager_context: bool) -> bool
-    where dyn Term: Borrow<Q>,
-          Q: Hash + Eq + ?Sized
+  where
+    dyn Term: Borrow<Q>,
+    Q: Hash + Eq + ?Sized,
   {
     if eager_context {
       self.terms_usable_in_eager_context.contains(term)
@@ -94,9 +95,10 @@ impl TermBag {
 
   /// Finds the provided term in the term bag, returning `None` if it is not present.
   #[inline(always)]
-  pub fn find<Q>(&self, term: &Q, eager_context: bool) -> MaybeTerm
-    where dyn Term: Borrow<Q>,
-                 Q: Hash + Eq + ?Sized
+  pub fn find<Q>(&self, term: &Q, eager_context: bool) -> Option<(RcTerm, HashValueType)>
+  where
+    dyn Term: Borrow<Q>,
+    Q: Hash + Eq + ?Sized,
   {
     if eager_context {
       self.terms_usable_in_eager_context.find(term)
@@ -107,7 +109,7 @@ impl TermBag {
 
   /// Fetches  the value from the set, returning `None` if it is not present.
   #[inline(always)]
-  pub fn find_for_hash(&self,  hash: u64, eager_context: bool) -> MaybeTerm {
+  pub fn find_for_hash(&self, hash: u64, eager_context: bool) -> MaybeTerm {
     if eager_context {
       self.terms_usable_in_eager_context.find_for_hash(hash)
     } else {

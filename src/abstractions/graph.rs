@@ -8,8 +8,7 @@ ToDo: Review if there are better options.
 
 use std::vec::Vec;
 
-use crate::UNDEFINED;
-use crate::abstractions::NatSet;
+use crate::{abstractions::NatSet, UNDEFINED};
 
 
 pub struct Graph {

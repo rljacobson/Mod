@@ -9,25 +9,25 @@ use std::ops::{BitOr, BitOrAssign};
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u32)]
 pub enum PrintFlag {
-  PrintGraph = 0x1,
-  PrintConceal = 0x2,
-  PrintFormat = 0x4,
-  PrintMixfix = 0x8,
-  PrintWithParens = 0x10,
-  PrintColor = 0x20,
+  PrintGraph         = 0x1,
+  PrintConceal       = 0x2,
+  PrintFormat        = 0x4,
+  PrintMixfix        = 0x8,
+  PrintWithParens    = 0x10,
+  PrintColor         = 0x20,
   PrintDisambigConst = 0x40,
-  PrintWithAliases = 0x100,
-  PrintFlat = 0x200,
-  PrintNumber = 0x400,
-  PrintRat = 0x800,
+  PrintWithAliases   = 0x100,
+  PrintFlat          = 0x200,
+  PrintNumber        = 0x400,
+  PrintRat           = 0x800,
 
   #[default]
-  DefaultPrintFlags = PrintFlag::PrintFormat as u32
-      | PrintFlag::PrintMixfix as u32
-      | PrintFlag::PrintWithAliases as u32
-      | PrintFlag::PrintFlat as u32
-      | PrintFlag::PrintNumber as u32
-      | PrintFlag::PrintRat as u32,
+  DefaultPrintFlags  = PrintFlag::PrintFormat as u32
+    | PrintFlag::PrintMixfix as u32
+    | PrintFlag::PrintWithAliases as u32
+    | PrintFlag::PrintFlat as u32
+    | PrintFlag::PrintNumber as u32
+    | PrintFlag::PrintRat as u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -87,6 +87,7 @@ impl From<PrintFlag> for PrintFlags {
 
 impl BitOr for PrintFlags {
   type Output = PrintFlags;
+
   fn bitor(self, rhs: Self) -> Self::Output {
     PrintFlags(self.0 | rhs.0)
   }
@@ -94,6 +95,7 @@ impl BitOr for PrintFlags {
 
 impl BitOr<PrintFlag> for PrintFlags {
   type Output = PrintFlags;
+
   fn bitor(self, rhs: PrintFlag) -> Self::Output {
     PrintFlags(self.0 | rhs as u32)
   }
@@ -104,6 +106,3 @@ impl BitOrAssign<PrintFlag> for PrintFlags {
     self.0 |= rhs as u32;
   }
 }
-
-
-

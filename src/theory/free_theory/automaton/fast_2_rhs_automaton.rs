@@ -6,63 +6,54 @@ ToDo: Put the args inline.
 
 */
 
-use std::{
-  cell::RefCell,
-  any::Any,
-  rc::Rc
-};
+use std::{any::Any, cell::RefCell, rc::Rc};
 
 use crate::{
+  abstractions::RcCell,
+  core::{substitution::Substitution, VariableInfo},
+  rc_cell,
   theory::{
-    free_theory::{
-      automaton::FreeRHSAutomatonInstruction,
-      FreeDagNode
-    },
     dag_node::MaybeDagNode,
+    free_theory::{automaton::FreeRHSAutomatonInstruction, FreeDagNode},
     DagNode,
+    RHSAutomaton,
     RcDagNode,
     RcSymbol,
-    RHSAutomaton,
   },
-  rc_cell,
-  core::{
-    VariableInfo,
-    substitution::Substitution
-  },
-  abstractions::RcCell,
 };
 
 // Stores DAG nodes inline.
 struct FreeFast2RHSInstruction {
-  pub(crate) symbol     : RcSymbol,
+  pub(crate) symbol:      RcSymbol,
   pub(crate) destination: i32,
-  pub(crate) sources    : [i32; 2],
+  pub(crate) sources:     [i32; 2],
 }
 
 
 #[derive(Default)]
 pub struct FreeFast2RHSAutomaton {
-  symbol: Option<RcSymbol>,
-  instructions: Vec<FreeRHSAutomatonInstruction>,
+  symbol:            Option<RcSymbol>,
+  instructions:      Vec<FreeRHSAutomatonInstruction>,
   fast_instructions: Vec<FreeFast2RHSInstruction>,
-  sources: [i32; 2],
-  destination: i32,
+  sources:           [i32; 2],
+  destination:       i32,
 }
 
 impl FreeFast2RHSAutomaton {
   #[inline(always)]
   fn fill_out_args(&self, instruction: &FreeFast2RHSInstruction, matcher: &Substitution, dag_node: &mut dyn DagNode) {
-    dag_node.dag_node_members_mut()
-            .args
-            .push(matcher.value(instruction.sources[0] as usize).unwrap());
-    dag_node.dag_node_members_mut()
-            .args
-            .push(matcher.value(instruction.sources[1] as usize).unwrap());
+    dag_node
+      .dag_node_members_mut()
+      .args
+      .push(matcher.value(instruction.sources[0] as usize).unwrap());
+    dag_node
+      .dag_node_members_mut()
+      .args
+      .push(matcher.value(instruction.sources[1] as usize).unwrap());
   }
 }
 
 impl RHSAutomaton for FreeFast2RHSAutomaton {
-
   fn as_any(&self) -> &dyn Any {
     self
   }
@@ -89,10 +80,10 @@ impl RHSAutomaton for FreeFast2RHSAutomaton {
         symbol: instr.symbol.clone(),
 
         destination: instr.destination,
-        sources: [0, 0],
+        sources:     [0, 0],
       };
       // `instr.sources` may have fewer than 2 elmts.
-      for (i,  &source) in instr.sources.iter().enumerate(){
+      for (i, &source) in instr.sources.iter().enumerate() {
         f.sources[i] = source;
       }
 
@@ -102,12 +93,11 @@ impl RHSAutomaton for FreeFast2RHSAutomaton {
 
   fn construct(&self, matcher: &mut Substitution) -> MaybeDagNode {
     let mut instruction_iter = self.fast_instructions.iter();
-    let mut instruction =
-        if let Some(i) = instruction_iter.next() {
-          i
-        } else {
-          return None;
-        };
+    let mut instruction = if let Some(i) = instruction_iter.next() {
+      i
+    } else {
+      return None;
+    };
 
     loop {
       let mut new_dag_node = FreeDagNode::new(instruction.symbol.clone());
@@ -119,10 +109,9 @@ impl RHSAutomaton for FreeFast2RHSAutomaton {
       if let Some(i) = instruction_iter.next() {
         instruction = i;
       } else {
-        return maybe_dag_node
+        return maybe_dag_node;
       }
-    };
-
+    }
   }
 
   fn replace(&mut self, old: RcDagNode, matcher: &mut Substitution) {
@@ -135,9 +124,9 @@ impl RHSAutomaton for FreeFast2RHSAutomaton {
       instruction_count += 1;
       // ToDo: Why isn't the last one bound?
       if instruction_count == self.fast_instructions.len() {
-        if let Some(old_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>(){
+        if let Some(old_node) = old.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>() {
           let _ = std::mem::replace(old_node, new_dag_node);
-        } else{
+        } else {
           unreachable!("Attempted to swap non free dag node for free dag node. This is a bug.");
         }
         break;
@@ -145,7 +134,5 @@ impl RHSAutomaton for FreeFast2RHSAutomaton {
 
       matcher.bind(instruction.destination, Some(rc_cell!(new_dag_node)));
     }
-
   }
-
 }

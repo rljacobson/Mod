@@ -4,15 +4,11 @@ The matcher automatons.
 
 */
 
-pub(crate) mod rhs_automaton;
 pub(crate) mod lhs_automaton;
+pub(crate) mod rhs_automaton;
 
+pub use lhs_automaton::{BxLHSAutomaton, LHSAutomaton, RcLHSAutomaton};
 pub use rhs_automaton::RHSAutomaton;
-pub use lhs_automaton::{
-  LHSAutomaton,
-  RcLHSAutomaton,
-  BxLHSAutomaton,
-};
 
 ///	This trait must be derived from for equational theories that generate
 ///	unification subproblems.

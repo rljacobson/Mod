@@ -10,70 +10,56 @@ equation::fast_variable_count(&this);
 
 use std::{
   fmt::{Display, Formatter},
-  rc::Rc
+  rc::Rc,
 };
 
-use tiny_logger::{Channel, log};
+use tiny_logger::{log, Channel};
 use yansi::Paint;
 
 use crate::{
   abstractions::{IString, NatSet},
   core::{
-    condition_fragment::{
-      Condition,
-      repr_condition,
-    },
-    format::{
-      FormatStyle,
-      Formattable
-    },
+    automata::RHSBuilder,
+    condition_fragment::{repr_condition, Condition},
+    format::{FormatStyle, Formattable},
     interpreter::InterpreterAttribute,
     pre_equation::{
+      sort_constraint,
+      sort_constraint_table::SortConstraintTable,
       Equation,
       PreEquation,
       PreEquationAttribute,
       PreEquationAttributes,
       PreEquationKind,
-      sort_constraint,
-      sort_constraint_table::SortConstraintTable,
     },
-    rewrite_context::RewritingContext,
+    rewrite_context::{ContextAttribute, RewritingContext},
+    TermBag,
     VariableInfo,
   },
+  theory::{index_variables, term_compiler::compile_top_rhs, RcDagNode, RcLHSAutomaton, RcTerm},
   NONE,
-  theory::{
-    RcDagNode,
-    RcLHSAutomaton,
-    RcTerm,
-    term_compiler::compile_top_rhs,
-  },
 };
-use crate::core::automata::RHSBuilder;
-use crate::core::rewrite_context::ContextAttribute;
-use crate::core::TermBag;
-use crate::theory::index_variables;
 
 
 pub fn new(
-  name     : Option<IString>,
-  lhs_term : RcTerm,
-  rhs_term : RcTerm,
-  otherwise: bool,     // an "owise" term?
-  condition: Condition
-) -> PreEquation
-{
+  name: Option<IString>,
+  lhs_term: RcTerm,
+  rhs_term: RcTerm,
+  otherwise: bool, // an "owise" term?
+  condition: Condition,
+) -> PreEquation {
   let attributes: PreEquationAttributes = if otherwise {
     PreEquationAttribute::Otherwise.into()
   } else {
     PreEquationAttributes::default()
   };
 
-  PreEquation{
+  PreEquation {
     name,
     attributes,
     lhs_term,
     lhs_automaton: None,
-    lhs_dag      : None,
+    lhs_dag: None,
     condition,
     variable_info: VariableInfo::default(),
     parent_module: Default::default(),
@@ -81,14 +67,14 @@ pub fn new(
 
     kind: Equation {
       rhs_term,
-      rhs_builder        : RHSBuilder::default(),
+      rhs_builder: RHSBuilder::default(),
       fast_variable_count: 0,
-    }
+    },
   }
 }
 
 pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
-  if let Equation {rhs_term, .. } = &this.kind {
+  if let Equation { rhs_term, .. } = &this.kind {
     {
       let mut rhs_term = rhs_term.borrow_mut();
       rhs_term.normalize(false);
@@ -101,7 +87,6 @@ pub(crate) fn check(this: &mut PreEquation, bound_variables: NatSet) {
 
     // The remainder just happens to be identical to the check for sort constraints.
     sort_constraint::check(this);
-
   }
 }
 
@@ -111,12 +96,16 @@ pub(crate) fn compile(this: &mut PreEquation, mut compile_lhs: bool) {
   }
   this.attributes.set(PreEquationAttribute::Compiled);
 
-  let mut available_terms = TermBag::new();  // terms available for reuse
+  let mut available_terms = TermBag::new(); // terms available for reuse
   this.compile_build(&mut available_terms, true);
 
   // Destructure
-  if let Equation {rhs_term, rhs_builder, fast_variable_count} = &mut this.kind {
-
+  if let Equation {
+    rhs_term,
+    rhs_builder,
+    fast_variable_count,
+  } = &mut this.kind
+  {
     if this.is_variant() {
       //
       // If the equation has the variant attribute, we disallow left->right sharing so
@@ -131,20 +120,22 @@ pub(crate) fn compile(this: &mut PreEquation, mut compile_lhs: bool) {
       // net for lhs matching).
       //
       compile_lhs = true;
-    }
-    else {
-      compile_top_rhs(rhs_term.clone(), rhs_builder, &mut this.variable_info, &mut available_terms);  // normal case
+    } else {
+      compile_top_rhs(
+        rhs_term.clone(),
+        rhs_builder,
+        &mut this.variable_info,
+        &mut available_terms,
+      ); // normal case
     }
 
     this.compile_match(compile_lhs, true);
     rhs_builder.remap_indices(&mut this.variable_info);
     *fast_variable_count = if this.has_condition() {
       NONE
-    }
-    else {
+    } else {
       this.variable_info.protected_variable_count()
-    };  // HACK
-
+    }; // HACK
   } else {
     unreachable!("Tried to compile nonequation as an equation. This is a bug.")
   }

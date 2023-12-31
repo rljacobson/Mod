@@ -5,15 +5,14 @@ Information about a variable that gets passed down through the compilation funct
 */
 
 
-use std::collections::HashSet;
-use std::ops::Index;
+use std::{collections::HashSet, ops::Index};
 
-use tiny_logger::{
-  Channel::Debug, log
+use tiny_logger::{log, Channel::Debug};
+
+use crate::{
+  abstractions::{Graph, NatSet},
+  theory::RcTerm,
 };
-
-use crate::abstractions::{NatSet, Graph};
-use crate::theory::{RcTerm};
 
 
 type MaybeTerm = Option<RcTerm>;
@@ -24,24 +23,23 @@ const MAX_PROTECTED_VARIABLE_COUNT: i32 = 10_000_000;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, Default)]
 struct ConstructionIndex {
-  last_use_time    : u32,
+  last_use_time:     u32,
   assigned_fragment: i16,
   last_use_fragment: i16,
-  new_index        : i32,
+  new_index:         i32,
 }
 
 #[derive(Default)]
 pub struct VariableInfo {
-  variables               : Vec<MaybeTerm>,
-  protected_variable_count: i32,
-  fragment_number         : i16,
-  construction_indices    : Vec<ConstructionIndex>,
-  condition_variables     : NatSet,
+  variables:                    Vec<MaybeTerm>,
+  protected_variable_count:     i32,
+  fragment_number:              i16,
+  construction_indices:         Vec<ConstructionIndex>,
+  condition_variables:          NatSet,
   pub(crate) unbound_variables: NatSet,
 }
 
 impl VariableInfo {
-
   #[inline(always)]
   pub fn new() -> Self {
     Self::default()
@@ -59,7 +57,6 @@ impl VariableInfo {
     self.protected_variable_count
   }
 
-
   #[inline(always)]
   pub(crate) fn index_to_variable(&self, index: usize) -> MaybeTerm {
     if let Some(d) = self.variables.get(index) {
@@ -71,18 +68,15 @@ impl VariableInfo {
 
   pub(crate) fn variable_to_index(&mut self, variable: RcTerm) -> i32 {
     // assert!(variable != &VariableTerm::default(), "null term");
-    assert!(self.variables.len() == self.protected_variable_count as usize, "can't add new real variables at this stage");
+    assert!(
+      self.variables.len() == self.protected_variable_count as usize,
+      "can't add new real variables at this stage"
+    );
 
-    let idx = self.variables
-                  .iter()
-                  .position(
-                    |v| {
-                      v.is_some()
-                          && v.unwrap()
-                          .borrow()
-                          .compare(&*variable.borrow()).is_eq()
-                    }
-                  );
+    let idx = self
+      .variables
+      .iter()
+      .position(|v| v.is_some() && v.unwrap().borrow().compare(&*variable.borrow()).is_eq());
     match idx {
       Some(i) => i as i32,
       None => {
@@ -163,7 +157,8 @@ impl VariableInfo {
 
     // All construction indices that need to be protected between different fragments
     // get remapped to a new protected variable.
-    { // scope of new_protected_variable_count
+    {
+      // scope of new_protected_variable_count
       let mut new_protected_variable_count = self.protected_variable_count;
       for mut idx in self.construction_indices.iter_mut() {
         if idx.assigned_fragment != idx.last_use_fragment {
@@ -176,8 +171,12 @@ impl VariableInfo {
 
     // We now build a graph of conflicts between remaining construction indices.
     #[cfg(debug_assertions)]
-    if !(construction_indices_count < 100){
-      log(Debug, 3, format!("nrConstructionIndices = {}", construction_indices_count).as_str())
+    if !(construction_indices_count < 100) {
+      log(
+        Debug,
+        3,
+        format!("nrConstructionIndices = {}", construction_indices_count).as_str(),
+      )
     }
     let mut conflicts: Graph = Graph::new(construction_indices_count);
     let mut conflict_candidates = Vec::new();
@@ -218,9 +217,7 @@ impl VariableInfo {
                   "\tnrColors = " << nrColors);
     */
   }
-
 }
-
 
 
 impl Index<usize> for VariableInfo {

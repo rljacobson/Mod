@@ -11,16 +11,16 @@ use crate::theory::RcDagNode;
 #[repr(u8)]
 pub enum RedexPositionFlags {
   Stale = 1,
-  Eager = 2
+  Eager = 2,
 }
 // Local convenience
-use RedexPositionFlags::{Stale, Eager};
+use RedexPositionFlags::{Eager, Stale};
 
 pub struct RedexPosition {
-  pub dag_node: RcDagNode,
+  pub dag_node:     RcDagNode,
   pub parent_index: i32,
-  pub arg_index: i32,
-  pub flags: u8,
+  pub arg_index:    i32,
+  pub flags:        u8,
 }
 
 impl RedexPosition {
@@ -47,6 +47,4 @@ impl RedexPosition {
       self.flags &= !(Eager as u8);
     }
   }
-
-
 }

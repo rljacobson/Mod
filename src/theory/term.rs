@@ -16,39 +16,13 @@ Types Implementing `Term`:
 use std::{
   any::Any,
   cmp::Ordering,
-  collections::{
-    hash_map::Entry,
-    HashMap
-  },
+  collections::{hash_map::Entry, HashMap},
   fmt::{Display, Formatter},
-  hash::{Hash, Hasher},
+  hash::{BuildHasher, Hash, Hasher},
   net::Shutdown::Write,
   ptr::addr_of,
   rc::Rc,
 };
-use std::hash::BuildHasher;
-
-use crate::{abstractions::{
-  FastHasher,
-  FastHasherBuilder,
-  NatSet,
-  RcCell,
-  Set,
-}, core::{
-  format::{
-    FormatStyle,
-    Formattable
-  },
-  OrderingValue,
-  sort::{
-    RcConnectedComponent,
-    SpecialSort
-  },
-  substitution::Substitution,
-  TermBag,
-  VariableInfo,
-}, NONE, theory::variable::VariableTerm, UNDEFINED};
-use crate::core::automata::RHSBuilder;
 
 use super::{
   dag_node_flags,
@@ -62,10 +36,25 @@ use super::{
   Symbol,
   SymbolSet,
 };
+use crate::{
+  abstractions::{FastHasher, FastHasherBuilder, NatSet, RcCell, Set},
+  core::{
+    automata::RHSBuilder,
+    format::{FormatStyle, Formattable},
+    sort::{RcConnectedComponent, SpecialSort},
+    substitution::Substitution,
+    OrderingValue,
+    TermBag,
+    VariableInfo,
+  },
+  theory::variable::VariableTerm,
+  NONE,
+  UNDEFINED,
+};
 
 pub type MaybeTerm = Option<RcTerm>;
-pub type RcTerm    = RcCell<dyn Term>;
-pub type TermSet   = Set<dyn Term>;
+pub type RcTerm = RcCell<dyn Term>;
+pub type TermSet = Set<dyn Term>;
 // ToDo: Replace with analog of `TermHashSet`.
 pub type NodeCache = HashMap<u32, RcDagNode, FastHasherBuilder>;
 
@@ -74,7 +63,7 @@ pub enum TermKind {
   Free,
   Bound,
   Ground,
-  NonGround
+  NonGround,
 }
 
 
@@ -82,16 +71,16 @@ pub enum TermKind {
 #[repr(u8)]
 pub(crate) enum TermAttribute {
   ///	A subterm is stable if its top symbol cannot change under instantiation.
-  Stable = 1,
+  Stable               = 1,
 
   ///	A subterm is in an eager context if the path to its root contains only
   ///	eagerly evaluated positions.
-  EagerContext = 2,
+  EagerContext         = 2,
 
   ///	A subterm "honors ground out match" if its matching algorithm guarantees
   ///	never to to return a matching subproblem when all the terms variables
   ///	are already bound.
-  HonorsGroundOutMatch = 4
+  HonorsGroundOutMatch = 4,
 }
 
 /*
@@ -103,18 +92,17 @@ either
 We choose the second option.
 */
 pub struct TermMembers {
-  pub(crate) top_symbol         : RcSymbol,
+  pub(crate) top_symbol:          RcSymbol,
   /// The handles (indices) for the variable terms that occur in this term or its descendants
-  pub(crate) occurs_set         : NatSet,
-  pub(crate) context_set        : NatSet,
-  pub(crate) collapse_set       : SymbolSet,
-  pub(crate) attributes         : u8,
-  pub(crate) sort_index         : i32, //i16,
+  pub(crate) occurs_set:          NatSet,
+  pub(crate) context_set:         NatSet,
+  pub(crate) collapse_set:        SymbolSet,
+  pub(crate) attributes:          u8,
+  pub(crate) sort_index:          i32, //i16,
   pub(crate) connected_component: RcConnectedComponent,
-  pub(crate) save_index         : i32, // NoneIndex = -1
+  pub(crate) save_index:          i32, // NoneIndex = -1
   // pub(crate) hash_value         : u32,
-  pub(crate) cached_size        : i32,
-
+  pub(crate) cached_size:         i32,
   // Static Members
 
   // pub(crate) static sub_dags : NodeList,
@@ -134,26 +122,25 @@ pub struct TermMembers {
 impl TermMembers {
   pub fn new(symbol: RcSymbol) -> TermMembers {
     TermMembers {
-      top_symbol         : symbol,
-      occurs_set         : Default::default(),
-      context_set        : Default::default(),
-      collapse_set       : Default::default(),
-      attributes         : 0,
-      sort_index         : SpecialSort::Unknown as i32,
+      top_symbol:          symbol,
+      occurs_set:          Default::default(),
+      context_set:         Default::default(),
+      collapse_set:        Default::default(),
+      attributes:          0,
+      sort_index:          SpecialSort::Unknown as i32,
       connected_component: Default::default(),
-      save_index         : 0,
+      save_index:          0,
       // hash_value         : 0,
-      cached_size        : UNDEFINED,
+      cached_size:         UNDEFINED,
     }
   }
 }
 
 
 pub trait Term: Formattable {
-
-  fn as_any(&self)         -> &dyn Any;
+  fn as_any(&self) -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn as_ptr(&self)         -> *const dyn Term;
+  fn as_ptr(&self) -> *const dyn Term;
   fn semantic_hash(&self) -> u32;
   /// Normalizes the term, returning the computed hash and `true` if the normalization changed
   /// the term or `false` otherwise.
@@ -238,15 +225,14 @@ pub trait Term: Formattable {
   }
 
   /// Returns an iterator over the arguments of the term.
-  fn iter_args(&self) -> Box<dyn Iterator<Item=RcTerm> + '_>;
+  fn iter_args(&self) -> Box<dyn Iterator<Item = RcTerm> + '_>;
 
 
   /// Compute the number of nodes in the term tree.
   fn compute_size(&mut self) -> i32 {
     if self.term_members().cached_size != UNDEFINED {
       self.term_members().cached_size
-    }
-    else {
+    } else {
       let mut size = 1; // Count self.
       for arg in self.iter_args() {
         size += arg.borrow_mut().compute_size();
@@ -283,7 +269,6 @@ pub trait Term: Formattable {
   }
 
 
-
   // endregion
 
   // region Comparison Functions
@@ -315,7 +300,7 @@ pub trait Term: Formattable {
       return self.partial_compare_arguments(partial_substitution, other);
     }
 
-    if self.symbol().compare(other.symbol().as_ref())  == Ordering::Less {
+    if self.symbol().compare(other.symbol().as_ref()) == Ordering::Less {
       OrderingValue::Less
     } else {
       OrderingValue::Greater
@@ -366,7 +351,11 @@ pub trait Term: Formattable {
 
     let d = self.dagify_aux(sub_dags, set_sort_info);
     if set_sort_info {
-      assert_ne!(self.term_members().sort_index, SpecialSort::Unknown as i32, "Missing sort info");
+      assert_ne!(
+        self.term_members().sort_index,
+        SpecialSort::Unknown as i32,
+        "Missing sort info"
+      );
       let mut d = d.borrow_mut();
       d.set_sort_index(self.term_members().sort_index);
       d.set_flags(DagNodeFlag::Reduced.into());
@@ -386,8 +375,8 @@ pub trait Term: Formattable {
   /// Compiles the LHS automaton, returning the tuple `(lhs_automaton, subproblem_likely): (RcLHSAutomaton, bool)`
   fn compile_lhs(
     &self,
-    match_at_top  : bool,
-    variable_info : &VariableInfo,
+    match_at_top: bool,
+    variable_info: &VariableInfo,
     bound_uniquely: &mut NatSet,
   ) -> (RcLHSAutomaton, bool);
 
@@ -395,10 +384,10 @@ pub trait Term: Formattable {
   /// the `save_index`.
   fn compile_rhs_aux(
     &mut self,
-    builder        : &mut RHSBuilder,
-    variable_info  : &VariableInfo,
+    builder: &mut RHSBuilder,
+    variable_info: &VariableInfo,
     available_terms: &mut TermBag,
-    eager_context  : bool
+    eager_context: bool,
   ) -> i32;
 
   // A subterm "honors ground out match" if its matching algorithm guarantees never to return a matching subproblem
@@ -467,15 +456,12 @@ pub trait Term: Formattable {
   /// symbol's sort declarations, validating them against the symbol's expected input and output
   /// types (domain and range components). (This is a method on `Symbol` in Maude.)
   fn fill_in_sort_info(&mut self) {
-    let symbol    = self.symbol();
+    let symbol = self.symbol();
     let component = symbol.sort_table().range_component(); // should be const
-    // assert!(component.is_some(), "couldn't get component");
+                                                           // assert!(component.is_some(), "couldn't get component");
 
     if symbol.arity() == 0 {
-      self.set_sort_info(
-        component.clone(),
-        symbol.sort_table().traverse(0, 0)
-      ); // HACK
+      self.set_sort_info(component.clone(), symbol.sort_table().traverse(0, 0)); // HACK
       return;
     }
 
@@ -506,7 +492,7 @@ pub trait Term: Formattable {
 }
 
 // region trait impls for Term
-impl Display for dyn Term{
+impl Display for dyn Term {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.repr(FormatStyle::Default))
   }
@@ -527,7 +513,7 @@ impl PartialEq for dyn Term {
   }
 }
 
-impl Eq for dyn Term{}
+impl Eq for dyn Term {}
 // endregion
 
 /// Recursively collects the indices and occurs sets of this term and its descendants.
@@ -554,10 +540,7 @@ pub fn index_variables(term: RcTerm, indices: &mut VariableInfo) {
     for arg in term_mut.iter_args() {
       index_variables(arg.clone(), indices);
       // Accumulate the set of variables that occur under this symbol.
-      occurs_below.union_in_place(
-                &arg.borrow()
-                    .occurs_below()
-              );
+      occurs_below.union_in_place(&arg.borrow().occurs_below());
     }
     term_mut.occurs_below_mut().union_in_place(&occurs_below);
   }
@@ -578,5 +561,7 @@ pub fn find_available_terms(term: RcTerm, available_terms: &mut TermBag, eager_c
   }
 
   // Now do theory-specific stuff
-  term.borrow().find_available_terms_aux(available_terms, eager_context, at_top);
+  term
+    .borrow()
+    .find_available_terms_aux(available_terms, eager_context, at_top);
 }

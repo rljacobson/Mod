@@ -10,18 +10,20 @@ by placing a reference to the DagNode at the index of the number. Names are numb
  */
 
 
-use std::cmp::min;
-use std::rc::Rc;
-use crate::abstractions::NatSet;
+use std::{cmp::min, rc::Rc};
 
-use crate::core::{LocalBindings, NarrowingVariableInfo, VariableInfo};
-use crate::theory::{DagNode, RcDagNode};
+use crate::{
+  abstractions::NatSet,
+  core::{LocalBindings, NarrowingVariableInfo, VariableInfo},
+  theory::{DagNode, RcDagNode},
+};
 
 pub type MaybeDagNode = Option<RcDagNode>;
 
 #[derive(Clone, Default)]
 pub struct Substitution {
   bindings: Vec<MaybeDagNode>,
+
   // Todo: What is the purpose of copy_size?
   /*
   I think `copy_size` exists because the length of `bindings` might not reflect the "active" portion of the
@@ -45,10 +47,7 @@ impl Substitution {
     let mut bindings = Vec::with_capacity(n);
     bindings.resize(n, None);
 
-    Self {
-      bindings,
-      copy_size: n,
-    }
+    Self { bindings, copy_size: n }
   }
 
   #[inline(always)]
@@ -56,40 +55,40 @@ impl Substitution {
     self.bindings.resize(size, None);
   }
 
-
   #[inline(always)]
   pub fn clear_first_n(&mut self, size: usize) {
     self.copy_size = size;
 
-    for i in  0..min(size, self.bindings.len()) {
+    for i in 0..min(size, self.bindings.len()) {
       self.bindings[i] = None;
     }
 
     if self.bindings.len() < size {
       self.bindings.resize(size, None);
     }
-
   }
 
   /// This getter takes a `usize` for the common case that we start with a `usize` index. Be careful that the `usize`
   /// wasn't converted from an `i32` that was `NONE`.
   #[inline(always)]
-  pub fn value(&self, index: usize)  -> MaybeDagNode {
+  pub fn value(&self, index: usize) -> MaybeDagNode {
     self.get(index as i32)
   }
-
 
   // Todo: Is this the best way to implement a getter? I think we did it this way so it returned a value.
   /// This getter takes an `i32` so it can check for negative indices, i.e. `NONE`.
   #[inline(always)]
   pub fn get(&self, index: i32) -> MaybeDagNode {
     assert!(index >= 0, "-ve index {}", index);
-    assert!(index < self.bindings.len() as i32, "index too big {} vs {}", index, self.bindings.len());
+    assert!(
+      index < self.bindings.len() as i32,
+      "index too big {} vs {}",
+      index,
+      self.bindings.len()
+    );
 
     // The asserts give confidence but do not guarantee safety here.
-    unsafe{
-      self.bindings.get_unchecked(index as usize).clone()
-    }
+    unsafe { self.bindings.get_unchecked(index as usize).clone() }
   }
 
   #[inline(always)]
@@ -102,11 +101,10 @@ impl Substitution {
     self.copy_size
   }
 
-
   pub fn subtract(&self, original: &Substitution) -> Option<LocalBindings> {
     let mut local_bindings = LocalBindings::new();
     for (idx, (i, j)) in self.bindings.iter().zip(original.iter()).enumerate() {
-      assert!(j.is_none() || i==j, "substitution inconsistency at index {}", idx);
+      assert!(j.is_none() || i == j, "substitution inconsistency at index {}", idx);
       if let (Some(a), Some(b)) = (i, j) {
         if a != b {
           local_bindings.add_binding(idx as i32, (*a).clone());
@@ -114,30 +112,35 @@ impl Substitution {
       }
     }
 
-    if local_bindings.len() > 0  {
+    if local_bindings.len() > 0 {
       Some(local_bindings)
     } else {
       None
     }
   }
 
- /*
- Actually, I think these are implemented on `LocalBindings`
+  /*
+  Actually, I think these are implemented on `LocalBindings`
 
-  pub fn assert(&self, solution: &Substitution) {
-    // Todo: Implement assert
-  }
+   pub fn assert(&self, solution: &Substitution) {
+     // Todo: Implement assert
+   }
 
 
-  pub fn retract(&self, solution: &Substitution) {
-    // Todo: Implement retract
-  }
- */
+   pub fn retract(&self, solution: &Substitution) {
+     // Todo: Implement retract
+   }
+  */
 
   #[inline(always)]
   pub fn bind(&mut self, index: i32, maybe_value: Option<RcDagNode>) {
     assert!(index >= 0, "Negative index {}", index);
-    assert!((index as usize) < self.bindings.len(), "Index too big {} vs {}", index, self.bindings.len());
+    assert!(
+      (index as usize) < self.bindings.len(),
+      "Index too big {} vs {}",
+      index,
+      self.bindings.len()
+    );
 
     self.bindings[index as usize] = maybe_value;
   }
@@ -155,7 +158,6 @@ impl Substitution {
   pub fn finished(&mut self) {
     self.copy_size = 0;
   }
-
 }
 
 

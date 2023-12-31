@@ -7,33 +7,30 @@ access to its contents and supports weak references. A number of external crates
 module redirects to whatever chosen implementation we want.
 
 */
-mod rccell;
-mod hash;
 mod graph;
-mod nat_set;
+mod hash;
 mod hash_set;
 mod indexed_hash_set;
+mod nat_set;
+mod rccell;
 
-use std::iter::once;
-use std::collections::HashSet as StdHashSet;
+use std::{collections::HashSet as StdHashSet, iter::once};
 
-pub use yansi::{Paint, Color, Style};
-pub use tiny_logger::{log, set_verbosity, Channel};
-
-// Interned string.
-pub use string_cache::DefaultAtom as IString;
-// Reference counted pointers with mutable stable, and complementary weak pointers.
-pub use rccell::{RcCell, WeakCell, rc_cell};
+pub use graph::Graph;
 // Fast and simple hash functions
 pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
 // A hash set of terms for structural sharing
-pub use hash_set::{HashSet, HashValueType, TermHashSet, DagNodeHashSet};
+pub use hash_set::{DagNodeHashSet, HashSet, HashValueType, TermHashSet};
 // Similar to a HashSet, except an index equal to original insertion order is assigned to each element
 pub use indexed_hash_set::IndexedHashSet;
 // A set of natural numbers
 pub use nat_set::NatSet;
-
-pub use graph::Graph;
+// Reference counted pointers with mutable stable, and complementary weak pointers.
+pub use rccell::{rc_cell, RcCell, WeakCell};
+// Interned string.
+pub use string_cache::DefaultAtom as IString;
+pub use tiny_logger::{log, set_verbosity, Channel};
+pub use yansi::{Color, Paint, Style};
 
 /// Arbitrary precision integers
 pub type BigInteger = isize; // ToDo: An `isize` is not "arbitrary precision."
@@ -59,11 +56,9 @@ Usage:
     println!("{:?}", join_iter(iter, |_| sep).collect::<String>());
     // "Hello, World"
 */
-pub fn join_iter<T>(
-  mut iter: impl Iterator<Item = T>,
-  sep: impl Fn(&T) -> T,
-) -> impl Iterator<Item = T> {
-  iter.next()
-      .into_iter()
-      .chain(iter.flat_map(move |s| once(sep(&s)).chain(once(s))))
+pub fn join_iter<T>(mut iter: impl Iterator<Item = T>, sep: impl Fn(&T) -> T) -> impl Iterator<Item = T> {
+  iter
+    .next()
+    .into_iter()
+    .chain(iter.flat_map(move |s| once(sep(&s)).chain(once(s))))
 }

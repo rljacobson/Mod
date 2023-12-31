@@ -7,24 +7,20 @@ Right hand side automata that make copies of bindings in the substitution.
 
 
 use std::any::Any;
-use tiny_logger::{Channel, log};
+
+use tiny_logger::{log, Channel};
+
 use crate::{
   core::{
+    substitution::{MaybeDagNode, Substitution},
     VariableInfo,
-    substitution::{
-      MaybeDagNode,
-      Substitution
-    }
   },
-  theory::{
-    RcDagNode,
-    RHSAutomaton
-  }
+  theory::{RHSAutomaton, RcDagNode},
 };
 
 pub struct CopyRHSAutomaton {
   original_index: i32,
-  copy_index: i32,
+  copy_index:     i32,
 }
 
 
@@ -64,8 +60,12 @@ impl RHSAutomaton for CopyRHSAutomaton {
 
   fn construct(&self, matcher: &mut Substitution) -> MaybeDagNode {
     let orig = matcher.value(self.original_index as usize);
-    if let Some(orig_dag_node) = orig{
-      log(Channel::Debug, 2, format!("CopyRhsAutomaton::construct {}", orig_dag_node.borrow()).as_str());
+    if let Some(orig_dag_node) = orig {
+      log(
+        Channel::Debug,
+        2,
+        format!("CopyRhsAutomaton::construct {}", orig_dag_node.borrow()).as_str(),
+      );
 
       let mut new_dag_node = orig_dag_node.borrow_mut().copy_eager_upto_reduced();
       orig_dag_node.borrow_mut().clear_copied_rc();
@@ -79,7 +79,7 @@ impl RHSAutomaton for CopyRHSAutomaton {
   fn replace(&mut self, old: RcDagNode, matcher: &mut Substitution) {
     let orig = matcher.value(self.original_index as usize);
 
-    if let Some(orig_dag_node) = orig{
+    if let Some(orig_dag_node) = orig {
       let mut new_dag_node = orig_dag_node.borrow_mut().copy_eager_upto_reduced();
       orig_dag_node.borrow_mut().clear_copied_rc();
 
@@ -90,6 +90,4 @@ impl RHSAutomaton for CopyRHSAutomaton {
       unreachable!("No DagNode for original index. This is a bug.");
     }
   }
-
 }
-

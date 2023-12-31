@@ -29,15 +29,8 @@ object with its state updated. Thus, solutions can be extracted from the subprob
 
 use std::rc::Rc;
 
-use crate::{
-  core::{
-    LocalBindings,
-    rewrite_context::RewritingContext,
-    substitution::Substitution
-  }
-};
-
 use super::{automaton::LHSAutomaton, RcDagNode};
+use crate::core::{rewrite_context::RewritingContext, substitution::Substitution, LocalBindings};
 
 //	These traits must be derived from for equational theories that
 //	need to generate matching or unification subproblems or
@@ -67,21 +60,17 @@ pub trait Subproblem {
 }
 
 pub struct VariableAbstractionSubproblem {
-  pub abstracted_pattern: Box<dyn LHSAutomaton>,
+  pub abstracted_pattern:   Box<dyn LHSAutomaton>,
   pub abstraction_variable: i32,
-  pub variable_count: u32,
-  pub difference: Option<LocalBindings>,
-  pub subproblem: Option<Box<dyn Subproblem>>,
-  pub local: Substitution, // Todo: How does this differ from `difference`?
-  pub solved: bool,
+  pub variable_count:       u32,
+  pub difference:           Option<LocalBindings>,
+  pub subproblem:           Option<Box<dyn Subproblem>>,
+  pub local:                Substitution, // Todo: How does this differ from `difference`?
+  pub solved:               bool,
 }
 
 impl VariableAbstractionSubproblem {
-  pub fn new(
-    abstracted_pattern: Box<dyn LHSAutomaton>,
-    abstraction_variable: i32,
-    variable_count: u32,
-  ) -> Self {
+  pub fn new(abstracted_pattern: Box<dyn LHSAutomaton>, abstraction_variable: i32, variable_count: u32) -> Self {
     VariableAbstractionSubproblem {
       abstracted_pattern,
       abstraction_variable,
@@ -104,10 +93,7 @@ impl Subproblem for VariableAbstractionSubproblem {
       let v = v.unwrap();
 
       // Todo: What about the potential subproblem? Is it pushed to self.subproblem? If so, why return it?
-      if let (false, _) = self
-          .abstracted_pattern
-          .match_(v.clone(), &mut self.local, /*None*/)
-      {
+      if let (false, _) = self.abstracted_pattern.match_(v.clone(), &mut self.local /* None */) {
         return false;
       }
 

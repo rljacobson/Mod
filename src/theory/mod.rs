@@ -17,76 +17,48 @@ Traits that the components of theory must implement.
 pub mod symbol_type;
 
 
-mod symbol;
-mod dag_node_flags;
-mod dag_node;
-mod term;
-mod subproblem;
 mod automaton;
+mod dag_node;
+mod dag_node_flags;
+mod subproblem;
+mod symbol;
+mod term;
 // mod associative_symbol;
 
 // Theories
 pub mod free_theory;
-pub mod variable;
 pub mod term_compiler;
+pub mod variable;
 // pub mod acu_theory;
 
 use std::rc::Rc;
 
-
+pub(crate) use automaton::{
+  lhs_automaton::{BxLHSAutomaton, LHSAutomaton, RcLHSAutomaton},
+  rhs_automaton::{BxRHSAutomaton, RHSAutomaton, RcRHSAutomaton},
+};
+pub(crate) use dag_node::{AtomicNodeList, DagNode, DagNodeMembers, DagPair, NodeList, RcDagNode};
+pub(crate) use dag_node_flags::{DagNodeFlag, DagNodeFlags};
 pub(crate) use subproblem::{
   ExtensionInfo,
-  Subproblem,
-  RcSubproblem,
   MaybeSubproblem,
+  RcSubproblem,
+  Subproblem,
+  SubproblemSequence,
   VariableAbstractionSubproblem,
-  SubproblemSequence
 };
+pub(crate) use symbol::{BinarySymbol, RcSymbol, Symbol, SymbolMembers, SymbolSet};
+pub(crate) use symbol_type::{BasicSymbolTypes, SymbolType};
 pub(crate) use term::{
-    find_available_terms,
-    index_variables,
-    NodeCache,
-    RcTerm,
-    Term,
-    TermAttribute,
-    TermMembers,
-    TermSet,
-    MaybeTerm,
-};
-pub(crate) use dag_node_flags::{
-  DagNodeFlag,
-  DagNodeFlags,
-};
-pub(crate) use dag_node::{
-  AtomicNodeList,
-  DagNode,
-  DagNodeMembers,
-  DagPair,
-  NodeList,
-  RcDagNode,
-};
-pub(crate) use symbol::{
-  Symbol,
-  SymbolMembers,
-  SymbolSet,
-  RcSymbol,
-  BinarySymbol
-};
-pub(crate) use symbol_type::{
-  SymbolType,
-  BasicSymbolTypes
-};
-pub(crate) use automaton::{
-  lhs_automaton::{
-    LHSAutomaton,
-    BxLHSAutomaton,
-    RcLHSAutomaton
-  },
-  rhs_automaton::{
-    RHSAutomaton,
-    RcRHSAutomaton,
-    BxRHSAutomaton
-  }
+  find_available_terms,
+  index_variables,
+  MaybeTerm,
+  NodeCache,
+  RcTerm,
+  Term,
+  TermAttribute,
+  TermMembers,
+  TermSet,
 };
 
 
@@ -96,7 +68,7 @@ pub enum AssociativeSymbolStructure {
   // no guarantees
   LimitSort,
   // s_1 <= s & s_2 <= s ===> s_f(s_1, s_2) <= s
-  PureSort,      // replaces ===> with <===>, taking sort constraints in to account
+  PureSort, // replaces ===> with <===>, taking sort constraints in to account
 }
 
 
@@ -105,17 +77,16 @@ pub enum AssociativeSymbolStructure {
 pub enum Outcome {
   Success,
   Failure,
-  Undecided // Unknown
+  Undecided, // Unknown
 }
 
 
 impl From<bool> for Outcome {
-    fn from(value: bool) -> Self {
-        if value {
-          Outcome::Success
-        } else {
-          Outcome::Failure
-        }
+  fn from(value: bool) -> Self {
+    if value {
+      Outcome::Success
+    } else {
+      Outcome::Failure
     }
+  }
 }
-

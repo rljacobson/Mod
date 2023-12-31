@@ -9,37 +9,24 @@ equation::fast_variable_count(&this);
 */
 
 use std::assert_matches::assert_matches;
-use tiny_logger::{Channel, log};
+
+use tiny_logger::{log, Channel};
 use yansi::Paint;
 
 use crate::{
   abstractions::{IString, NatSet},
   core::{
     condition_fragment::Condition,
-    format::{
-      FormatStyle,
-      Formattable
-    },
-    pre_equation::{
-      PreEquationAttribute,
-      SortConstraint,
-      PreEquation,
-      PreEquationKind,
-      RcPreEquation,
-    },
+    format::{FormatStyle, Formattable},
+    pre_equation::{PreEquation, PreEquationAttribute, PreEquationKind, RcPreEquation, SortConstraint},
     sort::RcSort,
+    TermBag,
   },
   theory::RcTerm,
   UNDEFINED,
 };
-use crate::core::TermBag;
 
-pub fn new(
-  name     : Option<IString>,
-  lhs_term : RcTerm,
-  sort     : RcSort,
-  condition: Condition
-) -> PreEquation {
+pub fn new(name: Option<IString>, lhs_term: RcTerm, sort: RcSort, condition: Condition) -> PreEquation {
   PreEquation {
     name,
     attributes: Default::default(),
@@ -50,9 +37,7 @@ pub fn new(
     variable_info: Default::default(),
     index_within_parent_module: UNDEFINED,
     parent_module: Default::default(),
-    kind: SortConstraint {
-      sort
-    }
+    kind: SortConstraint { sort },
   }
 }
 
@@ -80,7 +65,7 @@ pub fn compile(this: &mut PreEquation, compile_lhs: bool) {
     return;
   }
   this.attributes.set(PreEquationAttribute::Compiled);
-  let mut available_terms = TermBag::default();  // terms available for reuse
+  let mut available_terms = TermBag::default(); // terms available for reuse
   this.compile_build(&mut available_terms, false);
   this.compile_match(compile_lhs, false);
 }

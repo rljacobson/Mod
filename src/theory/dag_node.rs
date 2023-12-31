@@ -4,69 +4,70 @@ Trait for DAG nodes.
 
 */
 
-use std::collections::HashSet;
-use std::{any::Any, fmt::Display};
-use std::cmp::Ordering;
-use std::ops::Index;
-use std::ptr::addr_of;
-use std::rc::Rc;
-use std::task::Context;
+use std::{
+  any::Any,
+  cmp::Ordering,
+  collections::HashSet,
+  fmt::Display,
+  ops::Index,
+  ptr::addr_of,
+  rc::Rc,
+  task::Context,
+};
 
 // use dyn_clone::{clone_trait_object, DynClone};
 use shared_vector::{AtomicSharedVector, SharedVector};
 
-use crate::{
-  abstractions::{BigInteger, RcCell},
-  core::{
-    RedexPosition,
-    sort::{RcSort, Sort, SpecialSort}
-  },
-};
-use crate::core::hash_cons_set::HashConsSet;
-use crate::core::rewrite_context::RewritingContext;
-use crate::core::substitution::Substitution;
-use crate::theory::DagNodeFlag;
-
 use super::{
+  free_theory::RcFreeSymbol,
   DagNodeFlags,
   ExtensionInfo,
-  free_theory::RcFreeSymbol,
   MaybeSubproblem,
   Outcome,
+  RcSymbol,
   RcTerm,
   Subproblem,
   Symbol,
-  RcSymbol,
   SymbolType,
+};
+use crate::{
+  abstractions::{BigInteger, RcCell},
+  core::{
+    hash_cons_set::HashConsSet,
+    rewrite_context::RewritingContext,
+    sort::{RcSort, Sort, SpecialSort},
+    substitution::Substitution,
+    RedexPosition,
+  },
+  theory::DagNodeFlag,
 };
 
 // pub type BcDagNode = Box<Cell<DagNode>>;
-pub type MaybeDagNode   = Option<RcDagNode>;
-pub type BcDagNode      = Box<dyn DagNode>;
-pub type RcDagNode      = RcCell<dyn DagNode>;
-pub type NodeList       = SharedVector<RcDagNode>;
+pub type MaybeDagNode = Option<RcDagNode>;
+pub type BcDagNode = Box<dyn DagNode>;
+pub type RcDagNode = RcCell<dyn DagNode>;
+pub type NodeList = SharedVector<RcDagNode>;
 pub type AtomicNodeList = AtomicSharedVector<RcDagNode>;
 
 /// This struct owns the DagNode. If we just want a reference, we use a tuple `(dag_node.as_ref(), multiplicity)`.
 #[derive(Clone)]
 pub struct DagPair {
-  pub(crate) dag_node: RcDagNode,
+  pub(crate) dag_node:     RcDagNode,
   pub(crate) multiplicity: u32,
 }
 
 pub struct DagNodeMembers {
   pub(crate) top_symbol: RcSymbol,
-  pub(crate) args      : NodeList,
+  pub(crate) args:       NodeList,
   // pub(crate) sort      : Option<RcSort>,
-  pub(crate) flags     : DagNodeFlags,
+  pub(crate) flags:      DagNodeFlags,
   pub(crate) sort_index: i32,
-  pub(crate) copied_rc : MaybeDagNode, // Maude's copyPointer
-  pub(crate) hash      : u32,
+  pub(crate) copied_rc:  MaybeDagNode, // Maude's copyPointer
+  pub(crate) hash:       u32,
 }
 
 // Todo: Maude puts `copyPointer` and `top_symbol` in a union for optimization.
 pub trait DagNode {
-
   // region Member Getters and Setters
 
   /// Trait level access to members for shared implementation
@@ -75,7 +76,7 @@ pub trait DagNode {
 
   /// Returns an iterator over `(RcDagNode, u32)` pairs for the arguments.
   #[inline(always)]
-  fn iter_args(&self) -> Box<dyn Iterator<Item=RcDagNode> + '_> {
+  fn iter_args(&self) -> Box<dyn Iterator<Item = RcDagNode> + '_> {
     Box::new(self.dag_node_members().args.iter().cloned())
   }
 
@@ -95,20 +96,18 @@ pub trait DagNode {
   fn get_sort(&self) -> Option<RcSort> {
     let sort_index: i32 = self.get_sort_index();
     match sort_index {
-
-      n if n == SpecialSort::Unknown as i32 => {
-        None
-      }
+      n if n == SpecialSort::Unknown as i32 => None,
 
       // Anything else
       sort_index => {
-        self.dag_node_members()
-            .top_symbol
-            .sort_table()
-            .range_component()
-            .borrow()
-            .sort(sort_index)
-            .upgrade()
+        self
+          .dag_node_members()
+          .top_symbol
+          .sort_table()
+          .range_component()
+          .borrow()
+          .sort(sort_index)
+          .upgrade()
       }
     }
   }
@@ -145,7 +144,7 @@ pub trait DagNode {
   }
 
   #[inline(always)]
-  fn flags(&self) -> DagNodeFlags{
+  fn flags(&self) -> DagNodeFlags {
     self.dag_node_members().flags
   }
 
@@ -191,44 +190,44 @@ pub trait DagNode {
 
   /// Sets the sort_index of self. This is a method on Symbol in Maude.
   fn compute_base_sort(&mut self) -> i32;
-/*
-  // These methods have been promoted to `RewritingContext`
+  /*
+    // These methods have been promoted to `RewritingContext`
 
-  #[inline(always)]
-  fn fast_compute_true_sort(&mut self, context: &mut RewritingContext) {
-    let t = self.symbol().symbol_members().unique_sort_index;
+    #[inline(always)]
+    fn fast_compute_true_sort(&mut self, context: &mut RewritingContext) {
+      let t = self.symbol().symbol_members().unique_sort_index;
 
-    if t < 0 {
-      self.compute_base_sort();  // usual case
-    }
-    else if t > 0 {
-      self.set_sort_index(t);  // unique sort case
-    }
-    else {
-      self.slow_compute_true_sort(context);  // most general case
-    }
-  }
-
-  fn slow_compute_true_sort(&mut self, context: &mut RewritingContext) {
-    if self.get_sort_index() == SpecialSort::Unknown as i32 {
-      self.compute_base_sort();
-      let symbol = self.symbol();
-      symbol.sort_constraint_table().constrain_to_smaller_sort(self, context);
-    }
-  }
-
-  #[inline(always)]
-  fn reduce(&mut self, context: &mut RewritingContext) {
-    while !self.is_reduced() {
-      let symbol = self.symbol();
-
-      if !(symbol.equation_rewrite(self, context)) {
-        self.dag_node_members_mut().flags.0 |= DagNodeFlag::Reduced as u32;
-        self.fast_compute_true_sort(context);
+      if t < 0 {
+        self.compute_base_sort();  // usual case
+      }
+      else if t > 0 {
+        self.set_sort_index(t);  // unique sort case
+      }
+      else {
+        self.slow_compute_true_sort(context);  // most general case
       }
     }
-  }
-*/
+
+    fn slow_compute_true_sort(&mut self, context: &mut RewritingContext) {
+      if self.get_sort_index() == SpecialSort::Unknown as i32 {
+        self.compute_base_sort();
+        let symbol = self.symbol();
+        symbol.sort_constraint_table().constrain_to_smaller_sort(self, context);
+      }
+    }
+
+    #[inline(always)]
+    fn reduce(&mut self, context: &mut RewritingContext) {
+      while !self.is_reduced() {
+        let symbol = self.symbol();
+
+        if !(symbol.equation_rewrite(self, context)) {
+          self.dag_node_members_mut().flags.0 |= DagNodeFlag::Reduced as u32;
+          self.fast_compute_true_sort(context);
+        }
+      }
+    }
+  */
   fn check_sort(&mut self, bound_sort: RcSort) -> (Outcome, MaybeSubproblem) {
     if self.get_sort().is_some() {
       return (self.leq_sort(bound_sort.as_ref()).into(), None);
@@ -299,7 +298,7 @@ pub trait DagNode {
   // In Maude this is a method on DagNode, but it makes more sense as a method on `LHSAutomaton`.
   // fn match_variable(…)
 
-  fn copy_eager_upto_reduced(&mut self) ->  MaybeDagNode {
+  fn copy_eager_upto_reduced(&mut self) -> MaybeDagNode {
     if self.is_reduced() {
       return None;
     }
@@ -309,14 +308,14 @@ pub trait DagNode {
       self.set_flags(DagNodeFlag::Copied.into())
     }
 
-    return self.dag_node_members_mut().copied_rc.clone()
+    return self.dag_node_members_mut().copied_rc.clone();
   }
 
   /// The implementor-specific part of `copy_eager_upto_reduced()`
   fn copy_eager_upto_reduced_aux(&mut self) -> RcDagNode;
 
 
-  fn copy_all(&mut self) ->  MaybeDagNode {
+  fn copy_all(&mut self) -> MaybeDagNode {
     if self.is_reduced() {
       return None;
     }
@@ -326,7 +325,7 @@ pub trait DagNode {
       self.set_flags(DagNodeFlag::Copied.into())
     }
 
-    return self.dag_node_members_mut().copied_rc.clone()
+    return self.dag_node_members_mut().copied_rc.clone();
   }
 
   /// The implementor-specific part of `copy_all()`
@@ -342,7 +341,6 @@ pub trait DagNode {
 
   /// For hash consing
   fn make_canonical(&self, node: RcDagNode, hash_cons_set: &mut HashConsSet) -> RcDagNode;
-
 }
 
 // clone_trait_object!(DagNode);
@@ -454,7 +452,7 @@ impl Display for dyn DagNode {
     )?;
 
     for (i, &dag_node_ptr) in visited.iter().enumerate() {
-      let dag_node = unsafe{&*dag_node_ptr};
+      let dag_node = unsafe { &*dag_node_ptr };
       let symbol = dag_node.symbol();
 
       write!(f, "#{} = {}", i, symbol.name())?;
@@ -464,14 +462,16 @@ impl Display for dyn DagNode {
 
       let mut first = true;
       for a in dag_node.iter_args() {
-        if !first { write!(f, ", ")?; }
+        if !first {
+          write!(f, ", ")?;
+        }
         write!(
           f,
           "#{}",
-          visited.iter()
-                 .position(
-                    |&x| x.addr() == addr_of!(*a.borrow()).addr()
-                 ).unwrap()
+          visited
+            .iter()
+            .position(|&x| x.addr() == addr_of!(*a.borrow()).addr())
+            .unwrap()
         )?;
         first = false;
       }
@@ -484,18 +484,11 @@ impl Display for dyn DagNode {
 
     writeln!(f, "Begin{{Graph Representation}}")?;
     Ok(())
-
   }
-
 }
 
 
-fn graph_count(
-  dag_node: &dyn DagNode,
-  visited : &mut Vec<*const dyn DagNode>,
-  counts  : &mut Vec<BigInteger>
-)
-{
+fn graph_count(dag_node: &dyn DagNode, visited: &mut Vec<*const dyn DagNode>, counts: &mut Vec<BigInteger>) {
   // Beware the semantics of Rust pointer comparison. See
   // https://stackoverflow.com/questions/47489449/why-can-comparing-two-seemingly-equal-pointers-with-return-false
   // https://doc.rust-lang.org/std/primitive.pointer.html#method.addr-1
@@ -505,18 +498,29 @@ fn graph_count(
   visited.push(dag_node_ptr);
 
   let index = counts.len();
-  assert_eq!(index, visited.iter().position(|&x|  x.addr() == dag_node_ptr.addr()).unwrap(), "counts out of step");
+  assert_eq!(
+    index,
+    visited.iter().position(|&x| x.addr() == dag_node_ptr.addr()).unwrap(),
+    "counts out of step"
+  );
   counts.push(0);
 
   let mut count: BigInteger = 1;
 
   for d in dag_node.iter_args().map(|v| v.clone()) {
     let d_ptr = d.as_ptr();
-    if visited.iter().find(|&&p| d_ptr.cast_const().addr() == p.addr()).is_none() {
+    if visited
+      .iter()
+      .find(|&&p| d_ptr.cast_const().addr() == p.addr())
+      .is_none()
+    {
       graph_count(d.as_ref(), visited, counts);
     }
 
-    let child_count = counts[visited.iter().position(|&x|  x.addr() == d_ptr.cast_const().addr()).unwrap()];
+    let child_count = counts[visited
+      .iter()
+      .position(|&x| x.addr() == d_ptr.cast_const().addr())
+      .unwrap()];
     assert_ne!(child_count, 0, "cycle in dag");
     count += child_count;
   }

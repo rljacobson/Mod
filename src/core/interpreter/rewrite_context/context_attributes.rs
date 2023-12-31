@@ -19,7 +19,7 @@ pub enum ContextAttribute {
   Step,
   Interactive,
   Silent,
-  DebugMode
+  DebugMode,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Default, Debug)]
@@ -82,6 +82,7 @@ impl From<ContextAttribute> for ContextAttributes {
 
 impl BitOr for ContextAttributes {
   type Output = ContextAttributes;
+
   fn bitor(self, rhs: Self) -> Self::Output {
     ContextAttributes(self.0 | rhs.0)
   }
@@ -89,6 +90,7 @@ impl BitOr for ContextAttributes {
 
 impl BitOr<ContextAttribute> for ContextAttributes {
   type Output = ContextAttributes;
+
   fn bitor(self, rhs: ContextAttribute) -> Self::Output {
     ContextAttributes(self.0 | (1 << rhs as u32))
   }
@@ -99,4 +101,3 @@ impl BitOrAssign<ContextAttribute> for ContextAttributes {
     self.0 |= 1 << rhs as u32;
   }
 }
-

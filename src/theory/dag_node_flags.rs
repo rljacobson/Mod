@@ -1,5 +1,3 @@
-
-
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(u32)]
 pub enum DagNodeFlag {
@@ -72,16 +70,13 @@ pub struct DagNodeFlags(pub(crate) u32);
 impl DagNodeFlags {
   #[allow(non_upper_case_globals)]
   pub const RewritingFlags: DagNodeFlags = DagNodeFlags(1u32 | 4u32 | 8u32 | 16u32);
+
   // pub const RewritingFlags: DagNodeFlags = DagNodeFlag::Reduced | DagNodeFlag::Unrewritable |
   // DagNodeFlag::Unstackable | DagNodeFlag::Ground;
 
   pub fn set_copied_flags(&mut self, other_flags: DagNodeFlags) {
-    self |= (
-      DagNodeFlag::Reduced
-          | DagNodeFlag::Unrewritable
-          | DagNodeFlag::Unstackable
-          | DagNodeFlag::Ground
-    ) & other_flags;
+    self |=
+      (DagNodeFlag::Reduced | DagNodeFlag::Unrewritable | DagNodeFlag::Unstackable | DagNodeFlag::Ground) & other_flags;
   }
 }
 
@@ -91,22 +86,27 @@ impl DagNodeFlags {
   pub fn is_reduced(&self) -> bool {
     (self.0 & DagNodeFlag::Reduced as u32) != 0
   }
+
   #[inline(always)]
   pub fn is_copied(&self) -> bool {
     (self.0 & DagNodeFlag::Copied as u32) != 0
   }
+
   #[inline(always)]
   pub fn is_unrewritable(&self) -> bool {
     (self.0 & DagNodeFlag::Unrewritable as u32) != 0
   }
+
   #[inline(always)]
   pub fn is_unstackable(&self) -> bool {
     (self.0 & DagNodeFlag::Unstackable as u32) != 0
   }
+
   #[inline(always)]
   pub fn is_ground(&self) -> bool {
     (self.0 & DagNodeFlag::Ground as u32) != 0
   }
+
   #[inline(always)]
   pub fn is_hash_valid(&self) -> bool {
     (self.0 & DagNodeFlag::HashValid as u32) != 0

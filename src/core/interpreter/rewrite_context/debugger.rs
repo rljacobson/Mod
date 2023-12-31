@@ -8,18 +8,11 @@ need to understand the boundary between algorithms and supporting code better be
 use crate::{
   core::{
     format::{FormatStyle, Formattable},
-    interpreter::{
-      InterpreterAttribute,
-      interpreter_state::RcInterpreter,
-      tui::DEFAULT_PROMPT
-    },
+    interpreter::{interpreter_state::RcInterpreter, tui::DEFAULT_PROMPT, InterpreterAttribute},
     pre_equation::PreEquation,
-    rewrite_context::{
-      context_attributes::ContextAttribute,
-      RewritingContext
-    },
+    rewrite_context::{context_attributes::ContextAttribute, RewritingContext},
   },
-  theory::RcDagNode
+  theory::RcDagNode,
 };
 
 /// Result of parsing the debugger command line.
@@ -29,7 +22,7 @@ pub enum ParseResult {
   Resume,
   Abort,
   Step,
-  Where
+  Where,
 }
 
 
@@ -38,14 +31,12 @@ impl RewritingContext {
     if self.debug_level == 0 {
       self.tui.set_prompt(DEFAULT_PROMPT.to_string());
       self.attributes.reset(ContextAttribute::DebugMode);
-
     } else {
       let prompt = format!("Debug({})> ", self.debug_level);
       self.tui.set_prompt(prompt);
       self.attributes.set(ContextAttribute::DebugMode);
     }
   }
-
 
   /// Debugger.
   // ToDo: This should live in the interpreter, shouldn't it?
@@ -70,7 +61,9 @@ impl RewritingContext {
 
       // If we are only slow routed by an INFO signal we want to make sure we take the fast route
       // now that we've made our report.
-      self.attributes.set_trace_status(interpreter.attribute(InterpreterAttribute::ExceptionFlags));
+      self
+        .attributes
+        .set_trace_status(interpreter.attribute(InterpreterAttribute::ExceptionFlags));
     }
 
     let mut broken = false;
@@ -80,8 +73,7 @@ impl RewritingContext {
       if interpreter.break_names.contains(&symbol.name()) {
         broken = true;
         broken_symbol = Some(symbol);
-      }
-      else if let Some(pe) = pre_equation {
+      } else if let Some(pe) = pre_equation {
         if interpreter.break_names.contains(&pe.name.unwrap()) {
           broken = true;
         }
@@ -96,7 +88,6 @@ impl RewritingContext {
     self.change_prompt();
 
     if self.attribute(ContextAttribute::CtrlC) {
-
       if !self.attribute(ContextAttribute::Interactive) {
         println!();
         // Close all files & modules.
@@ -104,20 +95,24 @@ impl RewritingContext {
         // self.clean_up_lexer();
       }
       self.attributes.reset(ContextAttribute::CtrlC);
-
-    }
-    else if let Some(broken_symbol) = broken_symbol {
+    } else if let Some(broken_symbol) = broken_symbol {
       println!("break on symbol: {}", broken_symbol.repr(FormatStyle::Default));
     } else {
       if let Some(pre_equation) = pre_equation {
-        println!("break on labeled {}:\n{}", pre_equation.kind.noun(), pre_equation.repr(FormatStyle::Simple));
+        println!(
+          "break on labeled {}:\n{}",
+          pre_equation.kind.noun(),
+          pre_equation.repr(FormatStyle::Simple)
+        );
       } else {
         println!("break on unknown statement");
       }
     }
 
     self.attributes.reset(ContextAttribute::Step);
-    self.attributes.set_trace_status(interpreter.attribute(InterpreterAttribute::ExceptionFlags));
+    self
+      .attributes
+      .set_trace_status(interpreter.attribute(InterpreterAttribute::ExceptionFlags));
     loop {
       match self.tui.command_loop() {
         ParseResult::Resume => {
@@ -151,7 +146,4 @@ impl RewritingContext {
     }
     // unreachable!() // never executed
   }
-
-
 }
-
