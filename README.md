@@ -22,6 +22,16 @@ own code.
 Thus, I am attempting to reimplement the algorithms in Rust and hopefully clarify some of the implementation details
 at the same time.
 
+## Project Status
+
+The Free Theory is the first to be implemented. Most of the core algorithms and infrastructure are in place. 
+The implementation of memoization and hash consing has been started, but I've decided I want to see the basic core 
+functionality work before I implement and/or enable these essential optimizations. 
+
+Thus, for now, **most development is going to happen on the [`core` branch](https://github.com/rljacobson/Mod/tree/core)** in which optimizations have been disabled. 
+The `main` branch will preserve the work started on hash consing and memoization. Evaluation strategies might also be 
+left out of `core`.
+
 ## Building
 
 It does build sometimes. It doesn't work yet, but it's super close.
