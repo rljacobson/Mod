@@ -74,6 +74,15 @@ impl DagNodeFlags {
   pub const RewritingFlags: DagNodeFlags = DagNodeFlags(1u32 | 4u32 | 8u32 | 16u32);
   // pub const RewritingFlags: DagNodeFlags = DagNodeFlag::Reduced | DagNodeFlag::Unrewritable |
   // DagNodeFlag::Unstackable | DagNodeFlag::Ground;
+
+  pub fn set_copied_flags(&mut self, other_flags: DagNodeFlags) {
+    self |= (
+      DagNodeFlag::Reduced
+          | DagNodeFlag::Unrewritable
+          | DagNodeFlag::Unstackable
+          | DagNodeFlag::Ground
+    ) & other_flags;
+  }
 }
 
 

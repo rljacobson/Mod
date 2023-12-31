@@ -27,7 +27,7 @@ pub use rccell::{RcCell, WeakCell, rc_cell};
 // Fast and simple hash functions
 pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
 // A hash set of terms for structural sharing
-pub use hash_set::{HashSet, TermHashSet, DagNodeHashSet};
+pub use hash_set::{HashSet, HashValueType, TermHashSet, DagNodeHashSet};
 // Similar to a HashSet, except an index equal to original insertion order is assigned to each element
 pub use indexed_hash_set::IndexedHashSet;
 // A set of natural numbers

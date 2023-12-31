@@ -154,7 +154,7 @@ pub trait Term: Formattable {
   fn as_any(&self)         -> &dyn Any;
   fn as_any_mut(&mut self) -> &mut dyn Any;
   fn as_ptr(&self)         -> *const dyn Term;
-  fn compute_hash(&self)   -> u32;
+  fn semantic_hash(&self) -> u32;
   /// Normalizes the term, returning the computed hash and `true` if the normalization changed
   /// the term or `false` otherwise.
   fn normalize(&mut self, full: bool) -> (u32, bool);
@@ -293,7 +293,7 @@ pub trait Term: Formattable {
 
   #[inline(always)]
   fn compare_dag_node(&self, other: &dyn DagNode) -> Ordering {
-    if self.symbol().get_hash_value() == other.symbol().get_hash_value() {
+    if self.symbol().semantic_hash() == other.symbol().semantic_hash() {
       self.compare_dag_arguments(other)
     } else {
       self.symbol().compare(other.symbol().as_ref())
@@ -357,9 +357,9 @@ pub trait Term: Formattable {
   /// calls `dagify(…)` on its children and then converts itself to a type implementing DagNode, returning `RcDagNode`.
   fn dagify(&self, sub_dags: &mut NodeCache, set_sort_info: bool) -> RcDagNode {
     // let self_ptr = self.as_ptr().addr();
-    let self_hash = self.compute_hash();
+    let self_hash = self.semantic_hash();
 
-    if let Entry::Occupied(occupied_entry) = sub_dags.entry(self.compute_hash()) {
+    if let Entry::Occupied(occupied_entry) = sub_dags.entry(self.semantic_hash()) {
       let entry = occupied_entry.get();
       return entry.clone();
     }
@@ -513,6 +513,7 @@ impl Display for dyn Term{
 }
 
 
+// ToDo: Revisit whether `semantic_hash` is appropriate for the `Hash` trait.
 // Use the `Term::compute_hash(…)` hash for `HashSet`s and friends.
 impl Hash for dyn Term {
   fn hash<H: Hasher>(&self, state: &mut H) {
@@ -522,7 +523,7 @@ impl Hash for dyn Term {
 
 impl PartialEq for dyn Term {
   fn eq(&self, other: &Self) -> bool {
-    self.compute_hash() == other.compute_hash()
+    self.semantic_hash() == other.semantic_hash()
   }
 }
 

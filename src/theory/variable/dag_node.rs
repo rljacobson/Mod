@@ -31,6 +31,7 @@ use crate::{
   rc_cell,
   core::RedexPosition,
 };
+use crate::core::hash_cons_set::HashConsSet;
 
 
 pub struct VariableDagNode {
@@ -144,5 +145,9 @@ impl DagNode for VariableDagNode {
     else {
       unreachable!("This execution path should be unreachable. This is a bug.")
     }
+  }
+
+  fn make_canonical(&self, node: RcDagNode, _: &mut HashConsSet) -> RcDagNode {
+    node
   }
 }

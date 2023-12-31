@@ -11,8 +11,14 @@ use crate::{
   },
   core::{
     format::{FormatStyle, Formattable},
-    interpreter::InterpreterAttribute,
-    module::ModuleItem,
+    interpreter::{
+      InterpreterAttribute,
+      interpreter_state::RcInterpreter
+    },
+    module::{
+      ModuleItem,
+      Module
+    },
     NarrowingVariableInfo,
     pre_equation::{
       PreEquation,
@@ -22,17 +28,15 @@ use crate::{
       MaybeDagNode,
       print_substitution_with_ignored,
       print_substitution_narrowing,
-      Substitution
+      Substitution,
+      print_substitution
     },
     Token,
+    condition_fragment::ConditionFragment,
   },
   NONE,
   theory::{DagNode, RcDagNode},
 };
-use crate::core::condition_fragment::ConditionFragment;
-use crate::core::interpreter::interpreter_state::RcInterpreter;
-use crate::core::module::Module;
-use crate::core::substitution::print_substitution;
 
 use super::{
   RewritingContext,

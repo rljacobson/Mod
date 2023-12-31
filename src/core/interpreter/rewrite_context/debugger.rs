@@ -64,14 +64,12 @@ impl RewritingContext {
     let interpreter: RcInterpreter = self.interpreter.upgrade().unwrap();
 
     if self.attribute(ContextAttribute::Info) {
-      // TODO: Unimplemented
-      // self.print_status_report(subject, pe);
+      // self.print_status_report(subject, pe); // TODO: Unimplemented
       // TODO: Why are we setting this flag here when we just checked that it was set?
       self.attributes.set(ContextAttribute::Info);
 
-      // If we are only slow routed by an INFO signal we want
-      // to make sure we take the fast route now that we've made
-      // our report.
+      // If we are only slow routed by an INFO signal we want to make sure we take the fast route
+      // now that we've made our report.
       self.attributes.set_trace_status(interpreter.attribute(InterpreterAttribute::ExceptionFlags));
     }
 

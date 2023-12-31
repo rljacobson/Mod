@@ -99,25 +99,29 @@ impl Term for FreeTerm {
   }
 
   /// In sync with `normalize`.
-  fn compute_hash(&self) -> u32 {
-    let mut hash_value: u32 = self.symbol().get_hash_value();
+  fn semantic_hash(&self) -> u32 {
+    let mut hash_value: u32 = self.symbol().semantic_hash();
 
     for arg in &self.args {
       hash_value = term_hash(
         hash_value,
-        arg.borrow().compute_hash()
+        arg.borrow().semantic_hash()
       );
     }
 
     hash_value
   }
 
+  /// In sync with `semantic_hash`
   fn normalize(&mut self, full: bool) -> (u32, bool) {
     let mut changed: bool = false;
-    let mut hash_value: u32 = self.symbol().get_hash_value();
+    let mut hash_value: u32 = self.symbol().semantic_hash();
 
     for arg in &self.args {
       let (child_hash, child_changed): (u32, bool) = arg.borrow_mut().normalize(full);
+      // ToDo: It appears `full` is not used for the free theory. Is this true?
+      // ToDo: The free theory never sets `changed=true`? Shouldn't we check against the cached hash or something?
+      //       If so, why even have `normalize` in addition to `semantic_hash`?
 
       changed = changed || child_changed;
       hash_value = term_hash(

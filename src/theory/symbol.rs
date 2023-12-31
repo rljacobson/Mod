@@ -82,7 +82,8 @@ pub struct SymbolMembers {
   pub name: IString,
 
   /// `Symbol` members
-  pub hash_value        : u32, // Unique integer for comparing symbols, also called order
+  pub hash_value        : u32, // Unique integer for comparing symbols, also called order.
+  // ToDo: Can the `IString` value be used as the `hash_value`?
   pub unique_sort_index : i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
   pub match_index       : u32,       // For fast matching
   pub arity             : u32,
@@ -168,7 +169,7 @@ impl SymbolMembers {
                 // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
                 subject.borrow_mut().partial_replace(
                   // ToDo: Implement get_rhs_builder and construct methods
-                  eq.get_rhs_builder().construct(context),
+                  rhs_builder.construct(&mut context.substitution),
                   // extension_info,
                 );
               }
@@ -214,7 +215,7 @@ impl SymbolMembers {
     /*extension_info: &mut ExtensionInfo,*/
   ) -> bool
   {
-    #[cfg_attr(debug_assertions = true)]
+    #[cfg(debug_assertions)]
     log(
       Channel::Debug,
       5,
@@ -286,9 +287,11 @@ pub trait Symbol {
     self.symbol_members().name.clone()
   }
 
-  /// Same as `get_order`
+  /// Same as `get_order` or `get_hash_value`, used for "semantic hash".
+  ///
+  /// The semantics of a symbol are not included in the hash itself, as symbols are unique names by definition.
   #[inline(always)]
-  fn get_hash_value(&self) -> u32 {
+  fn semantic_hash(&self) -> u32 {
     self.symbol_members().hash_value
   }
 
@@ -341,7 +344,7 @@ pub trait Symbol {
   fn compare(&self, other: &dyn Symbol) -> Ordering {
     // This is just std::Ord::cmp(self, other)
     // Ord::cmp(&self, other)
-    self.get_hash_value().cmp(&other.get_hash_value())
+    self.semantic_hash().cmp(&other.semantic_hash())
   }
 
   fn as_any(&self) -> &dyn Any;
@@ -362,7 +365,7 @@ pub trait Symbol {
 impl PartialOrd for dyn Symbol {
   #[inline(always)]
   fn partial_cmp(&self, other: &dyn Symbol) -> Option<Ordering> {
-    let result = self.get_hash_value().cmp(&other.get_hash_value());
+    let result = self.semantic_hash().cmp(&other.semantic_hash());
     Some(result)
   }
 }
@@ -370,7 +373,7 @@ impl PartialOrd for dyn Symbol {
 impl Ord for dyn Symbol {
   #[inline(always)]
   fn cmp(&self, other: &dyn Symbol) -> Ordering {
-    self.get_hash_value().cmp(&other.get_hash_value())
+    self.semantic_hash().cmp(&other.semantic_hash())
   }
 }
 
@@ -379,7 +382,7 @@ impl Eq for dyn Symbol {}
 impl PartialEq for dyn Symbol {
   #[inline(always)]
   fn eq(&self, other: &dyn Symbol) -> bool {
-    self.get_hash_value() == other.get_hash_value()
+    self.semantic_hash() == other.semantic_hash()
   }
 }
 // endregion

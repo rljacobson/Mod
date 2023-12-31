@@ -57,7 +57,6 @@ impl Substitution {
   }
 
 
-
   #[inline(always)]
   pub fn clear_first_n(&mut self, size: usize) {
     self.copy_size = size;
@@ -123,6 +122,8 @@ impl Substitution {
   }
 
  /*
+ Actually, I think these are implemented on `LocalBindings`
+
   pub fn assert(&self, solution: &Substitution) {
     // Todo: Implement assert
   }

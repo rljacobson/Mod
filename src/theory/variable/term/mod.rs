@@ -93,16 +93,16 @@ impl Term for VariableTerm {
   fn as_ptr(&self) -> *const dyn Term {
     self
   }
-  fn compute_hash(&self) -> u32 {
+  fn semantic_hash(&self) -> u32 {
     // In Maude, the hash value is the number (chronological order of creation) of the symbol OR'ed
     // with (arity << 24). Here we swap the "number" with the hash of the IString as defined by the
     // IString implementation.
     // ToDo: This… isn't great, because the hash is 32 bits, not 24, and isn't generated in numeric order.
-    term_hash(self.symbol().get_hash_value(), IString::get_hash(&self.name))
+    term_hash(self.symbol().semantic_hash(), IString::get_hash(&self.name))
   }
 
   fn normalize(&mut self, _full: bool) -> (u32, bool) {
-    (self.compute_hash(), false)
+    (self.semantic_hash(), false)
   }
   // endregion
 

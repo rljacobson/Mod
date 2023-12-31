@@ -98,7 +98,7 @@ impl Module {
     self.mb_info.clear();
     self.eq_info.clear();
     self.rl_info.clear();
-    self.sd_info.clear();
+    // self.sd_info.clear();
   }
 
   pub(crate) fn profile_mb_rewrite(&mut self, redex: RcDagNode, membership_axiom: Option<&PreEquation>) {
@@ -283,9 +283,9 @@ impl Module {
       for p in &self.rl_info {
         total += p.rewrite_count;
       }
-      for p in &self.sd_info {
-        total += p.rewrite_count;
-      }
+      // for p in &self.sd_info {
+      //   total += p.rewrite_count;
+      // }
       float_total = total as f64;
     }
 

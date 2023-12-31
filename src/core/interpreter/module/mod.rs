@@ -36,7 +36,7 @@ pub use profile::{
   FragmentProfile,
   StatementProfile,
 };
-use crate::core::module::memo_map::{BxMemoMap, RcMemoMap};
+// use crate::core::module::memo_map::{BxMemoMap, RcMemoMap};
 use crate::core::pre_equation::RcPreEquation;
 use crate::core::sort::RcConnectedComponent;
 
@@ -117,7 +117,7 @@ pub struct Module {
 
   pub(crate) minimum_substitution_size: i32,
 
-  pub memo_map: BxMemoMap ,  // Memoization map for all symbols in module
+  // pub memo_map: BxMemoMap ,  // Memoization map for all symbols in module
 
   // NamedEntity members
   /// An ID, a name given by the user.

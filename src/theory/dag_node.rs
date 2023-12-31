@@ -22,7 +22,9 @@ use crate::{
     sort::{RcSort, Sort, SpecialSort}
   },
 };
+use crate::core::hash_cons_set::HashConsSet;
 use crate::core::rewrite_context::RewritingContext;
+use crate::core::substitution::Substitution;
 use crate::theory::DagNodeFlag;
 
 use super::{
@@ -171,7 +173,7 @@ pub trait DagNode {
     // let symbol_order = self.cmp(other);
     let s = self.symbol();
     let symbol_order = //Ord::cmp(s, other.symbol());
-        s.get_hash_value().cmp(&other.symbol().get_hash_value());
+        s.semantic_hash().cmp(&other.symbol().semantic_hash());
 
     match symbol_order {
       Ordering::Equal => self.compare_arguments(other),
@@ -280,6 +282,11 @@ pub trait DagNode {
 
   fn termify(&self) -> RcTerm;
 
+  // Only implemented for associative theories and the `S_` theory.
+  fn partial_replace(&mut self, substitution: &mut Substitution) {
+    unreachable!("partial_replace not implemented for this node type.")
+  }
+
   fn shallow_copy(&self) -> RcDagNode;
 
   /// Build a copy of our dag node, replacing those arguments that were stacked with those on the stack between first
@@ -332,6 +339,9 @@ pub trait DagNode {
 
 
   fn overwrite_with_clone(&mut self, old: RcDagNode);
+
+  /// For hash consing
+  fn make_canonical(&self, node: RcDagNode, hash_cons_set: &mut HashConsSet) -> RcDagNode;
 
 }
 

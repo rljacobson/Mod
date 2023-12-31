@@ -26,6 +26,7 @@ use crate::{
     sort::SpecialSort
   }
 };
+use crate::core::hash_cons_set::HashConsSet;
 use crate::theory::dag_node::MaybeDagNode;
 
 use super::{FreeTerm, RcFreeSymbol};
@@ -305,6 +306,49 @@ impl DagNode for FreeDagNode {
       fdg.members.args = old_dag_node.members.args.clone();
 
       let _ = std::mem::replace(old_dag_node, fdg);
+    }
+    else {
+      unreachable!("This execution path should be unreachable. This is a bug.")
+    }
+  }
+
+  /// For hash consing, recursively checks child nodes to determine if a canonical copy needs to be made.
+  fn make_canonical(&self, rc_dag_node: RcDagNode, hcs: &mut HashConsSet) -> RcDagNode {
+    // Downcast
+    if let Some(dag_node) = rc_dag_node.borrow_mut().as_any_mut().downcast_mut::<FreeDagNode>() {
+      let nr_args = dag_node.members.top_symbol.arity() as usize;
+      let args    = &mut dag_node.members.args;
+
+      for i in 0..nr_args {
+        let d: RcDagNode = args[i].clone();
+        // let c = hcs.get_canonical(hcs.insert(d));
+        let (canonical_dag_node, _) = hcs.insert(d);
+
+        if Rc::ptr_eq(&canonical_dag_node, &args[i]) {
+          // The child node was already canonical.
+          continue;
+        }
+
+        // Detected a non-canonical argument, need to make a new copy
+        let symbol = Rc::clone(&dag_node.members.top_symbol);
+        let mut new_node = FreeDagNode::new(symbol);
+        new_node.members.flags.set_copied_flags(dag_node.members.flags);
+        new_node.members.sort_index = dag_node.members.sort_index;
+
+        let new_args = &mut new_node.members.args;
+        for j in 0..i {
+          new_args.push(args[j].clone());
+        }
+        new_args.push(canonical_dag_node);
+        for j in i + 1..nr_args {
+          let (canonical, _) = hcs.insert(args[j].clone());
+          new_args.push(canonical);
+        }
+
+        return Rc::new(new_node) as RcDagNode;
+      }
+
+      rc_dag_node // Can use the original DAG node as the canonical version
     }
     else {
       unreachable!("This execution path should be unreachable. This is a bug.")

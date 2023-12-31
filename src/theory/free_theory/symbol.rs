@@ -20,7 +20,7 @@ use crate::{
     SymbolMembers,
   },
 };
-use crate::core::interpreter::memo_table::SourceSet;
+use crate::core::interpreter::SourceSet;
 use crate::core::rewrite_context::RewritingContext;
 
 use super::{FreeNet, RcFreeNet, FreeDagNode, FreeTerm};
@@ -52,15 +52,15 @@ impl FreeSymbol {
 
 
   fn complex_strategy(&self, subject: RcDagNode, context: &mut RewritingContext) -> bool {
-    if self.is_memoized() {
-      let mut from = SourceSet::new();
-      self.memo_strategy(&mut from, subject.clone(), context);
-      self.memo_enter(from, subject.clone());
-      return false;
-    }
+    // if self.is_memoized() {
+    //   let mut from = SourceSet::new();
+    //   self.memo_strategy(&mut from, subject.clone(), context);
+    //   self.memo_enter(from, subject.clone());
+    //   return false;
+    // }
 
     let nr_args = self.arity();
-    let args = subject.args_mut(); // Assuming we have a similar method
+    let args = &mut subject.borrow_mut().dag_node_members_mut().args;
 
     // Execute user-supplied strategy
     let user_strategy = self.get_strategy();
