@@ -50,6 +50,7 @@ use crate::{
   NONE,
   UNDEFINED,
 };
+use crate::core::rewrite_context::RcRewritingContext;
 
 pub type RcSymbol = Rc<dyn Symbol>;
 pub type SymbolSet = Set<dyn Symbol>;
@@ -67,9 +68,13 @@ pub struct SymbolMembers {
   /// `NamedEntity` members
   pub name: IString,
 
-  /// `Symbol` members
-  pub hash_value:        u32, // Unique integer for comparing symbols, also called order.
+  // `Symbol` members
+
   // ToDo: Can the `IString` value be used as the `hash_value`?
+  // Unique integer for comparing symbols, also called order.
+  // In Maude, the `order` has lower bits equal to the value of an integer that is incremented every time a symbol is
+  // created and upper 8 bits (bits 24..32) equal to the arity.
+  pub hash_value:        u32,
   pub unique_sort_index: i32, // Slow Case: 0, Fast Case: -1, positive for symbols that only produce an unique sort
   pub match_index:       u32, // For fast matching
   pub arity:             u32,
@@ -158,7 +163,7 @@ impl SymbolMembers {
                 // ToDo: Implement `partial_replace` on `RcDagNode`, or else determine what replaces it.
                 subject.borrow_mut().partial_replace(
                   // ToDo: Implement get_rhs_builder and construct methods
-                  rhs_builder.construct(&mut context.substitution),
+                  rhs_builder.construct(&mut context.substitution).unwrap(),
                   // extension_info,
                 );
               }
@@ -173,14 +178,14 @@ impl SymbolMembers {
         } else {
           // General case
           let nr_variables = eq.borrow().variable_info.protected_variable_count();
-          context.clear(nr_variables);
+          context.substitution.clear_first_n(nr_variables as usize);
           if let Some(lhs_automaton) = eq.borrow().lhs_automaton.clone() {
-            if let (true, sp) = lhs_automaton.match_(
+            if let (true, sp) = lhs_automaton.borrow_mut().match_(
               subject.clone(),
-              context,
+              &mut context.substitution,
               // extension_info,
             ) {
-              self.apply_replace_slow_case(subject.clone(), eq, sp, context /* extension_info */);
+              self.apply_replace_slow_case(subject.clone(), eq.clone(), sp, context /* extension_info */);
             }
           }
           context.finished();
@@ -198,7 +203,7 @@ impl SymbolMembers {
     subject: RcDagNode,
     eq: RcPreEquation,
     sp: MaybeSubproblem,
-    context: &mut RewritingContext,
+    context: RcRewritingContext,
     /* extension_info: &mut ExtensionInfo, */
   ) -> bool {
     #[cfg(debug_assertions)]
@@ -214,7 +219,7 @@ impl SymbolMembers {
     );
 
     if sp.is_none() || sp.unwrap().solve(true, context) {
-      if !eq.has_condition() || eq.check_condition(subject, context, sp) {
+      if !eq.borrow().has_condition() || eq.borrow_mut().check_condition(subject, context.clone(), sp) {
         let trace = RewritingContext::get_trace_status();
         if trace {
           context.trace_pre_eq_rewrite(subject.clone(), eq, RewritingContext::NORMAL);
@@ -275,6 +280,11 @@ pub trait Symbol {
   #[inline(always)]
   fn semantic_hash(&self) -> u32 {
     self.symbol_members().hash_value
+  }
+
+  #[inline(always)]
+  fn get_index_within_module(&self) -> usize {
+    self.symbol_members().index_within_parent_module as usize
   }
 
   #[inline(always)]

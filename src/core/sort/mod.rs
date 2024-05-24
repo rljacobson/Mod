@@ -26,9 +26,9 @@ pub type OpDeclaration = Vec<RcSort>;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 #[repr(i32)]
 pub enum SpecialSort {
-  Kind          = 0,
+  Kind          =  0,
   // ErrorSort     = 0,
-  FirstUserSort = 1,
+  FirstUserSort =  1,
   Unknown       = -1,
 }
 
@@ -43,10 +43,12 @@ impl SpecialSort {
 #[derive(Clone, Default)]
 pub struct Sort {
   pub name:       IString, // a.k.a ID
-  pub sort_index: i32,     // Used as `number_unresolved_supersorts` when computing supersorts.
+  /// The `sort_index` is the index of the sort within its connected
+  /// Used as `number_unresolved_supersorts` when computing supersorts.
+  pub sort_index: i32,
   pub fast_test:  i32,
-  pub subsorts:   SortSet,
-  pub supersorts: SortSet,
+  pub subsorts:   SortSet, // There may be sorts within the connected component that are
+  pub supersorts: SortSet, // incomparable to this one and thus neither a super- nor sub-sort.
   pub leq_sorts:  NatSet,
 
   /// The connected component this sort belongs to.

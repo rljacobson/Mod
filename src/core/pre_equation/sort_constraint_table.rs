@@ -10,6 +10,7 @@ use crate::{
   },
   theory::{DagNode, MaybeSubproblem, RcDagNode, RcSubproblem, Subproblem},
 };
+use crate::core::rewrite_context::RcRewritingContext;
 
 #[derive(Default)]
 pub struct SortConstraintTable {
@@ -92,7 +93,25 @@ impl SortConstraintTable {
     }
     self
       .constraints
-      .sort_by(|a, b| Self::sort_constraint_lt(a.unwrap().as_ref(), b.unwrap().as_ref()));
+      .sort_by(
+        |a, b| {
+          // This rigmarole is necessary to get at references to the value contained in the `Option`.
+          match (&a, &b) {
+            (None, None) => {
+              Ordering::Equal
+            }
+            (None, _) => {
+              Ordering::Less
+            }
+            (_, None) => {
+              Ordering::Greater
+            }
+            (Some(a), Some(b)) => {
+              Self::sort_constraint_lt(&*a.borrow(), &*b.borrow())
+            }
+          }
+        }
+      );
   }
 
   #[inline(always)]
@@ -136,7 +155,7 @@ impl SortConstraintTable {
     // or variable lhs patterns) may be able to test this new sort.
     'retry: loop {
       for sort_constraint in self.constraints {
-        let mut sort_constraint = sort_constraint.unwrap().borrow_mut();
+        let sort_constraint =&mut *sort_constraint.unwrap().borrow_mut();
 
         if let PreEquationKind::SortConstraint { sort, .. } = &sort_constraint.kind {
           if index_leq_sort(current_sort_index, sort.as_ref()) {
@@ -149,44 +168,46 @@ impl SortConstraintTable {
             let variable_count = sort_constraint.variable_info.protected_variable_count();
             context.substitution.clear_first_n(variable_count as usize);
 
-            if let (true, mut subproblem) = sort_constraint
-              .lhs_automaton
-              .unwrap()
-              .borrow_mut()
-              .match_(subject.clone(), &mut context.substitution)
+            if let Some(lhs_automaton) = &sort_constraint.lhs_automaton
             {
-              if subproblem.is_none() || subproblem.as_mut().unwrap().solve(true, context) {
-                // `subproblem` needs to be repackaged for `check_condition_simple`.
-                let mut subproblem = if let Some(mut boxed_sp) = subproblem {
-                  Some(boxed_sp.as_mut())
-                } else {
-                  None
-                };
+              if let (true, mut subproblem) = lhs_automaton
+                  .borrow_mut()
+                  .match_(subject.clone(), &mut context.substitution)
+              {
+                if subproblem.is_none() || subproblem.as_mut().unwrap().solve(true, context) {
+                  // `subproblem` needs to be repackaged for `check_condition`.
+                  let mut subproblem = if let Some(mut boxed_sp) = subproblem {
+                    Some(*boxed_sp)
+                  } else {
+                    None
+                  };
 
-                if !sort_constraint.has_condition()
-                  || sort_constraint.check_condition_simple(subject.clone(), context, subproblem)
-                {
-                  subproblem.take(); // equivalent to delete sp in C++
-                  if trace_status() {
-                    context.trace_pre_eq_application(
-                      Some(subject.clone()),
-                      Some(&*sort_constraint),
-                      RewriteType::Normal,
-                    );
-                    if context.trace_abort() {
-                      context.finished();
-                      return;
+                  if !sort_constraint.has_condition()
+                      || sort_constraint.check_condition(subject.clone(), context, subproblem)
+                  {
+                    subproblem.take(); // equivalent to delete sp in C++
+                    if trace_status() {
+                      context.trace_pre_eq_application(
+                        Some(subject.clone()),
+                        Some(&*sort_constraint),
+                        RewriteType::Normal,
+                      );
+                      if context.trace_abort() {
+                        context.finished();
+                        return;
+                      }
                     }
-                  }
-                  context.mb_count += 1;
-                  context.finished();
+                    context.mb_count += 1;
+                    context.finished();
 
-                  current_sort_index = sort.borrow().sort_index;
-                  subject.borrow_mut().set_sort_index(current_sort_index);
-                  continue 'retry;
+                    current_sort_index = sort.borrow().sort_index;
+                    subject.borrow_mut().set_sort_index(current_sort_index);
+                    continue 'retry;
+                  }
                 }
               }
             }
+
           }
           context.finished();
         } else {

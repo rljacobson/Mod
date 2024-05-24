@@ -20,7 +20,12 @@ pub use graph::Graph;
 // Fast and simple hash functions
 pub use hash::{hash2, hash3, FastHasher, FastHasherBuilder};
 // A hash set of terms for structural sharing
-pub use hash_set::{DagNodeHashSet, HashSet, HashValueType, TermHashSet};
+pub use hash_set::{
+  // DagNodeHashSet,
+  HashSet,
+  HashValueType,
+  TermHashSet
+};
 // Similar to a HashSet, except an index equal to original insertion order is assigned to each element
 pub use indexed_hash_set::IndexedHashSet;
 // A set of natural numbers

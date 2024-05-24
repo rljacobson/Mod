@@ -16,7 +16,7 @@ use yansi::Paint;
 use crate::{
   abstractions::{IString, NatSet},
   core::{
-    condition_fragment::Condition,
+    condition_fragment::Conditions,
     format::{FormatStyle, Formattable},
     pre_equation::{PreEquation, PreEquationAttribute, PreEquationKind, RcPreEquation, SortConstraint},
     sort::RcSort,
@@ -26,14 +26,14 @@ use crate::{
   UNDEFINED,
 };
 
-pub fn new(name: Option<IString>, lhs_term: RcTerm, sort: RcSort, condition: Condition) -> PreEquation {
+pub fn new(name: Option<IString>, lhs_term: RcTerm, sort: RcSort, condition: Conditions) -> PreEquation {
   PreEquation {
     name,
     attributes: Default::default(),
     lhs_term,
     lhs_automaton: None,
     lhs_dag: None,
-    condition,
+    conditions: condition,
     variable_info: Default::default(),
     index_within_parent_module: UNDEFINED,
     parent_module: Default::default(),

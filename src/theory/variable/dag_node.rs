@@ -7,7 +7,10 @@ use std::{any::Any, cell::RefCell, cmp::Ordering, ops::Deref, rc::Rc};
 
 use crate::{
   abstractions::{IString, RcCell},
-  core::{hash_cons_set::HashConsSet, RedexPosition},
+  core::{
+    // hash_cons_set::HashConsSet,
+    RedexPosition
+  },
   rc_cell,
   theory::{
     dag_node_flags,
@@ -106,11 +109,11 @@ impl DagNode for VariableDagNode {
   }
 
   fn copy_eager_upto_reduced_aux(&mut self) -> RcDagNode {
-    rc_cell!(VariableDagNode::new(self.symbol(), self.name, self.index))
+    rc_cell!(VariableDagNode::new(self.symbol(), self.name.clone(), self.index))
   }
 
   fn copy_all_aux(&mut self) -> RcDagNode {
-    rc_cell!(VariableDagNode::new(self.symbol(), self.name, self.index))
+    rc_cell!(VariableDagNode::new(self.symbol(), self.name.clone(), self.index))
   }
 
   fn overwrite_with_clone(&mut self, mut old: RcDagNode) {
@@ -130,7 +133,9 @@ impl DagNode for VariableDagNode {
     }
   }
 
+  /* Hash Consing
   fn make_canonical(&self, node: RcDagNode, _: &mut HashConsSet) -> RcDagNode {
     node
   }
+  */
 }

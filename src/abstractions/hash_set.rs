@@ -21,12 +21,12 @@ use std::{
 
 use crate::{
   abstractions::{FastHasherBuilder, RcCell},
-  core::hash_cons_set::HashConsSet,
+  // core::hash_cons_set::HashConsSet,
   theory::{RcDagNode, RcTerm},
 };
 
 pub type TermHashSet = HashSet<RcTerm>;
-pub type DagNodeHashSet = HashConsSet;
+// pub type DagNodeHashSet = HashConsSet;
 
 pub type HashValueType = u64;
 

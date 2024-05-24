@@ -11,7 +11,7 @@ mod term_bag;
 mod variable_info;
 
 pub mod condition_fragment;
-pub mod hash_cons_set;
+// pub mod hash_cons_set;
 pub mod interpreter;
 pub mod pre_equation;
 pub mod sort;

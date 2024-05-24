@@ -27,17 +27,36 @@ use std::fmt::{Debug, Formatter};
 pub use attributes::{PreEquationAttribute, PreEquationAttributes};
 
 use crate::{
-  abstractions::{IString, NatSet},
+  abstractions::{
+    IString,
+    NatSet,
+    RcCell
+  },
   core::{
-    condition_fragment::{repr_condition, Condition},
-    format::{FormatStyle, Formattable},
+    condition_fragment::{
+      repr_condition,
+      Conditions
+    },
+    format::{
+      FormatStyle,
+      Formattable
+    },
     module::WeakModule,
-    rewrite_context::{trace::trace_status, RewritingContext},
+    rewrite_context::{
+      trace::trace_status,
+      RewritingContext,
+      RcRewritingContext
+    },
     sort::RcSort,
     substitution::Substitution,
     StateTransitionGraph,
     TermBag,
     VariableInfo,
+    automata::RHSBuilder,
+    interpreter::{
+      module::item::ModuleItem,
+      InterpreterAttribute
+    },
   },
   theory::{
     find_available_terms,
@@ -48,8 +67,10 @@ use crate::{
     RcLHSAutomaton,
     RcTerm,
     Subproblem,
-  },
+    MaybeSubproblem
+  }
 };
+
 
 pub type RcPreEquation = RcCell<PreEquation>;
 
@@ -118,14 +139,6 @@ impl Debug for PreEquationKind {
 
 pub use PreEquationKind::*;
 
-use crate::{
-  abstractions::RcCell,
-  core::{
-    automata::RHSBuilder,
-    interpreter::{module::item::ModuleItem, InterpreterAttribute},
-  },
-};
-
 impl PreEquationKind {
   pub fn noun(&self) -> &'static str {
     match self {
@@ -147,12 +160,12 @@ impl PreEquationKind {
 }
 
 pub struct PreEquation {
-  pub(crate) name:          Option<IString>,
-  attributes:               PreEquationAttributes,
-  pub(crate) lhs_term:      RcTerm,
+  pub(crate) name         : Option<IString>,
+  attributes              : PreEquationAttributes,
+  pub(crate) lhs_term     : RcTerm,
   pub(crate) lhs_automaton: Option<RcLHSAutomaton>,
-  lhs_dag:                  Option<RcDagNode>,
-  condition:                Condition,
+  lhs_dag                 : Option<RcDagNode>,
+  conditions              : Conditions,
   pub(crate) variable_info: VariableInfo,
 
   // `ModuleItem`
@@ -164,14 +177,19 @@ pub struct PreEquation {
 
 impl PreEquation {
   // Common implementation
-  fn trace_begin_trial(&self, subject: RcDagNode, context: &mut RewritingContext) -> Option<i32> {
-    context.trace_begin_trial(subject, self)
+  fn trace_begin_trial(&self, subject: RcDagNode, context: RcRewritingContext) -> Option<i32> {
+    context.borrow_mut().trace_begin_trial(subject, self)
   }
 
   // region Accessors
   #[inline(always)]
-  pub(crate) fn condition(&self) -> &Condition {
-    &self.condition
+  pub(crate) fn condition(&self) -> &Conditions {
+    &self.conditions
+  }
+
+  #[inline(always)]
+  pub(crate) fn get_index_within_module(&self) -> i32 {
+    self.index_within_parent_module
   }
 
   /*
@@ -210,7 +228,7 @@ impl PreEquation {
   #[inline(always)]
   pub(crate) fn has_condition(&self) -> bool {
     // ToDo: Can we not just check for empty?
-    self.condition.is_empty()
+    self.conditions.is_empty()
   }
 
   #[inline(always)]
@@ -259,8 +277,8 @@ impl PreEquation {
 
     let mut bound_variables: NatSet = self.lhs_term.borrow().occurs_below().clone(); // Deep copy
 
-    for i in 0..self.condition.len() {
-      let condition_fragment = self.condition[i].clone();
+    for i in 0..self.conditions.len() {
+      let condition_fragment = self.conditions[i].clone();
       condition_fragment
         .borrow_mut()
         .check(&mut self.variable_info, &mut bound_variables);
@@ -285,16 +303,17 @@ impl PreEquation {
 
   ///  This is the most general condition checking function that allows multiple distinct successes; caller must provide
   ///  trial_ref variable and condition state stack in order to preserve this information between calls.
-  fn check_condition(
+  pub(crate) fn check_condition_find_first(
     &mut self,
     mut find_first: bool,
     subject: RcDagNode,
-    context: &mut RewritingContext,
-    mut subproblem: Option<&mut dyn Subproblem>,
+    context: RcRewritingContext,
+    mut subproblem: MaybeSubproblem,
     trial_ref: &mut Option<i32>,
     state: &mut Vec<ConditionState>,
-  ) -> bool {
-    assert_ne!(self.condition.len(), 0, "no condition");
+  ) -> bool
+  {
+    assert_ne!(self.conditions.len(), 0, "no condition");
     assert!(!find_first || state.is_empty(), "non-empty condition state stack");
 
     if find_first {
@@ -304,24 +323,24 @@ impl PreEquation {
     loop {
       if trace_status() {
         if find_first {
-          *trial_ref = self.trace_begin_trial(subject.clone(), context);
+          *trial_ref = self.trace_begin_trial(subject.clone(), context.clone());
         }
-        if context.trace_abort() {
+        if context.borrow().trace_abort() {
           state.clear();
           // return false since condition variables may be unbound
           return false;
         }
       }
 
-      let success: bool = self.solve_condition(find_first, trial_ref, context, state);
+      let success: bool = self.solve_condition(find_first, trial_ref, context.clone(), state);
 
       if trace_status() {
-        if context.trace_abort() {
+        if context.borrow().trace_abort() {
           state.clear();
           return false; // return false since condition variables may be unbound
         }
 
-        context.trace_end_trial(*trial_ref, success);
+        context.borrow_mut().trace_end_trial(*trial_ref, success);
       }
 
       if success {
@@ -334,7 +353,7 @@ impl PreEquation {
       // Condition evaluation may create nodes without doing rewrites so run GC safe point.
       // MemoryCell::ok_to_collect_garbage();
       if let Some(subproblem) = &mut subproblem {
-        if !subproblem.solve(false, context) {
+        if !subproblem.solve(false, context.clone()) {
           break;
         }
       } else {
@@ -342,23 +361,24 @@ impl PreEquation {
       }
     }
     if trace_status() && trial_ref.is_some() {
-      context.trace_exhausted(*trial_ref);
+      context.borrow().trace_exhausted(*trial_ref);
     }
     false
   }
 
-  /// Simplified interface to `check_condition(…)` for the common case where we only care
+  /// Simplified interface to `check_condition_find_first(…)` for the common case where we only care
   /// if a condition succeeds at least once or fails.
-  fn check_condition_simple(
+  pub(crate) fn check_condition(
     &mut self,
     subject: RcDagNode,
-    context: &mut RewritingContext,
-    subproblem: Option<&mut dyn Subproblem>,
-  ) -> bool {
+    context: RcRewritingContext,
+    subproblem: MaybeSubproblem,
+  ) -> bool
+  {
     let mut trial_ref: Option<i32> = None;
     let mut state: Vec<ConditionState> = Vec::new();
 
-    let result = self.check_condition(true, subject, context, subproblem, &mut trial_ref, &mut state);
+    let result = self.check_condition_find_first(true, subject, context, subproblem, &mut trial_ref, &mut state);
 
     assert!(result || state.is_empty(), "non-empty condition state stack");
     // state drops its elements when it goes out of scope.
@@ -401,9 +421,9 @@ impl PreEquation {
       lhs_term.insert_abstraction_variables(&mut self.variable_info);
     }
 
-    let fragment_count = self.condition.len();
+    let fragment_count = self.conditions.len();
     for i in 0..fragment_count {
-      let condition_fragment = &self.condition[i].clone();
+      let condition_fragment = &self.conditions[i].clone();
       let mut condition_fragment = condition_fragment.borrow_mut();
       condition_fragment.compile_build(&mut self.variable_info, available_terms);
     }
@@ -437,9 +457,9 @@ impl PreEquation {
 
     {
       // Scope of variable_info
-      let fragment_count = self.condition.len();
+      let fragment_count = self.conditions.len();
       for i in 0..fragment_count {
-        let fragment = &self.condition[i].clone();
+        let fragment = &self.conditions[i].clone();
         fragment
           .borrow_mut()
           .compile_match(&mut self.variable_info, lhs_term.occurs_below_mut());
@@ -453,10 +473,10 @@ impl PreEquation {
     &mut self,
     mut find_first: bool,
     trial_ref: &mut Option<i32>,
-    solution: &mut RewritingContext,
+    solution: RcRewritingContext,
     state: &mut Vec<ConditionState>,
   ) -> bool {
-    let fragment_count = self.condition.len();
+    let fragment_count = self.conditions.len();
     let mut i = if find_first {
       0
     } else {
@@ -465,20 +485,20 @@ impl PreEquation {
 
     loop {
       if trace_status() {
-        if solution.trace_abort() {
+        if solution.borrow().trace_abort() {
           return false;
         }
-        solution.trace_begin_fragment(*trial_ref, self.condition[i].as_ref(), find_first);
+        solution.borrow().trace_begin_fragment(*trial_ref, self.conditions[i].as_ref(), find_first);
       }
 
       // A cute way to do backtracking.
-      find_first = self.condition[i].borrow_mut().solve(find_first, solution, state);
+      find_first = self.conditions[i].borrow_mut().solve(find_first, solution.clone(), state);
 
       if trace_status() {
-        if solution.trace_abort() {
+        if solution.borrow().trace_abort() {
           return false;
         }
-        solution.trace_end_fragment(
+        solution.borrow_mut().trace_end_fragment(
           *trial_ref, self, //.condition[i].as_ref(),
           i, find_first,
         );
@@ -569,7 +589,7 @@ impl Formattable for PreEquation {
 
     if self.has_condition() {
       accumulator.push(' ');
-      repr_condition(&self.condition, style);
+      repr_condition(&self.conditions, style);
     }
 
     {

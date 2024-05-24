@@ -33,7 +33,7 @@ use super::{
 use crate::{
   abstractions::{BigInteger, RcCell},
   core::{
-    hash_cons_set::HashConsSet,
+    // hash_cons_set::HashConsSet,
     rewrite_context::RewritingContext,
     sort::{RcSort, Sort, SpecialSort},
     substitution::Substitution,
@@ -282,7 +282,7 @@ pub trait DagNode {
   fn termify(&self) -> RcTerm;
 
   // Only implemented for associative theories and the `S_` theory.
-  fn partial_replace(&mut self, substitution: &mut Substitution) {
+  fn partial_replace(&mut self, replacement: RcDagNode) {
     unreachable!("partial_replace not implemented for this node type.")
   }
 
@@ -339,8 +339,10 @@ pub trait DagNode {
 
   fn overwrite_with_clone(&mut self, old: RcDagNode);
 
+  /*
   /// For hash consing
   fn make_canonical(&self, node: RcDagNode, hash_cons_set: &mut HashConsSet) -> RcDagNode;
+  */
 }
 
 // clone_trait_object!(DagNode);

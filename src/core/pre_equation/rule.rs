@@ -10,7 +10,7 @@ use yansi::Paint;
 use crate::{
   abstractions::{IString, NatSet},
   core::{
-    condition_fragment::{repr_condition, Condition},
+    condition_fragment::{repr_condition, Conditions},
     format::{FormatStyle, Formattable},
     interpreter::InterpreterAttribute,
     pre_equation::{PreEquation, PreEquationAttribute, PreEquationKind, Rule},
@@ -22,7 +22,7 @@ use crate::{
 };
 
 
-fn new(name: Option<IString>, lhs_term: RcTerm, rhs_term: RcTerm, condition: Condition) -> PreEquation {
+fn new(name: Option<IString>, lhs_term: RcTerm, rhs_term: RcTerm, condition: Conditions) -> PreEquation {
   // assert!(rhs.is_some(), "null rhs");
   PreEquation {
     name,
@@ -30,7 +30,7 @@ fn new(name: Option<IString>, lhs_term: RcTerm, rhs_term: RcTerm, condition: Con
     lhs_term,
     lhs_automaton: None,
     lhs_dag: None,
-    condition,
+    conditions: condition,
     variable_info: Default::default(),
     index_within_parent_module: UNDEFINED,
     parent_module: Default::default(),

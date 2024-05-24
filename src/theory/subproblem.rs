@@ -31,6 +31,7 @@ use std::rc::Rc;
 
 use super::{automaton::LHSAutomaton, RcDagNode};
 use crate::core::{rewrite_context::RewritingContext, substitution::Substitution, LocalBindings};
+use crate::core::rewrite_context::RcRewritingContext;
 
 //	These traits must be derived from for equational theories that
 //	need to generate matching or unification subproblems or
@@ -56,7 +57,7 @@ pub type MaybeSubproblem = Option<Box<dyn Subproblem>>;
 
 /// Represents a subproblem of a matching problem.
 pub trait Subproblem {
-  fn solve(&mut self, find_first: bool, context: &mut RewritingContext) -> bool;
+  fn solve(&mut self, find_first: bool, context: RcRewritingContext) -> bool;
 }
 
 pub struct VariableAbstractionSubproblem {
@@ -84,11 +85,11 @@ impl VariableAbstractionSubproblem {
 }
 
 impl Subproblem for VariableAbstractionSubproblem {
-  fn solve(&mut self, find_first: bool, context: &mut RewritingContext) -> bool {
+  fn solve(&mut self, find_first: bool, context: RcRewritingContext) -> bool {
     if find_first {
-      self.local.copy_from_substitution(&context.substitution);
+      self.local.copy_from_substitution(&context.borrow().substitution);
 
-      let v = context.substitution.get(self.abstraction_variable);
+      let v = context.borrow().substitution.get(self.abstraction_variable);
       assert!(v.is_some(), "Unbound abstraction variable");
       let v = v.unwrap();
 
@@ -97,9 +98,9 @@ impl Subproblem for VariableAbstractionSubproblem {
         return false;
       }
 
-      self.difference = self.local.subtract(&context.substitution);
+      self.difference = self.local.subtract(&context.borrow().substitution);
       if let Some(difference) = self.difference.as_mut() {
-        difference.assert(&mut context.substitution);
+        difference.assert(&mut context.borrow_mut().substitution);
       }
 
       if let Some(subproblem) = &mut self.subproblem {
@@ -120,7 +121,7 @@ impl Subproblem for VariableAbstractionSubproblem {
     }
 
     if let Some(difference) = self.difference.as_mut() {
-      difference.retract(&mut context.substitution);
+      difference.retract(&mut context.borrow_mut().substitution);
       self.difference = None;
     }
 
@@ -157,7 +158,7 @@ impl SubproblemSequence {
 }
 
 impl Subproblem for SubproblemSequence {
-  fn solve(&mut self, mut find_first: bool, context: &mut RewritingContext) -> bool {
+  fn solve(&mut self, mut find_first: bool, context: RcRewritingContext) -> bool {
     let len = self.sequence.len();
     let mut i: isize = match find_first {
       true => 0isize,
@@ -165,7 +166,7 @@ impl Subproblem for SubproblemSequence {
     };
 
     loop {
-      find_first = self.sequence[i as usize].solve(find_first, context);
+      find_first = self.sequence[i as usize].solve(find_first, context.clone());
       if find_first {
         i += 1;
         if i == len as isize {

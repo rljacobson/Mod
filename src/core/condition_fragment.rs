@@ -30,7 +30,7 @@ use crate::{
 };
 
 /// A `Condition` is a set of `ConditionFragments`.
-pub type Condition = Vec<RcConditionFragment>;
+pub type Conditions = Vec<RcConditionFragment>;
 pub type RcConditionFragment = RcCell<ConditionFragment>;
 
 pub enum ConditionFragment {
@@ -299,9 +299,9 @@ impl ConditionFragment {
 
         builder.safe_construct(&mut solution.borrow_mut().substitution);
         let lhs_root = solution.borrow().substitution.get(*lhs_index);
-        let lhs_context = make_subcontext(solution.clone(), lhs_root, Purpose::ConditionEval);
+        let mut lhs_context = make_subcontext(solution.clone(), lhs_root, Purpose::ConditionEval);
         let rhs_root = solution.borrow().substitution.get(*rhs_index);
-        let rhs_context = make_subcontext(solution.clone(), rhs_root, Purpose::ConditionEval);
+        let mut rhs_context = make_subcontext(solution.clone(), rhs_root, Purpose::ConditionEval);
 
         lhs_context.reduce();
         solution.borrow_mut().add_counts_from(&lhs_context);
@@ -341,7 +341,7 @@ impl Formattable for ConditionFragment {
 }
 
 
-pub fn repr_condition(condition: &Condition, style: FormatStyle) -> String {
+pub fn repr_condition(condition: &Conditions, style: FormatStyle) -> String {
   let mut accumulator = "if ".to_string();
   accumulator.push_str(
     join_iter(condition.iter().map(|cf| cf.borrow().repr(style)), |_| {

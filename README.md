@@ -53,7 +53,7 @@ stretch goal for this project.
 
 ## License and Authorship
 
-Copyright (c) 2022-2023 Robert Jacobson. This software library is distributed under the terms of the GNU Lesser General
+Copyright (c) 2022-2024 Robert Jacobson. This software library is distributed under the terms of the GNU Lesser General
 Public License.
 
 The algorithms implemented in this software are primarily due to Steven Eker (see bibliography), who is also the

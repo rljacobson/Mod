@@ -10,7 +10,7 @@ translation unit in C++ or a module in Python or Rust.
 */
 
 pub(crate) mod item;
-mod memo_map;
+// mod memo_map;
 pub(crate) mod module;
 mod profile;
 

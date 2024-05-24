@@ -5,7 +5,11 @@ use shared_vector::SharedVector;
 use super::{FreeTerm, RcFreeSymbol};
 use crate::{
   abstractions::RcCell,
-  core::{hash_cons_set::HashConsSet, sort::SpecialSort, RedexPosition},
+  core::{
+    // hash_cons_set::HashConsSet,
+    sort::SpecialSort,
+    RedexPosition
+  },
   rc_cell,
   theory::{
     dag_node::MaybeDagNode,
@@ -288,6 +292,7 @@ impl DagNode for FreeDagNode {
     }
   }
 
+  /* Hash Consing
   /// For hash consing, recursively checks child nodes to determine if a canonical copy needs to be made.
   fn make_canonical(&self, rc_dag_node: RcDagNode, hcs: &mut HashConsSet) -> RcDagNode {
     // Downcast
@@ -329,4 +334,5 @@ impl DagNode for FreeDagNode {
       unreachable!("This execution path should be unreachable. This is a bug.")
     }
   }
+  */
 }

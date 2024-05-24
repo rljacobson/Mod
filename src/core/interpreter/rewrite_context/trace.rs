@@ -490,7 +490,7 @@ impl RewritingContext {
   }
 
   pub(crate) fn trace_end_fragment(
-    &mut self,
+    &self,
     trial_ref: Option<i32>,
     pre_equation: &PreEquation,
     fragment_index: usize,

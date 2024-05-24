@@ -75,7 +75,7 @@ impl DagNodeFlags {
   // DagNodeFlag::Unstackable | DagNodeFlag::Ground;
 
   pub fn set_copied_flags(&mut self, other_flags: DagNodeFlags) {
-    self |=
+    *self = *self |
       (DagNodeFlag::Reduced | DagNodeFlag::Unrewritable | DagNodeFlag::Unstackable | DagNodeFlag::Ground) & other_flags;
   }
 }

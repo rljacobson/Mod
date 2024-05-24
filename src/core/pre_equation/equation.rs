@@ -20,7 +20,7 @@ use crate::{
   abstractions::{IString, NatSet},
   core::{
     automata::RHSBuilder,
-    condition_fragment::{repr_condition, Condition},
+    condition_fragment::{repr_condition, Conditions},
     format::{FormatStyle, Formattable},
     interpreter::InterpreterAttribute,
     pre_equation::{
@@ -46,7 +46,7 @@ pub fn new(
   lhs_term: RcTerm,
   rhs_term: RcTerm,
   otherwise: bool, // an "owise" term?
-  condition: Condition,
+  condition: Conditions,
 ) -> PreEquation {
   let attributes: PreEquationAttributes = if otherwise {
     PreEquationAttribute::Otherwise.into()
@@ -60,7 +60,7 @@ pub fn new(
     lhs_term,
     lhs_automaton: None,
     lhs_dag: None,
-    condition,
+    conditions: condition,
     variable_info: VariableInfo::default(),
     parent_module: Default::default(),
     index_within_parent_module: NONE,

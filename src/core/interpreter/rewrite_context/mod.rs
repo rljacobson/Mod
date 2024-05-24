@@ -335,9 +335,8 @@ impl RewritingContext {
   fn slow_compute_true_sort(&mut self, dag_node: RcDagNode) {
     // let root = self.root.unwrap();
     let mut symbol = dag_node.borrow_mut().symbol();
-    symbol
-      .sort_constraint_table()
-      .constrain_to_smaller_sort(dag_node.clone(), self);
+    symbol.sort_constraint_table()
+          .constrain_to_smaller_sort(dag_node.clone(), self);
   }
 }
 

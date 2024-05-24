@@ -6,7 +6,6 @@ and fast look-ups can be done using the index.
 */
 
 use std::{
-  borrow::Borrow,
   collections::{hash_map::Entry, HashMap},
   hash::{BuildHasher, Hash, Hasher},
   rc::Rc,
