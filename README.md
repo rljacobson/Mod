@@ -1,3 +1,5 @@
+‼️***This code is superceded by [`mod2`](https://github.com/rljacobson/mod2) where development is ongoing.***‼️
+
 # Mod: An experimental Maude implementation
 
 > **[Maude](https://github.com/SRI-CSL/Maude)** is a high-performance reflective language and system supporting both equational and rewriting logic
